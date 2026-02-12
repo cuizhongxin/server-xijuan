@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.dao.CampaignProgressMapper">
+
+    <select id="findByUserIdAndCampaignId" resultType="java.lang.String">
+        SELECT data FROM campaign_progress WHERE user_id = #{userId} AND campaign_id = #{campaignId}
+    </select>
+
+    <select id="findAllByUserId" resultType="java.util.HashMap">
+        SELECT campaign_id AS campaignId, data FROM campaign_progress WHERE user_id = #{userId}
+    </select>
+
+    <insert id="upsert">
+        INSERT INTO campaign_progress (user_id, campaign_id, data, update_time)
+        VALUES (#{userId}, #{campaignId}, #{data}, #{updateTime})
+        ON DUPLICATE KEY UPDATE data = #{data}, update_time = #{updateTime}
+    </insert>
+
+    <delete id="deleteByUserIdAndCampaignId">
+        DELETE FROM campaign_progress WHERE user_id = #{userId} AND campaign_id = #{campaignId}
+    </delete>
+
+</mapper>

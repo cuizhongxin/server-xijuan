@@ -1,24 +1,29 @@
 package com.tencent.wxcloudrun.repository;
 
+import com.alibaba.fastjson.JSON;
+import com.tencent.wxcloudrun.dao.UserLevelMapper;
 import com.tencent.wxcloudrun.model.UserLevel;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
 /**
- * 用户等级数据仓库（内存存储）
+ * 用户等级数据仓库（数据库存储）
  */
 @Repository
 public class UserLevelRepository {
     
-    private final Map<String, UserLevel> levelStore = new ConcurrentHashMap<>();
+    @Autowired
+    private UserLevelMapper userLevelMapper;
     
     /**
      * 获取用户等级信息
      */
     public UserLevel findByUserId(String userId) {
-        return levelStore.get(userId);
+        String data = userLevelMapper.findByUserId(userId);
+        if (data == null) {
+            return null;
+        }
+        return JSON.parseObject(data, UserLevel.class);
     }
     
     /**
@@ -29,7 +34,8 @@ public class UserLevelRepository {
         if (userLevel.getCreateTime() == null) {
             userLevel.setCreateTime(System.currentTimeMillis());
         }
-        levelStore.put(userLevel.getUserId(), userLevel);
+        userLevelMapper.upsert(userLevel.getUserId(), JSON.toJSONString(userLevel),
+                userLevel.getCreateTime(), userLevel.getUpdateTime());
         return userLevel;
     }
     
@@ -57,15 +63,13 @@ public class UserLevelRepository {
      * 删除用户等级数据
      */
     public void deleteByUserId(String userId) {
-        levelStore.remove(userId);
+        userLevelMapper.deleteByUserId(userId);
     }
     
     /**
      * 清空所有数据
      */
     public void clear() {
-        levelStore.clear();
+        // 数据库模式下不支持清空全表，忽略此操作
     }
 }
-
-

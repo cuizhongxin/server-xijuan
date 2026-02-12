@@ -1,63 +1,63 @@
 package com.tencent.wxcloudrun.repository;
 
+import com.tencent.wxcloudrun.dao.UserMaterialMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 用户材料数据仓库（内存存储）
+ * 用户材料数据仓库（数据库存储）
  */
 @Repository
 public class UserMaterialRepository {
     
-    // 使用ConcurrentHashMap存储用户材料数据
-    // key: userId, value: Map<materialId, count>
-    private final Map<String, Map<String, Integer>> materialStore = new ConcurrentHashMap<>();
+    @Autowired
+    private UserMaterialMapper userMaterialMapper;
     
     /**
      * 获取用户的所有材料
      */
     public Map<String, Integer> getUserMaterials(String userId) {
-        return materialStore.getOrDefault(userId, new HashMap<>());
+        List<Map<String, Object>> rows = userMaterialMapper.findByUserId(userId);
+        Map<String, Integer> result = new HashMap<>();
+        if (rows != null) {
+            for (Map<String, Object> row : rows) {
+                String materialId = (String) row.get("materialId");
+                Integer count = ((Number) row.get("count")).intValue();
+                result.put(materialId, count);
+            }
+        }
+        return result;
     }
     
     /**
      * 获取用户指定材料的数量
      */
     public int getMaterialCount(String userId, String materialId) {
-        Map<String, Integer> userMaterials = materialStore.get(userId);
-        if (userMaterials == null) {
-            return 0;
-        }
-        return userMaterials.getOrDefault(materialId, 0);
+        Integer count = userMaterialMapper.findCount(userId, materialId);
+        return count != null ? count : 0;
     }
     
     /**
      * 增加材料
      */
     public void addMaterial(String userId, String materialId, int count) {
-        materialStore.computeIfAbsent(userId, k -> new ConcurrentHashMap<>());
-        Map<String, Integer> userMaterials = materialStore.get(userId);
-        userMaterials.merge(materialId, count, Integer::sum);
+        int currentCount = getMaterialCount(userId, materialId);
+        userMaterialMapper.upsert(userId, materialId, currentCount + count);
     }
     
     /**
      * 减少材料
      */
     public boolean consumeMaterial(String userId, String materialId, int count) {
-        Map<String, Integer> userMaterials = materialStore.get(userId);
-        if (userMaterials == null) {
-            return false;
-        }
-        
-        int currentCount = userMaterials.getOrDefault(materialId, 0);
+        int currentCount = getMaterialCount(userId, materialId);
         if (currentCount < count) {
             return false;
         }
-        
-        userMaterials.put(materialId, currentCount - count);
+        userMaterialMapper.upsert(userId, materialId, currentCount - count);
         return true;
     }
     
@@ -84,40 +84,32 @@ public class UserMaterialRepository {
      * 设置用户材料数量
      */
     public void setMaterial(String userId, String materialId, int count) {
-        materialStore.computeIfAbsent(userId, k -> new ConcurrentHashMap<>());
-        materialStore.get(userId).put(materialId, count);
+        userMaterialMapper.upsert(userId, materialId, count);
     }
     
     /**
      * 初始化用户材料（新用户）
      */
     public void initUserMaterials(String userId) {
-        Map<String, Integer> materials = new ConcurrentHashMap<>();
-        
-        // 初始材料
-        materials.put("WOOD_COMMON", 100);
-        materials.put("METAL_IRON", 100);
-        materials.put("PAPER_COMMON", 50);
-        materials.put("CLOTH_COTTON", 50);
-        materials.put("LEATHER_COMMON", 30);
-        materials.put("GEM_JADE", 10);
-        
-        materialStore.put(userId, materials);
+        userMaterialMapper.upsert(userId, "WOOD_COMMON", 100);
+        userMaterialMapper.upsert(userId, "METAL_IRON", 100);
+        userMaterialMapper.upsert(userId, "PAPER_COMMON", 50);
+        userMaterialMapper.upsert(userId, "CLOTH_COTTON", 50);
+        userMaterialMapper.upsert(userId, "LEATHER_COMMON", 30);
+        userMaterialMapper.upsert(userId, "GEM_JADE", 10);
     }
     
     /**
      * 删除用户所有材料
      */
     public void deleteByUserId(String userId) {
-        materialStore.remove(userId);
+        userMaterialMapper.deleteByUserId(userId);
     }
     
     /**
      * 清空所有数据（测试用）
      */
     public void clear() {
-        materialStore.clear();
+        // 数据库模式下不支持清空全表，忽略此操作
     }
 }
-
-

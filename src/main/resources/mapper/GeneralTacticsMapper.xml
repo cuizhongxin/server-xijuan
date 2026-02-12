@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.dao.GeneralTacticsMapper">
+
+    <select id="findByGeneralId" resultType="java.util.HashMap">
+        SELECT general_id AS generalId, learned_data AS learnedData, equipped_data AS equippedData
+        FROM general_tactics WHERE general_id = #{generalId}
+    </select>
+
+    <insert id="upsert">
+        INSERT INTO general_tactics (general_id, learned_data, equipped_data)
+        VALUES (#{generalId}, #{learnedData}, #{equippedData})
+        ON DUPLICATE KEY UPDATE learned_data = #{learnedData}, equipped_data = #{equippedData}
+    </insert>
+
+</mapper>

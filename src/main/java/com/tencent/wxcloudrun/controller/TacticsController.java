@@ -1,5 +1,8 @@
 package com.tencent.wxcloudrun.controller;
 
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.TypeReference;
+import com.tencent.wxcloudrun.dao.UserLearnedTacticsMapper;
 import com.tencent.wxcloudrun.dto.ApiResponse;
 import com.tencent.wxcloudrun.model.General;
 import com.tencent.wxcloudrun.model.UserResource;
@@ -12,7 +15,6 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 @RequestMapping("/tactics")
@@ -26,8 +28,25 @@ public class TacticsController {
     @Autowired
     private UserResourceService userResourceService;
     
-    // 用户已学习的兵法存储 (userId -> Set<tacticsId>)
-    private static final Map<String, Set<String>> userLearnedTactics = new ConcurrentHashMap<>();
+    @Autowired
+    private UserLearnedTacticsMapper userLearnedTacticsMapper;
+
+    private Set<String> loadLearnedTactics(String userId) {
+        String data = userLearnedTacticsMapper.findByUserId(userId);
+        if (data == null || data.isEmpty()) {
+            return new HashSet<>();
+        }
+        try {
+            return JSON.parseObject(data, new TypeReference<Set<String>>() {});
+        } catch (Exception e) {
+            logger.error("解析用户 {} 已学习兵法数据失败", userId, e);
+            return new HashSet<>();
+        }
+    }
+
+    private void saveLearnedTactics(String userId, Set<String> learned) {
+        userLearnedTacticsMapper.upsert(userId, JSON.toJSONString(learned));
+    }
 
     /**
      * 获取用户已学习的兵法列表
@@ -37,7 +56,7 @@ public class TacticsController {
         Long userIdLong = (Long) request.getAttribute("userId");
         String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
         
-        Set<String> learned = userLearnedTactics.getOrDefault(userId, new HashSet<>());
+        Set<String> learned = loadLearnedTactics(userId);
         return ApiResponse.success(new ArrayList<>(learned));
     }
 
@@ -59,7 +78,7 @@ public class TacticsController {
             userId, tacticsId, paperCost, woodCost, silverCost);
         
         // 检查是否已学习
-        Set<String> learned = userLearnedTactics.computeIfAbsent(userId, k -> new HashSet<>());
+        Set<String> learned = loadLearnedTactics(userId);
         if (learned.contains(tacticsId)) {
             return ApiResponse.error(400, "已学习过此兵法");
         }
@@ -82,8 +101,9 @@ public class TacticsController {
         resource.setSilver(resource.getSilver() - silverCost);
         userResourceService.saveResource(resource);
         
-        // 添加到已学习列表
+        // 添加到已学习列表并持久化
         learned.add(tacticsId);
+        saveLearnedTactics(userId, learned);
         
         Map<String, Object> result = new HashMap<>();
         result.put("success", true);

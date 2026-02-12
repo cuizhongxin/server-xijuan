@@ -26,7 +26,7 @@ public class RefineController {
     public ApiResponse getEnhanceInfo(
             @RequestParam String equipmentId,
             HttpServletRequest request) {
-        String odUserId = (String) request.getAttribute("odUserId");
+        String odUserId = String.valueOf(request.getAttribute("userId"));
         Map<String, Object> info = refineService.getEnhanceInfo(odUserId, equipmentId);
         return ApiResponse.success(info);
     }
@@ -38,7 +38,7 @@ public class RefineController {
     public ApiResponse enhance(
             @RequestBody Map<String, Object> params,
             HttpServletRequest request) {
-        String odUserId = (String) request.getAttribute("odUserId");
+        String odUserId = String.valueOf(request.getAttribute("userId"));
         String equipmentId = (String) params.get("equipmentId");
         Boolean useProtect = (Boolean) params.getOrDefault("useProtect", false);
         
@@ -53,7 +53,7 @@ public class RefineController {
     public ApiResponse getQualityInfo(
             @RequestParam String equipmentId,
             HttpServletRequest request) {
-        String odUserId = (String) request.getAttribute("odUserId");
+        String odUserId = String.valueOf(request.getAttribute("userId"));
         Map<String, Object> info = refineService.getQualityInfo(odUserId, equipmentId);
         return ApiResponse.success(info);
     }
@@ -65,7 +65,7 @@ public class RefineController {
     public ApiResponse upgradeQuality(
             @RequestBody Map<String, Object> params,
             HttpServletRequest request) {
-        String odUserId = (String) request.getAttribute("odUserId");
+        String odUserId = String.valueOf(request.getAttribute("userId"));
         String equipmentId = (String) params.get("equipmentId");
         
         Map<String, Object> result = refineService.upgradeQuality(odUserId, equipmentId);
@@ -89,7 +89,7 @@ public class RefineController {
     public ApiResponse fuse(
             @RequestBody Map<String, Object> params,
             HttpServletRequest request) {
-        String odUserId = (String) request.getAttribute("odUserId");
+        String odUserId = String.valueOf(request.getAttribute("userId"));
         List<String> equipmentIds = (List<String>) params.get("equipmentIds");
         Integer targetSlotId = (Integer) params.get("targetSlotId");
         
@@ -105,7 +105,7 @@ public class RefineController {
     public ApiResponse decompose(
             @RequestBody Map<String, Object> params,
             HttpServletRequest request) {
-        String odUserId = (String) request.getAttribute("odUserId");
+        String odUserId = String.valueOf(request.getAttribute("userId"));
         List<String> equipmentIds = (List<String>) params.get("equipmentIds");
         
         Map<String, Object> result = refineService.decomposeEquipments(odUserId, equipmentIds);

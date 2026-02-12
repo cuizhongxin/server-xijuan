@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.dao.FormationMapper">
+
+    <select id="findById" resultType="java.lang.String">
+        SELECT data FROM formation WHERE id = #{id}
+    </select>
+
+    <select id="findByUserId" resultType="java.lang.String">
+        SELECT data FROM formation WHERE od_user_id = #{odUserId} LIMIT 1
+    </select>
+
+    <insert id="upsert">
+        INSERT INTO formation (id, od_user_id, data, create_time, update_time)
+        VALUES (#{id}, #{odUserId}, #{data}, #{createTime}, #{updateTime})
+        ON DUPLICATE KEY UPDATE od_user_id = #{odUserId}, data = #{data}, update_time = #{updateTime}
+    </insert>
+
+</mapper>

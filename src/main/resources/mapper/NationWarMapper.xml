@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.dao.NationWarMapper">
+
+    <select id="findById" resultType="java.lang.String">
+        SELECT data FROM nation_war WHERE id = #{id}
+    </select>
+
+    <select id="findAll" resultType="java.util.HashMap">
+        SELECT id, data FROM nation_war
+    </select>
+
+    <insert id="upsert">
+        INSERT INTO nation_war (id, war_date, data)
+        VALUES (#{id}, #{warDate}, #{data})
+        ON DUPLICATE KEY UPDATE war_date = #{warDate}, data = #{data}
+    </insert>
+
+    <!-- 玩家国籍 -->
+    <select id="findPlayerNation" resultType="java.lang.String">
+        SELECT nation FROM player_nation WHERE od_user_id = #{odUserId}
+    </select>
+
+    <insert id="upsertPlayerNation">
+        INSERT INTO player_nation (od_user_id, nation)
+        VALUES (#{odUserId}, #{nation})
+        ON DUPLICATE KEY UPDATE nation = #{nation}
+    </insert>
+
+    <select id="playerNationExists" resultType="int">
+        SELECT COUNT(1) FROM player_nation WHERE od_user_id = #{odUserId}
+    </select>
+
+    <!-- 玩家军功 -->
+    <select id="findPlayerMerit" resultType="java.lang.Integer">
+        SELECT merit FROM player_merit WHERE od_user_id = #{odUserId}
+    </select>
+
+    <insert id="upsertPlayerMerit">
+        INSERT INTO player_merit (od_user_id, merit)
+        VALUES (#{odUserId}, #{merit})
+        ON DUPLICATE KEY UPDATE merit = #{merit}
+    </insert>
+
+</mapper>

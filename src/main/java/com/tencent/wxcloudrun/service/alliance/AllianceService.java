@@ -1,29 +1,55 @@
 package com.tencent.wxcloudrun.service.alliance;
 
+import com.alibaba.fastjson.JSON;
+import com.tencent.wxcloudrun.dao.AllianceMapper;
 import com.tencent.wxcloudrun.exception.BusinessException;
 import com.tencent.wxcloudrun.model.Alliance;
 import com.tencent.wxcloudrun.model.Alliance.AllianceApplication;
 import com.tencent.wxcloudrun.model.Alliance.AllianceMember;
 import com.tencent.wxcloudrun.model.Alliance.Position;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
- * 联盟服务
+ * 联盟服务（数据库存储）
  */
 @Slf4j
 @Service
 public class AllianceService {
     
-    // 联盟存储 allianceId -> Alliance
-    private final Map<String, Alliance> allianceStore = new ConcurrentHashMap<>();
+    @Autowired
+    private AllianceMapper allianceMapper;
     
-    // 用户联盟映射 odUserId -> allianceId
-    private final Map<String, String> userAllianceMap = new ConcurrentHashMap<>();
+    // ==================== 内部辅助方法 ====================
+    
+    private Alliance loadAlliance(String allianceId) {
+        String data = allianceMapper.findById(allianceId);
+        if (data == null) return null;
+        return JSON.parseObject(data, Alliance.class);
+    }
+    
+    private void saveAlliance(Alliance alliance) {
+        allianceMapper.upsert(alliance.getId(), alliance.getName(), alliance.getLeaderId(),
+                JSON.toJSONString(alliance), alliance.getCreateTime(), alliance.getUpdateTime());
+    }
+    
+    private List<Alliance> loadAllAlliances() {
+        List<Map<String, Object>> rows = allianceMapper.findAll();
+        List<Alliance> result = new ArrayList<>();
+        if (rows != null) {
+            for (Map<String, Object> row : rows) {
+                String data = (String) row.get("data");
+                if (data != null) {
+                    result.add(JSON.parseObject(data, Alliance.class));
+                }
+            }
+        }
+        return result;
+    }
     
     /**
      * 创建联盟
@@ -31,12 +57,12 @@ public class AllianceService {
     public Alliance createAlliance(String odUserId, String playerName, String allianceName, 
                                    String faction, Integer playerLevel, Long playerPower) {
         // 检查用户是否已加入联盟
-        if (userAllianceMap.containsKey(odUserId)) {
+        if (allianceMapper.userAllianceExists(odUserId) > 0) {
             throw new BusinessException("您已加入联盟，请先退出当前联盟");
         }
         
         // 检查联盟名称是否已存在
-        boolean nameExists = allianceStore.values().stream()
+        boolean nameExists = loadAllAlliances().stream()
                 .anyMatch(a -> a.getName().equals(allianceName));
         if (nameExists) {
             throw new BusinessException("联盟名称已存在");
@@ -44,8 +70,8 @@ public class AllianceService {
         
         // 创建联盟
         Alliance alliance = Alliance.create(allianceName, faction, odUserId, playerName, playerLevel, playerPower);
-        allianceStore.put(alliance.getId(), alliance);
-        userAllianceMap.put(odUserId, alliance.getId());
+        saveAlliance(alliance);
+        allianceMapper.upsertUserAlliance(odUserId, alliance.getId());
         
         log.info("用户 {} 创建了联盟: {}", odUserId, allianceName);
         return alliance;
@@ -55,7 +81,7 @@ public class AllianceService {
      * 获取联盟列表（按国家筛选）
      */
     public List<Alliance> getAllianceList(String faction) {
-        return allianceStore.values().stream()
+        return loadAllAlliances().stream()
                 .filter(a -> faction == null || faction.isEmpty() || a.getFaction().equals(faction))
                 .sorted((a, b) -> Long.compare(b.getTotalPower(), a.getTotalPower()))
                 .collect(Collectors.toList());
@@ -65,7 +91,7 @@ public class AllianceService {
      * 获取联盟详情
      */
     public Alliance getAllianceDetail(String allianceId) {
-        Alliance alliance = allianceStore.get(allianceId);
+        Alliance alliance = loadAlliance(allianceId);
         if (alliance == null) {
             throw new BusinessException("联盟不存在");
         }
@@ -76,11 +102,11 @@ public class AllianceService {
      * 获取用户所在联盟
      */
     public Alliance getUserAlliance(String odUserId) {
-        String allianceId = userAllianceMap.get(odUserId);
+        String allianceId = allianceMapper.findAllianceIdByUserId(odUserId);
         if (allianceId == null) {
             return null;
         }
-        return allianceStore.get(allianceId);
+        return loadAlliance(allianceId);
     }
     
     /**
@@ -88,29 +114,25 @@ public class AllianceService {
      */
     public void applyToJoin(String odUserId, String playerName, String allianceId, 
                            Integer playerLevel, Long playerPower) {
-        // 检查用户是否已加入联盟
-        if (userAllianceMap.containsKey(odUserId)) {
+        if (allianceMapper.userAllianceExists(odUserId) > 0) {
             throw new BusinessException("您已加入联盟，请先退出当前联盟");
         }
         
-        Alliance alliance = allianceStore.get(allianceId);
+        Alliance alliance = loadAlliance(allianceId);
         if (alliance == null) {
             throw new BusinessException("联盟不存在");
         }
         
-        // 检查联盟是否已满
         if (alliance.getMemberCount() >= alliance.getMaxMembers()) {
             throw new BusinessException("联盟成员已满");
         }
         
-        // 检查是否已申请
         boolean alreadyApplied = alliance.getApplications().stream()
                 .anyMatch(a -> a.getOdUserId().equals(odUserId) && "pending".equals(a.getStatus()));
         if (alreadyApplied) {
             throw new BusinessException("您已申请过该联盟，请等待审核");
         }
         
-        // 添加申请
         AllianceApplication application = AllianceApplication.builder()
                 .odUserId(odUserId)
                 .name(playerName)
@@ -121,6 +143,7 @@ public class AllianceService {
                 .build();
         alliance.getApplications().add(application);
         alliance.setUpdateTime(System.currentTimeMillis());
+        saveAlliance(alliance);
         
         log.info("用户 {} 申请加入联盟: {}", odUserId, alliance.getName());
     }
@@ -129,12 +152,11 @@ public class AllianceService {
      * 审批申请
      */
     public void processApplication(String leaderId, String allianceId, String applicantId, boolean approve) {
-        Alliance alliance = allianceStore.get(allianceId);
+        Alliance alliance = loadAlliance(allianceId);
         if (alliance == null) {
             throw new BusinessException("联盟不存在");
         }
         
-        // 检查权限（盟主或副盟主）
         AllianceMember operator = alliance.getMembers().stream()
                 .filter(m -> m.getOdUserId().equals(leaderId))
                 .findFirst()
@@ -144,7 +166,6 @@ public class AllianceService {
             throw new BusinessException("您没有权限审批申请");
         }
         
-        // 查找申请
         AllianceApplication application = alliance.getApplications().stream()
                 .filter(a -> a.getOdUserId().equals(applicantId) && "pending".equals(a.getStatus()))
                 .findFirst()
@@ -154,18 +175,16 @@ public class AllianceService {
         }
         
         if (approve) {
-            // 检查联盟是否已满
             if (alliance.getMemberCount() >= alliance.getMaxMembers()) {
                 throw new BusinessException("联盟成员已满");
             }
             
-            // 检查申请人是否已加入其他联盟
-            if (userAllianceMap.containsKey(applicantId)) {
+            if (allianceMapper.userAllianceExists(applicantId) > 0) {
                 application.setStatus("rejected");
+                saveAlliance(alliance);
                 throw new BusinessException("该玩家已加入其他联盟");
             }
             
-            // 添加成员
             AllianceMember newMember = AllianceMember.builder()
                     .odUserId(application.getOdUserId())
                     .name(application.getName())
@@ -179,7 +198,7 @@ public class AllianceService {
             alliance.getMembers().add(newMember);
             alliance.setMemberCount(alliance.getMemberCount() + 1);
             alliance.setTotalPower(alliance.getTotalPower() + (application.getPower() != null ? application.getPower() : 0L));
-            userAllianceMap.put(applicantId, allianceId);
+            allianceMapper.upsertUserAlliance(applicantId, allianceId);
             
             application.setStatus("approved");
             log.info("用户 {} 加入联盟: {}", applicantId, alliance.getName());
@@ -189,29 +208,28 @@ public class AllianceService {
         }
         
         alliance.setUpdateTime(System.currentTimeMillis());
+        saveAlliance(alliance);
     }
     
     /**
      * 退出联盟
      */
     public void leaveAlliance(String odUserId) {
-        String allianceId = userAllianceMap.get(odUserId);
+        String allianceId = allianceMapper.findAllianceIdByUserId(odUserId);
         if (allianceId == null) {
             throw new BusinessException("您未加入任何联盟");
         }
         
-        Alliance alliance = allianceStore.get(allianceId);
+        Alliance alliance = loadAlliance(allianceId);
         if (alliance == null) {
-            userAllianceMap.remove(odUserId);
+            allianceMapper.deleteUserAlliance(odUserId);
             throw new BusinessException("联盟不存在");
         }
         
-        // 检查是否是盟主
         if (alliance.getLeaderId().equals(odUserId)) {
             throw new BusinessException("盟主不能退出联盟，请先转让盟主或解散联盟");
         }
         
-        // 移除成员
         AllianceMember member = alliance.getMembers().stream()
                 .filter(m -> m.getOdUserId().equals(odUserId))
                 .findFirst()
@@ -221,8 +239,9 @@ public class AllianceService {
             alliance.setMemberCount(alliance.getMemberCount() - 1);
             alliance.setTotalPower(alliance.getTotalPower() - (member.getPower() != null ? member.getPower() : 0L));
         }
-        userAllianceMap.remove(odUserId);
+        allianceMapper.deleteUserAlliance(odUserId);
         alliance.setUpdateTime(System.currentTimeMillis());
+        saveAlliance(alliance);
         
         log.info("用户 {} 退出联盟: {}", odUserId, alliance.getName());
     }
@@ -231,12 +250,11 @@ public class AllianceService {
      * 踢出成员
      */
     public void kickMember(String leaderId, String allianceId, String memberId) {
-        Alliance alliance = allianceStore.get(allianceId);
+        Alliance alliance = loadAlliance(allianceId);
         if (alliance == null) {
             throw new BusinessException("联盟不存在");
         }
         
-        // 检查权限
         AllianceMember operator = alliance.getMembers().stream()
                 .filter(m -> m.getOdUserId().equals(leaderId))
                 .findFirst()
@@ -246,12 +264,10 @@ public class AllianceService {
             throw new BusinessException("您没有权限踢出成员");
         }
         
-        // 不能踢自己
         if (leaderId.equals(memberId)) {
             throw new BusinessException("不能踢出自己");
         }
         
-        // 查找要踢出的成员
         AllianceMember member = alliance.getMembers().stream()
                 .filter(m -> m.getOdUserId().equals(memberId))
                 .findFirst()
@@ -260,12 +276,10 @@ public class AllianceService {
             throw new BusinessException("成员不存在");
         }
         
-        // 副盟主不能踢盟主
         if (Position.LEADER.equals(member.getPosition())) {
             throw new BusinessException("不能踢出盟主");
         }
         
-        // 副盟主不能踢副盟主
         if (Position.VICE_LEADER.equals(operator.getPosition()) && Position.VICE_LEADER.equals(member.getPosition())) {
             throw new BusinessException("副盟主不能踢出副盟主");
         }
@@ -273,8 +287,9 @@ public class AllianceService {
         alliance.getMembers().remove(member);
         alliance.setMemberCount(alliance.getMemberCount() - 1);
         alliance.setTotalPower(alliance.getTotalPower() - (member.getPower() != null ? member.getPower() : 0L));
-        userAllianceMap.remove(memberId);
+        allianceMapper.deleteUserAlliance(memberId);
         alliance.setUpdateTime(System.currentTimeMillis());
+        saveAlliance(alliance);
         
         log.info("用户 {} 被踢出联盟: {}", memberId, alliance.getName());
     }
@@ -283,17 +298,15 @@ public class AllianceService {
      * 转让盟主
      */
     public void transferLeader(String currentLeaderId, String allianceId, String newLeaderId) {
-        Alliance alliance = allianceStore.get(allianceId);
+        Alliance alliance = loadAlliance(allianceId);
         if (alliance == null) {
             throw new BusinessException("联盟不存在");
         }
         
-        // 检查当前用户是否是盟主
         if (!alliance.getLeaderId().equals(currentLeaderId)) {
             throw new BusinessException("只有盟主才能转让盟主");
         }
         
-        // 查找新盟主
         AllianceMember newLeader = alliance.getMembers().stream()
                 .filter(m -> m.getOdUserId().equals(newLeaderId))
                 .findFirst()
@@ -302,7 +315,6 @@ public class AllianceService {
             throw new BusinessException("该玩家不是联盟成员");
         }
         
-        // 更新职位
         alliance.getMembers().forEach(m -> {
             if (m.getOdUserId().equals(currentLeaderId)) {
                 m.setPosition(Position.MEMBER);
@@ -314,6 +326,7 @@ public class AllianceService {
         alliance.setLeaderId(newLeaderId);
         alliance.setLeaderName(newLeader.getName());
         alliance.setUpdateTime(System.currentTimeMillis());
+        saveAlliance(alliance);
         
         log.info("联盟 {} 盟主从 {} 转让给 {}", alliance.getName(), currentLeaderId, newLeaderId);
     }
@@ -322,22 +335,19 @@ public class AllianceService {
      * 设置成员职位
      */
     public void setMemberPosition(String leaderId, String allianceId, String memberId, String position) {
-        Alliance alliance = allianceStore.get(allianceId);
+        Alliance alliance = loadAlliance(allianceId);
         if (alliance == null) {
             throw new BusinessException("联盟不存在");
         }
         
-        // 只有盟主能设置职位
         if (!alliance.getLeaderId().equals(leaderId)) {
             throw new BusinessException("只有盟主才能设置职位");
         }
         
-        // 不能修改自己的职位
         if (leaderId.equals(memberId)) {
             throw new BusinessException("不能修改自己的职位");
         }
         
-        // 查找成员
         AllianceMember member = alliance.getMembers().stream()
                 .filter(m -> m.getOdUserId().equals(memberId))
                 .findFirst()
@@ -346,13 +356,13 @@ public class AllianceService {
             throw new BusinessException("成员不存在");
         }
         
-        // 不能设置为盟主
         if (Position.LEADER.equals(position)) {
             throw new BusinessException("请使用转让盟主功能");
         }
         
         member.setPosition(position);
         alliance.setUpdateTime(System.currentTimeMillis());
+        saveAlliance(alliance);
         
         log.info("设置 {} 的职位为: {}", memberId, position);
     }
@@ -361,21 +371,20 @@ public class AllianceService {
      * 解散联盟
      */
     public void dissolveAlliance(String leaderId, String allianceId) {
-        Alliance alliance = allianceStore.get(allianceId);
+        Alliance alliance = loadAlliance(allianceId);
         if (alliance == null) {
             throw new BusinessException("联盟不存在");
         }
         
-        // 只有盟主能解散
         if (!alliance.getLeaderId().equals(leaderId)) {
             throw new BusinessException("只有盟主才能解散联盟");
         }
         
         // 移除所有成员的联盟关系
-        alliance.getMembers().forEach(m -> userAllianceMap.remove(m.getOdUserId()));
+        allianceMapper.deleteUserAllianceByAllianceId(allianceId);
         
         // 删除联盟
-        allianceStore.remove(allianceId);
+        allianceMapper.deleteById(allianceId);
         
         log.info("联盟 {} 已解散", alliance.getName());
     }
@@ -384,12 +393,11 @@ public class AllianceService {
      * 修改公告
      */
     public void updateAnnouncement(String leaderId, String allianceId, String announcement) {
-        Alliance alliance = allianceStore.get(allianceId);
+        Alliance alliance = loadAlliance(allianceId);
         if (alliance == null) {
             throw new BusinessException("联盟不存在");
         }
         
-        // 检查权限
         AllianceMember operator = alliance.getMembers().stream()
                 .filter(m -> m.getOdUserId().equals(leaderId))
                 .findFirst()
@@ -401,6 +409,7 @@ public class AllianceService {
         
         alliance.setAnnouncement(announcement);
         alliance.setUpdateTime(System.currentTimeMillis());
+        saveAlliance(alliance);
         
         log.info("联盟 {} 公告已更新", alliance.getName());
     }
@@ -409,12 +418,11 @@ public class AllianceService {
      * 获取申请列表
      */
     public List<AllianceApplication> getApplicationList(String leaderId, String allianceId) {
-        Alliance alliance = allianceStore.get(allianceId);
+        Alliance alliance = loadAlliance(allianceId);
         if (alliance == null) {
             throw new BusinessException("联盟不存在");
         }
         
-        // 检查权限
         AllianceMember operator = alliance.getMembers().stream()
                 .filter(m -> m.getOdUserId().equals(leaderId))
                 .findFirst()
@@ -433,8 +441,8 @@ public class AllianceService {
      * 初始化测试数据
      */
     public void initTestData() {
-        if (allianceStore.isEmpty()) {
-            // 创建一些测试联盟
+        List<Alliance> existing = loadAllAlliances();
+        if (existing.isEmpty()) {
             createTestAlliance("kiss", "蜀", "嘉兴超度", 1);
             createTestAlliance("固定的", "魏", "嫩嫩", 3);
             createTestAlliance("——天璃ゞヤ", "吴", "天澜蓝色", 3);
@@ -450,7 +458,7 @@ public class AllianceService {
         String leaderId = "test_leader_" + name;
         Alliance alliance = Alliance.create(name, faction, leaderId, leaderName, 60, 100000L);
         alliance.setMemberCount(memberCount);
-        allianceStore.put(alliance.getId(), alliance);
-        userAllianceMap.put(leaderId, alliance.getId());
+        saveAlliance(alliance);
+        allianceMapper.upsertUserAlliance(leaderId, alliance.getId());
     }
 }

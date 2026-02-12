@@ -1,41 +1,54 @@
 package com.tencent.wxcloudrun.repository;
 
+import com.alibaba.fastjson.JSON;
+import com.tencent.wxcloudrun.dao.CampaignProgressMapper;
 import com.tencent.wxcloudrun.model.CampaignProgress;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Repository
 public class CampaignRepository {
     
-    // 用户战役进度存储: key = odUserId + "_" + campaignId
-    private final Map<String, CampaignProgress> progressStorage = new ConcurrentHashMap<>();
+    @Autowired
+    private CampaignProgressMapper campaignProgressMapper;
     
     public CampaignProgress findByUserIdAndCampaignId(String odUserId, String campaignId) {
-        return progressStorage.get(odUserId + "_" + campaignId);
+        String data = campaignProgressMapper.findByUserIdAndCampaignId(odUserId, campaignId);
+        if (data == null) {
+            return null;
+        }
+        return JSON.parseObject(data, CampaignProgress.class);
     }
     
     public void save(CampaignProgress progress) {
-        String key = progress.getUserId() + "_" + progress.getCampaignId();
         progress.setUpdateTime(System.currentTimeMillis());
-        progressStorage.put(key, progress);
-        log.debug("保存战役进度: {}", key);
+        campaignProgressMapper.upsert(progress.getUserId(), progress.getCampaignId(),
+                JSON.toJSONString(progress), progress.getUpdateTime());
+        log.debug("保存战役进度: {}_{}", progress.getUserId(), progress.getCampaignId());
     }
     
     public void deleteByUserIdAndCampaignId(String odUserId, String campaignId) {
-        progressStorage.remove(odUserId + "_" + campaignId);
+        campaignProgressMapper.deleteByUserIdAndCampaignId(odUserId, campaignId);
     }
     
     public Map<String, CampaignProgress> findAllByUserId(String odUserId) {
-        Map<String, CampaignProgress> result = new ConcurrentHashMap<>();
-        progressStorage.forEach((key, value) -> {
-            if (key.startsWith(odUserId + "_")) {
-                result.put(value.getCampaignId(), value);
+        List<Map<String, Object>> rows = campaignProgressMapper.findAllByUserId(odUserId);
+        Map<String, CampaignProgress> result = new HashMap<>();
+        if (rows != null) {
+            for (Map<String, Object> row : rows) {
+                String campaignId = (String) row.get("campaignId");
+                String data = (String) row.get("data");
+                if (data != null) {
+                    result.put(campaignId, JSON.parseObject(data, CampaignProgress.class));
+                }
             }
-        });
+        }
         return result;
     }
 }

@@ -1,20 +1,22 @@
 package com.tencent.wxcloudrun.repository;
 
+import com.alibaba.fastjson.JSON;
+import com.tencent.wxcloudrun.dao.WarehouseMapper;
 import com.tencent.wxcloudrun.model.Warehouse;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
 import java.util.ArrayList;
-import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 仓库数据仓库
+ * 仓库数据仓库（数据库存储）
  */
 @Repository
 public class WarehouseRepository {
     
-    private final Map<String, Warehouse> warehouseStorage = new ConcurrentHashMap<>();
+    @Autowired
+    private WarehouseMapper warehouseMapper;
     
     private static final int BASE_CAPACITY = 100;
     private static final int EXPAND_AMOUNT = 100;
@@ -24,10 +26,11 @@ public class WarehouseRepository {
      * 根据用户ID查找仓库
      */
     public Warehouse findByUserId(String userId) {
-        return warehouseStorage.values().stream()
-            .filter(w -> userId.equals(w.getUserId()))
-            .findFirst()
-            .orElse(null);
+        String data = warehouseMapper.findByUserId(userId);
+        if (data == null) {
+            return null;
+        }
+        return JSON.parseObject(data, Warehouse.class);
     }
     
     /**
@@ -61,7 +64,8 @@ public class WarehouseRepository {
             .updateTime(System.currentTimeMillis())
             .build();
         
-        warehouseStorage.put(warehouseId, warehouse);
+        warehouseMapper.upsert(warehouseId, userId, JSON.toJSONString(warehouse),
+                warehouse.getCreateTime(), warehouse.getUpdateTime());
         return warehouse;
     }
     
@@ -70,7 +74,8 @@ public class WarehouseRepository {
      */
     public Warehouse save(Warehouse warehouse) {
         warehouse.setUpdateTime(System.currentTimeMillis());
-        warehouseStorage.put(warehouse.getId(), warehouse);
+        warehouseMapper.upsert(warehouse.getId(), warehouse.getUserId(), JSON.toJSONString(warehouse),
+                warehouse.getCreateTime(), warehouse.getUpdateTime());
         return warehouse;
     }
     
@@ -79,9 +84,8 @@ public class WarehouseRepository {
      */
     public int getExpandCost(int expandTimes) {
         if (expandTimes >= MAX_EXPAND_TIMES) {
-            return -1; // 已达最大扩充次数
+            return -1;
         }
-        // 100, 200, 400, 800
         return 100 * (int) Math.pow(2, expandTimes);
     }
     
@@ -99,4 +103,3 @@ public class WarehouseRepository {
         return MAX_EXPAND_TIMES;
     }
 }
-

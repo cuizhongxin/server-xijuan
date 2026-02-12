@@ -1,29 +1,22 @@
 package com.tencent.wxcloudrun.service;
 
+import com.tencent.wxcloudrun.dao.UserIdMappingMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * 用户ID管理服务
- * 负责生成自增ID并维护openId到userId的映射关系
+ * 负责维护openId到userId的映射关系（数据库存储）
  */
 @Service
 public class UserIdService {
     
     private static final Logger logger = LoggerFactory.getLogger(UserIdService.class);
     
-    // 自增ID生成器
-    private final AtomicLong idGenerator = new AtomicLong(1);
-    
-    // openId -> userId 映射（存储在内存中）
-    private final ConcurrentHashMap<String, Long> openIdToUserIdMap = new ConcurrentHashMap<>();
-    
-    // userId -> openId 映射（反向映射，用于验证）
-    private final ConcurrentHashMap<Long, String> userIdToOpenIdMap = new ConcurrentHashMap<>();
+    @Autowired
+    private UserIdMappingMapper userIdMappingMapper;
     
     /**
      * 获取或创建用户ID
@@ -38,26 +31,23 @@ public class UserIdService {
         }
         
         // 先检查是否已存在
-        Long userId = openIdToUserIdMap.get(openId);
+        Long userId = userIdMappingMapper.findUserIdByOpenId(openId);
         if (userId != null) {
             logger.debug("找到已有用户ID: openId={}, userId={}", openId, userId);
             return userId;
         }
         
-        // 不存在则创建新的userId
+        // 不存在则创建新的userId（使用数据库自增ID）
         synchronized (this) {
             // 双重检查，防止并发创建
-            userId = openIdToUserIdMap.get(openId);
+            userId = userIdMappingMapper.findUserIdByOpenId(openId);
             if (userId != null) {
                 return userId;
             }
             
-            // 生成新的自增ID
-            userId = idGenerator.getAndIncrement();
-            
-            // 存储映射关系
-            openIdToUserIdMap.put(openId, userId);
-            userIdToOpenIdMap.put(userId, openId);
+            // 插入新记录，使用数据库自增ID
+            userIdMappingMapper.insert(openId);
+            userId = userIdMappingMapper.findUserIdByOpenId(openId);
             
             logger.info("创建新用户ID: openId={}, userId={}", openId, userId);
             return userId;
@@ -71,7 +61,7 @@ public class UserIdService {
      * @return 用户ID，如果不存在返回null
      */
     public Long getUserId(String openId) {
-        return openIdToUserIdMap.get(openId);
+        return userIdMappingMapper.findUserIdByOpenId(openId);
     }
     
     /**
@@ -81,7 +71,7 @@ public class UserIdService {
      * @return openId，如果不存在返回null
      */
     public String getOpenId(Long userId) {
-        return userIdToOpenIdMap.get(userId);
+        return userIdMappingMapper.findOpenIdByUserId(userId);
     }
     
     /**
@@ -91,6 +81,8 @@ public class UserIdService {
      * @return 是否有效
      */
     public boolean isValidUserId(Long userId) {
-        return userId != null && userIdToOpenIdMap.containsKey(userId);
+        if (userId == null) return false;
+        String openId = userIdMappingMapper.findOpenIdByUserId(userId);
+        return openId != null;
     }
 }

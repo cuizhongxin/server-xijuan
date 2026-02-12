@@ -26,7 +26,7 @@ public class NationWarController {
      */
     @GetMapping("/map")
     public ResponseEntity<?> getWarMap(HttpServletRequest request) {
-        String odUserId = (String) request.getAttribute("odUserId");
+        String odUserId = String.valueOf(request.getAttribute("userId"));
         
         NationWar.WarMap map = nationWarService.getWarMap();
         String playerNation = nationWarService.getPlayerNation(odUserId);
@@ -47,7 +47,7 @@ public class NationWarController {
      */
     @GetMapping("/has-nation")
     public ResponseEntity<?> hasNation(HttpServletRequest request) {
-        String odUserId = (String) request.getAttribute("odUserId");
+        String odUserId = String.valueOf(request.getAttribute("userId"));
         
         boolean hasNation = nationWarService.hasSelectedNation(odUserId);
         String nation = nationWarService.getPlayerNation(odUserId);
@@ -87,7 +87,7 @@ public class NationWarController {
     public ResponseEntity<?> selectNation(
             HttpServletRequest request,
             @RequestBody Map<String, String> body) {
-        String odUserId = (String) request.getAttribute("odUserId");
+        String odUserId = String.valueOf(request.getAttribute("userId"));
         String nationId = body.get("nationId");
         
         nationWarService.setPlayerNation(odUserId, nationId);
@@ -108,7 +108,7 @@ public class NationWarController {
      */
     @GetMapping("/can-change-nation")
     public ResponseEntity<?> canChangeNation(HttpServletRequest request) {
-        String odUserId = (String) request.getAttribute("odUserId");
+        String odUserId = String.valueOf(request.getAttribute("userId"));
         
         Map<String, Object> result = nationWarService.checkCanChangeNation(odUserId);
         return ResponseEntity.ok(result);
@@ -121,7 +121,7 @@ public class NationWarController {
     public ResponseEntity<?> changeNation(
             HttpServletRequest request,
             @RequestBody Map<String, String> body) {
-        String odUserId = (String) request.getAttribute("odUserId");
+        String odUserId = String.valueOf(request.getAttribute("userId"));
         String newNationId = body.get("nationId");
         
         Map<String, Object> result = nationWarService.changeNation(odUserId, newNationId);
@@ -135,7 +135,7 @@ public class NationWarController {
     public ResponseEntity<?> signUp(
             HttpServletRequest request,
             @RequestBody Map<String, Object> body) {
-        String odUserId = (String) request.getAttribute("odUserId");
+        String odUserId = String.valueOf(request.getAttribute("userId"));
         String playerName = (String) body.get("playerName");
         Integer level = (Integer) body.get("level");
         Integer power = (Integer) body.get("power");
@@ -215,7 +215,7 @@ public class NationWarController {
      */
     @GetMapping("/merit")
     public ResponseEntity<?> getPlayerMerit(HttpServletRequest request) {
-        String odUserId = (String) request.getAttribute("odUserId");
+        String odUserId = String.valueOf(request.getAttribute("userId"));
         
         int merit = nationWarService.getPlayerMerit(odUserId);
         String playerNation = nationWarService.getPlayerNation(odUserId);
@@ -247,7 +247,7 @@ public class NationWarController {
     public ResponseEntity<?> exchangeMerit(
             HttpServletRequest request,
             @RequestBody Map<String, Integer> body) {
-        String odUserId = (String) request.getAttribute("odUserId");
+        String odUserId = String.valueOf(request.getAttribute("userId"));
         Integer meritAmount = body.get("meritAmount");
         
         if (meritAmount == null || meritAmount <= 0) {

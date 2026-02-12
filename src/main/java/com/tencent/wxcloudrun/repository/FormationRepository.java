@@ -1,34 +1,44 @@
 package com.tencent.wxcloudrun.repository;
 
+import com.alibaba.fastjson.JSON;
+import com.tencent.wxcloudrun.dao.FormationMapper;
 import com.tencent.wxcloudrun.model.Formation;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 
 /**
- * 阵型数据仓库
+ * 阵型数据仓库（数据库存储）
  */
 @Repository
 public class FormationRepository {
     
-    private final Map<String, Formation> formationStorage = new ConcurrentHashMap<>();
+    @Autowired
+    private FormationMapper formationMapper;
     
     /**
      * 根据用户ID查找阵型
      */
     public Formation findByUserId(String odUserId) {
-        return formationStorage.values().stream()
-            .filter(f -> odUserId.equals(f.getOdUserId()))
-            .findFirst()
-            .orElse(null);
+        String data = formationMapper.findByUserId(odUserId);
+        if (data == null) {
+            return null;
+        }
+        return JSON.parseObject(data, Formation.class);
     }
     
     /**
      * 根据ID查找阵型
      */
     public Formation findById(String id) {
-        return formationStorage.get(id);
+        String data = formationMapper.findById(id);
+        if (data == null) {
+            return null;
+        }
+        return JSON.parseObject(data, Formation.class);
     }
     
     /**
@@ -59,7 +69,8 @@ public class FormationRepository {
             .updateTime(System.currentTimeMillis())
             .build();
         
-        formationStorage.put(formationId, formation);
+        formationMapper.upsert(formationId, odUserId, JSON.toJSONString(formation),
+                formation.getCreateTime(), formation.getUpdateTime());
         return formation;
     }
     
@@ -68,8 +79,8 @@ public class FormationRepository {
      */
     public Formation save(Formation formation) {
         formation.setUpdateTime(System.currentTimeMillis());
-        formationStorage.put(formation.getId(), formation);
+        formationMapper.upsert(formation.getId(), formation.getOdUserId(), JSON.toJSONString(formation),
+                formation.getCreateTime(), formation.getUpdateTime());
         return formation;
     }
 }
-

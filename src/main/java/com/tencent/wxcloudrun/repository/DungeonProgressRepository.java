@@ -1,43 +1,48 @@
 package com.tencent.wxcloudrun.repository;
 
+import com.alibaba.fastjson.JSON;
+import com.tencent.wxcloudrun.dao.DungeonProgressMapper;
 import com.tencent.wxcloudrun.model.DungeonProgress;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
 /**
- * 副本进度数据仓库（内存存储）
+ * 副本进度数据仓库（数据库存储）
  */
 @Repository
 public class DungeonProgressRepository {
     
-    // 使用ConcurrentHashMap存储用户副本进度
-    // key: ${userId}_${dungeonId}, value: DungeonProgress
-    private final Map<String, DungeonProgress> progressStore = new ConcurrentHashMap<>();
-    
-    /**
-     * 生成存储key
-     */
-    private String getKey(String userId, String dungeonId) {
-        return userId + "_" + dungeonId;
-    }
+    @Autowired
+    private DungeonProgressMapper dungeonProgressMapper;
     
     /**
      * 获取用户某个副本的进度
      */
     public DungeonProgress findByUserIdAndDungeonId(String userId, String dungeonId) {
-        return progressStore.get(getKey(userId, dungeonId));
+        String data = dungeonProgressMapper.findByUserIdAndDungeonId(userId, dungeonId);
+        if (data == null) {
+            return null;
+        }
+        return JSON.parseObject(data, DungeonProgress.class);
     }
     
     /**
      * 获取用户所有副本进度
      */
     public List<DungeonProgress> findByUserId(String userId) {
-        return progressStore.values().stream()
-            .filter(p -> userId.equals(p.getUserId()))
-            .collect(Collectors.toList());
+        List<Map<String, Object>> rows = dungeonProgressMapper.findByUserId(userId);
+        List<DungeonProgress> result = new ArrayList<>();
+        if (rows != null) {
+            for (Map<String, Object> row : rows) {
+                String data = (String) row.get("data");
+                if (data != null) {
+                    result.add(JSON.parseObject(data, DungeonProgress.class));
+                }
+            }
+        }
+        return result;
     }
     
     /**
@@ -48,7 +53,8 @@ public class DungeonProgressRepository {
         if (progress.getCreateTime() == null) {
             progress.setCreateTime(System.currentTimeMillis());
         }
-        progressStore.put(getKey(progress.getUserId(), progress.getDungeonId()), progress);
+        dungeonProgressMapper.upsert(progress.getUserId(), progress.getDungeonId(),
+                JSON.toJSONString(progress), progress.getCreateTime(), progress.getUpdateTime());
         return progress;
     }
     
@@ -76,21 +82,13 @@ public class DungeonProgressRepository {
      * 删除用户所有进度
      */
     public void deleteByUserId(String userId) {
-        List<String> keysToDelete = progressStore.keySet().stream()
-            .filter(key -> key.startsWith(userId + "_"))
-            .collect(Collectors.toList());
-        
-        for (String key : keysToDelete) {
-            progressStore.remove(key);
-        }
+        dungeonProgressMapper.deleteByUserId(userId);
     }
     
     /**
      * 清空所有数据（测试用）
      */
     public void clear() {
-        progressStore.clear();
+        // 数据库模式下不支持清空全表，忽略此操作
     }
 }
-
-

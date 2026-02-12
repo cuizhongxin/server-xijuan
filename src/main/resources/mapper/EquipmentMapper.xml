@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.dao.EquipmentMapper">
+
+    <select id="findById" resultType="java.lang.String">
+        SELECT data FROM equipment WHERE id = #{id}
+    </select>
+
+    <select id="findByUserId" resultType="java.util.HashMap">
+        SELECT id, data FROM equipment WHERE user_id = #{userId}
+    </select>
+
+    <insert id="upsert">
+        INSERT INTO equipment (id, user_id, data, create_time, update_time)
+        VALUES (#{id}, #{userId}, #{data}, #{createTime}, #{updateTime})
+        ON DUPLICATE KEY UPDATE user_id = #{userId}, data = #{data}, update_time = #{updateTime}
+    </insert>
+
+    <delete id="deleteById">
+        DELETE FROM equipment WHERE id = #{id}
+    </delete>
+
+    <delete id="deleteByUserId">
+        DELETE FROM equipment WHERE user_id = #{userId}
+    </delete>
+
+    <select id="countByUserId" resultType="int">
+        SELECT COUNT(1) FROM equipment WHERE user_id = #{userId}
+    </select>
+
+</mapper>

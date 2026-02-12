@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.dao.DungeonProgressMapper">
+
+    <select id="findByUserIdAndDungeonId" resultType="java.lang.String">
+        SELECT data FROM dungeon_progress WHERE user_id = #{userId} AND dungeon_id = #{dungeonId}
+    </select>
+
+    <select id="findByUserId" resultType="java.util.HashMap">
+        SELECT dungeon_id AS dungeonId, data FROM dungeon_progress WHERE user_id = #{userId}
+    </select>
+
+    <insert id="upsert">
+        INSERT INTO dungeon_progress (user_id, dungeon_id, data, create_time, update_time)
+        VALUES (#{userId}, #{dungeonId}, #{data}, #{createTime}, #{updateTime})
+        ON DUPLICATE KEY UPDATE data = #{data}, update_time = #{updateTime}
+    </insert>
+
+    <delete id="deleteByUserId">
+        DELETE FROM dungeon_progress WHERE user_id = #{userId}
+    </delete>
+
+</mapper>

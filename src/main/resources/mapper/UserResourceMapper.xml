@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.dao.UserResourceMapper">
+
+    <select id="findByUserId" resultType="java.lang.String">
+        SELECT data FROM user_resource WHERE od_user_id = #{odUserId}
+    </select>
+
+    <insert id="upsert">
+        INSERT INTO user_resource (od_user_id, data, create_time, update_time)
+        VALUES (#{odUserId}, #{data}, #{createTime}, #{updateTime})
+        ON DUPLICATE KEY UPDATE data = #{data}, update_time = #{updateTime}
+    </insert>
+
+    <select id="existsByUserId" resultType="int">
+        SELECT COUNT(1) FROM user_resource WHERE od_user_id = #{odUserId}
+    </select>
+
+</mapper>

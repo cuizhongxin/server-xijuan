@@ -1,24 +1,29 @@
 package com.tencent.wxcloudrun.repository;
 
+import com.alibaba.fastjson.JSON;
+import com.tencent.wxcloudrun.dao.UserResourceMapper;
 import com.tencent.wxcloudrun.model.UserResource;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
 /**
- * 用户资源仓库（内存存储）
+ * 用户资源仓库（数据库存储）
  */
 @Repository
 public class UserResourceRepository {
     
-    private final Map<String, UserResource> resourceStore = new ConcurrentHashMap<>();
+    @Autowired
+    private UserResourceMapper userResourceMapper;
     
     /**
      * 根据用户ID获取资源
      */
     public UserResource findByUserId(String odUserId) {
-        return resourceStore.get(odUserId);
+        String data = userResourceMapper.findByUserId(odUserId);
+        if (data == null) {
+            return null;
+        }
+        return JSON.parseObject(data, UserResource.class);
     }
     
     /**
@@ -26,7 +31,11 @@ public class UserResourceRepository {
      */
     public UserResource save(UserResource resource) {
         resource.setUpdateTime(System.currentTimeMillis());
-        resourceStore.put(resource.getOdUserId(), resource);
+        if (resource.getCreateTime() == null) {
+            resource.setCreateTime(System.currentTimeMillis());
+        }
+        userResourceMapper.upsert(resource.getOdUserId(), JSON.toJSONString(resource),
+                resource.getCreateTime(), resource.getUpdateTime());
         return resource;
     }
     
@@ -34,13 +43,16 @@ public class UserResourceRepository {
      * 初始化用户资源
      */
     public UserResource initUserResource(String odUserId) {
-        UserResource existing = resourceStore.get(odUserId);
+        UserResource existing = findByUserId(odUserId);
         if (existing != null) {
             return existing;
         }
         
         UserResource resource = UserResource.createDefault(odUserId);
-        resourceStore.put(odUserId, resource);
+        resource.setCreateTime(System.currentTimeMillis());
+        resource.setUpdateTime(System.currentTimeMillis());
+        userResourceMapper.upsert(odUserId, JSON.toJSONString(resource),
+                resource.getCreateTime(), resource.getUpdateTime());
         return resource;
     }
     
@@ -48,6 +60,6 @@ public class UserResourceRepository {
      * 判断是否存在
      */
     public boolean existsByUserId(String odUserId) {
-        return resourceStore.containsKey(odUserId);
+        return userResourceMapper.existsByUserId(odUserId) > 0;
     }
 }
