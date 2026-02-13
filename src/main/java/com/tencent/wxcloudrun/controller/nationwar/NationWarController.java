@@ -68,11 +68,11 @@ public class NationWarController {
     }
     
     /**
-     * 获取所有国家列表（用于选择）
+     * 获取玩家可选国家列表（仅魏、蜀、吴；汉/群雄为NPC不在此列）
      */
     @GetMapping("/nations")
     public ResponseEntity<?> getNations(HttpServletRequest request) {
-        List<NationWar.Nation> nations = nationWarService.getAllNations();
+        List<NationWar.Nation> nations = nationWarService.getPlayerSelectableNations();
         
         Map<String, Object> result = new HashMap<>();
         result.put("nations", nations);

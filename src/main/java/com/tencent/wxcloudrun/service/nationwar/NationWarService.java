@@ -52,6 +52,10 @@ public class NationWarService {
     private static final int TRANSFER_CITY_REQUIREMENT = 25;
     private static final String LUOYANG_CITY_ID = "LUOYANG";
     
+    /** 汉/群雄为 NPC 势力，玩家不可选择、不可转国进入，仅能作为被进攻方 */
+    private static final String NPC_NATION_ID = "HAN";
+    private static final Set<String> PLAYER_SELECTABLE_NATION_IDS = new HashSet<>(Arrays.asList("WEI", "SHU", "WU"));
+    
     public NationWarService() {
         initMapData();
     }
@@ -176,6 +180,9 @@ public class NationWarService {
         if (!nations.containsKey(nationId)) {
             throw new BusinessException(400, "无效的国家");
         }
+        if (NPC_NATION_ID.equalsIgnoreCase(nationId) || !PLAYER_SELECTABLE_NATION_IDS.contains(nationId.toUpperCase())) {
+            throw new BusinessException(400, "无效的国家");
+        }
         
         String currentNation = nationWarMapper.findPlayerNation(odUserId);
         if (currentNation != null && !currentNation.equals(nationId)) {
@@ -207,6 +214,9 @@ public class NationWarService {
             throw new BusinessException(400, "不能转换到当前国家");
         }
         if (!nations.containsKey(newNationId)) {
+            throw new BusinessException(400, "无效的目标国家");
+        }
+        if (NPC_NATION_ID.equalsIgnoreCase(newNationId) || !PLAYER_SELECTABLE_NATION_IDS.contains(newNationId.toUpperCase())) {
             throw new BusinessException(400, "无效的目标国家");
         }
         
@@ -604,5 +614,21 @@ public class NationWarService {
     
     public Nation getNation(String nationId) { return nations.get(nationId); }
     
+    /** 所有国家（含汉/NPC，用于地图展示等） */
     public List<Nation> getAllNations() { return new ArrayList<>(nations.values()); }
+    
+    /** 玩家可选国家（仅魏、蜀、吴；汉/群雄为NPC不可选） */
+    public List<Nation> getPlayerSelectableNations() {
+        List<Nation> list = new ArrayList<>();
+        for (String id : PLAYER_SELECTABLE_NATION_IDS) {
+            Nation n = nations.get(id);
+            if (n != null) list.add(n);
+        }
+        return list;
+    }
+    
+    /** 判断是否为 NPC 势力（汉/群雄），不具备主动行为 */
+    public boolean isNpcNation(String nationId) {
+        return nationId != null && NPC_NATION_ID.equalsIgnoreCase(nationId);
+    }
 }

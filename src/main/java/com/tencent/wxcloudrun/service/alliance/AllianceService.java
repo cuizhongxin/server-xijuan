@@ -21,6 +21,9 @@ import java.util.stream.Collectors;
 @Service
 public class AllianceService {
     
+    /** 允许创建联盟的势力（仅魏、蜀、吴；汉/群雄为NPC不可建盟） */
+    private static final Set<String> ALLOWED_FACTIONS_FOR_ALLIANCE = new HashSet<>(Arrays.asList("魏", "蜀", "吴", "WEI", "SHU", "WU"));
+    
     @Autowired
     private AllianceMapper allianceMapper;
     
@@ -56,6 +59,9 @@ public class AllianceService {
      */
     public Alliance createAlliance(String odUserId, String playerName, String allianceName, 
                                    String faction, Integer playerLevel, Long playerPower) {
+        if (faction == null || faction.isEmpty() || !ALLOWED_FACTIONS_FOR_ALLIANCE.contains(faction)) {
+            throw new BusinessException("无效的势力");
+        }
         // 检查用户是否已加入联盟
         if (allianceMapper.userAllianceExists(odUserId) > 0) {
             throw new BusinessException("您已加入联盟，请先退出当前联盟");

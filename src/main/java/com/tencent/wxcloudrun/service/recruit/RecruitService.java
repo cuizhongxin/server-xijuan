@@ -8,6 +8,7 @@ import com.tencent.wxcloudrun.model.Warehouse;
 import com.tencent.wxcloudrun.repository.GeneralRepository;
 import com.tencent.wxcloudrun.repository.UserResourceRepository;
 import com.tencent.wxcloudrun.service.UserResourceService;
+import com.tencent.wxcloudrun.service.nationwar.NationWarService;
 import com.tencent.wxcloudrun.service.warehouse.WarehouseService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,6 +46,9 @@ public class RecruitService {
     
     @Autowired
     private WarehouseService warehouseService;
+    
+    @Autowired
+    private NationWarService nationWarService;
     
     private Random random = new Random();
     
@@ -335,8 +339,20 @@ public class RecruitService {
                 quality = "white";
         }
         
-        // 从配置中随机选择该品质的将领模板
-        List<GeneralConfig.GeneralTemplate> templates = generalConfig.getAllGeneralsByQuality(quality);
+        // 按国家限制：仅能招募本国 + 群 + 虚构；未选国家时不限制
+        String playerFaction = nationIdToFaction(nationWarService.getPlayerNation(userId));
+        List<GeneralConfig.GeneralTemplate> templates;
+        if (playerFaction != null) {
+            templates = generalConfig.getRecruitableGeneralsByQuality(quality, playerFaction);
+            if (templates == null || templates.isEmpty()) {
+                templates = generalConfig.getAllGeneralsByQuality(quality);
+            }
+        } else {
+            templates = generalConfig.getAllGeneralsByQuality(quality);
+        }
+        if (templates == null || templates.isEmpty()) {
+            throw new BusinessException(500, "该品质暂无可招募将领，请检查配置");
+        }
         GeneralConfig.GeneralTemplate template = templates.get(random.nextInt(templates.size()));
         
         return createGeneralFromTemplate(userId, template);
@@ -349,14 +365,14 @@ public class RecruitService {
         String generalId = "general_" + System.currentTimeMillis() + "_" + UUID.randomUUID().toString().substring(0, 8);
         
         // 创建品质
-        GeneralConfig.Quality configQuality = GeneralConfig.QUALITIES.get(template.quality);
+        GeneralConfig.Quality configQuality = generalConfig.getQualities().get(template.quality);
         General.Quality quality = createQuality(template.quality, configQuality);
         
         // 创建类型
         General.GeneralType type = createGeneralTypeFromString(template.type);
         
-        // 随机兵种
-        int troopTypeId = random.nextInt(3) + 1;
+        // 兵种：优先用模板槽位配置（步/骑/弓），否则随机
+        int troopTypeId = troopTypeIdFromTemplate(template.troopType);
         General.TroopType troopType = createTroopType(troopTypeId);
         
         int level = 1;
@@ -495,6 +511,35 @@ public class RecruitService {
             .mobility(mobility)
             .power(power)
             .build();
+    }
+    
+    /**
+     * 国战国家 ID 转武将势力（用于按国家限制招募：仅本国+群+虚构）
+     * 仅玩家可选势力：WEI->魏, SHU->蜀, WU->吴；群雄/汉不可选，未选或其它返回 null（不限制）
+     */
+    private String nationIdToFaction(String nationId) {
+        if (nationId == null || nationId.isEmpty()) return null;
+        switch (nationId.toUpperCase()) {
+            case "WEI": return "魏";
+            case "SHU": return "蜀";
+            case "WU": return "吴";
+            default: return null;
+        }
+    }
+    
+    /**
+     * 从模板兵种（步/骑/弓）得到兵种 id：步=1，骑=2，弓=3；否则随机 1-3
+     */
+    private int troopTypeIdFromTemplate(String troopType) {
+        if (troopType != null) {
+            switch (troopType) {
+                case "步": return 1;
+                case "骑": return 2;
+                case "弓": return 3;
+                default: break;
+            }
+        }
+        return random.nextInt(3) + 1;
     }
     
     /**
