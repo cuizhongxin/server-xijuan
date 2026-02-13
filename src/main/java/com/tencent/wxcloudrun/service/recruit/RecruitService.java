@@ -4,9 +4,11 @@ import com.tencent.wxcloudrun.config.GeneralConfig;
 import com.tencent.wxcloudrun.exception.BusinessException;
 import com.tencent.wxcloudrun.model.General;
 import com.tencent.wxcloudrun.model.UserResource;
+import com.tencent.wxcloudrun.model.Warehouse;
 import com.tencent.wxcloudrun.repository.GeneralRepository;
 import com.tencent.wxcloudrun.repository.UserResourceRepository;
 import com.tencent.wxcloudrun.service.UserResourceService;
+import com.tencent.wxcloudrun.service.warehouse.WarehouseService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,11 +19,17 @@ import java.util.*;
 
 /**
  * 招募服务 - 基于三国将领配置
+ * 招贤令统一从仓库系统读写（道具ID: 7=初级, 8=中级, 9=高级）
  */
 @Service
 public class RecruitService {
     
     private static final Logger logger = LoggerFactory.getLogger(RecruitService.class);
+    
+    // 招贤令在仓库中的道具ID
+    private static final String JUNIOR_TOKEN_ITEM_ID = "7";
+    private static final String INTERMEDIATE_TOKEN_ITEM_ID = "8";
+    private static final String SENIOR_TOKEN_ITEM_ID = "9";
     
     @Autowired
     private UserResourceRepository resourceRepository;
@@ -35,24 +43,116 @@ public class RecruitService {
     @Autowired
     private UserResourceService userResourceService;
     
+    @Autowired
+    private WarehouseService warehouseService;
+    
     private Random random = new Random();
     
     /**
-     * 获取或初始化用户资源
+     * 获取或初始化用户资源（招贤令数量从仓库读取）
      */
     public UserResource getUserResource(String userId) {
         UserResource resource = resourceRepository.findByUserId(userId);
         if (resource == null) {
             resource = resourceRepository.initUserResource(userId);
         }
+        // 从仓库同步招贤令数量到返回值
+        resource.setJuniorToken(getWarehouseTokenCount(userId, "JUNIOR"));
+        resource.setIntermediateToken(getWarehouseTokenCount(userId, "INTERMEDIATE"));
+        resource.setSeniorToken(getWarehouseTokenCount(userId, "SENIOR"));
         return resource;
     }
     
+    // ========== 仓库招贤令辅助方法 ==========
+    
     /**
-     * 每日领取初级招贤令
+     * 获取招贤令类型对应的仓库道具ID
+     */
+    private String getTokenItemId(String tokenType) {
+        switch (tokenType.toUpperCase()) {
+            case "JUNIOR": return JUNIOR_TOKEN_ITEM_ID;
+            case "INTERMEDIATE": return INTERMEDIATE_TOKEN_ITEM_ID;
+            case "SENIOR": return SENIOR_TOKEN_ITEM_ID;
+            default: throw new BusinessException(400, "无效的招贤令类型: " + tokenType);
+        }
+    }
+    
+    /**
+     * 从仓库获取招贤令数量
+     */
+    private int getWarehouseTokenCount(String userId, String tokenType) {
+        String itemId = getTokenItemId(tokenType);
+        Warehouse warehouse = warehouseService.getWarehouse(userId);
+        List<Warehouse.WarehouseItem> items = warehouse.getItemStorage().getItems();
+        if (items == null) return 0;
+        for (Warehouse.WarehouseItem item : items) {
+            if (itemId.equals(item.getItemId())) {
+                return item.getCount() != null ? item.getCount() : 0;
+            }
+        }
+        return 0;
+    }
+    
+    /**
+     * 向仓库添加招贤令
+     */
+    private void addWarehouseTokens(String userId, String tokenType, int count) {
+        String itemId = getTokenItemId(tokenType);
+        String name;
+        String icon;
+        String quality;
+        String description;
+        switch (tokenType.toUpperCase()) {
+            case "JUNIOR":
+                name = "初级招贤令"; icon = "📜"; quality = "green";
+                description = "使用后可进行一次初级招募，可招募白色或绿色品质武将";
+                break;
+            case "INTERMEDIATE":
+                name = "中级招贤令"; icon = "📃"; quality = "blue";
+                description = "使用后可进行一次中级招募，可招募蓝色或红色品质武将";
+                break;
+            case "SENIOR":
+                name = "高级招贤令"; icon = "📋"; quality = "purple";
+                description = "使用后可进行一次高级招募，可招募紫色或橙色品质武将";
+                break;
+            default:
+                throw new BusinessException(400, "无效的招贤令类型");
+        }
+        
+        Warehouse.WarehouseItem item = Warehouse.WarehouseItem.builder()
+                .itemId(itemId)
+                .itemType("token")
+                .name(name)
+                .icon(icon)
+                .quality(quality)
+                .count(count)
+                .maxStack(9999)
+                .description(description)
+                .usable(false)
+                .build();
+        
+        warehouseService.addItem(userId, item);
+    }
+    
+    /**
+     * 从仓库扣除招贤令
+     */
+    private void removeWarehouseTokens(String userId, String tokenType, int count) {
+        String itemId = getTokenItemId(tokenType);
+        boolean removed = warehouseService.removeItem(userId, itemId, count);
+        if (!removed) {
+            throw new BusinessException(400, "招贤令数量不足");
+        }
+    }
+    
+    /**
+     * 每日领取初级招贤令（添加到仓库）
      */
     public UserResource claimDailyTokens(String userId) {
-        UserResource resource = getUserResource(userId);
+        UserResource resource = resourceRepository.findByUserId(userId);
+        if (resource == null) {
+            resource = resourceRepository.initUserResource(userId);
+        }
         
         String today = new SimpleDateFormat("yyyyMMdd").format(new Date());
         
@@ -67,100 +167,107 @@ public class RecruitService {
             resource.setLastClaimDate(today);
         }
         
-        // 领取3个初级招贤令
-        resource.setJuniorToken(resource.getJuniorToken() + 3);
+        // 领取3个初级招贤令到仓库
+        addWarehouseTokens(userId, "JUNIOR", 3);
         resource.setDailyTokenClaimed(resource.getDailyTokenClaimed() + 1);
+        resourceRepository.save(resource);
         
-        return resourceRepository.save(resource);
+        // 返回时从仓库读取最新数量
+        return getUserResource(userId);
     }
     
     /**
-     * 购买招贤令
+     * 购买招贤令（添加到仓库）
      */
     public UserResource buyToken(String userId, String tokenType) {
-        UserResource resource = getUserResource(userId);
+        UserResource resource = resourceRepository.findByUserId(userId);
+        if (resource == null) {
+            resource = resourceRepository.initUserResource(userId);
+        }
         
         switch (tokenType.toUpperCase()) {
             case "JUNIOR":
-                // 10000银两购买初级招贤令
                 if (resource.getSilver() < 10000) {
                     throw new BusinessException(400, "银两不足");
                 }
                 resource.setSilver(resource.getSilver() - 10000);
-                resource.setJuniorToken(resource.getJuniorToken() + 1);
                 break;
                 
             case "INTERMEDIATE":
-                // 15黄金购买中级招贤令
                 if (resource.getGold() < 15) {
                     throw new BusinessException(400, "黄金不足");
                 }
                 resource.setGold(resource.getGold() - 15);
-                resource.setIntermediateToken(resource.getIntermediateToken() + 1);
                 break;
                 
             case "SENIOR":
-                // 200黄金购买高级招贤令
                 if (resource.getGold() < 200) {
                     throw new BusinessException(400, "黄金不足");
                 }
                 resource.setGold(resource.getGold() - 200);
-                resource.setSeniorToken(resource.getSeniorToken() + 1);
                 break;
                 
             default:
                 throw new BusinessException(400, "无效的招贤令类型");
         }
         
-        return resourceRepository.save(resource);
+        // 扣除货币
+        resourceRepository.save(resource);
+        // 招贤令添加到仓库
+        addWarehouseTokens(userId, tokenType, 1);
+        
+        return getUserResource(userId);
     }
     
     /**
-     * 合成高级招贤令
+     * 合成高级招贤令（从仓库扣除低级令，向仓库添加高级令）
      */
     public UserResource composeToken(String userId, String fromType) {
-        UserResource resource = getUserResource(userId);
+        UserResource resource = resourceRepository.findByUserId(userId);
+        if (resource == null) {
+            resource = resourceRepository.initUserResource(userId);
+        }
         
         switch (fromType.toUpperCase()) {
             case "JUNIOR":
                 // 15个初级 + 5000银两 → 1个高级
-                if (resource.getJuniorToken() < 15) {
+                if (getWarehouseTokenCount(userId, "JUNIOR") < 15) {
                     throw new BusinessException(400, "初级招贤令不足");
                 }
                 if (resource.getSilver() < 5000) {
                     throw new BusinessException(400, "银两不足");
                 }
-                resource.setJuniorToken(resource.getJuniorToken() - 15);
+                removeWarehouseTokens(userId, "JUNIOR", 15);
                 resource.setSilver(resource.getSilver() - 5000);
-                resource.setSeniorToken(resource.getSeniorToken() + 1);
+                resourceRepository.save(resource);
+                addWarehouseTokens(userId, "SENIOR", 1);
                 break;
                 
             case "INTERMEDIATE":
                 // 15个中级 + 5黄金 → 1个高级
-                if (resource.getIntermediateToken() < 15) {
+                if (getWarehouseTokenCount(userId, "INTERMEDIATE") < 15) {
                     throw new BusinessException(400, "中级招贤令不足");
                 }
                 if (resource.getGold() < 5) {
                     throw new BusinessException(400, "黄金不足");
                 }
-                resource.setIntermediateToken(resource.getIntermediateToken() - 15);
+                removeWarehouseTokens(userId, "INTERMEDIATE", 15);
                 resource.setGold(resource.getGold() - 5);
-                resource.setSeniorToken(resource.getSeniorToken() + 1);
+                resourceRepository.save(resource);
+                addWarehouseTokens(userId, "SENIOR", 1);
                 break;
                 
             default:
                 throw new BusinessException(400, "无效的合成类型");
         }
         
-        return resourceRepository.save(resource);
+        return getUserResource(userId);
     }
     
     /**
-     * 招募武将
+     * 招募武将（从仓库扣除招贤令）
      */
     public List<General> recruit(String userId, String tokenType, int count) {
-        UserResource resource = getUserResource(userId);
-        
         // 检查武将数量限制
         int currentGeneralCount = generalRepository.countByUserId(userId);
         int maxSlots = userResourceService.getMaxGeneralSlots(userId);
@@ -173,39 +280,15 @@ public class RecruitService {
             throw new BusinessException(400, "武将位不足，最多还能招募" + availableSlots + "个武将");
         }
         
-        // 检查招贤令数量
-        int availableTokens = 0;
-        switch (tokenType.toUpperCase()) {
-            case "JUNIOR":
-                availableTokens = resource.getJuniorToken();
-                break;
-            case "INTERMEDIATE":
-                availableTokens = resource.getIntermediateToken();
-                break;
-            case "SENIOR":
-                availableTokens = resource.getSeniorToken();
-                break;
-            default:
-                throw new BusinessException(400, "无效的招贤令类型");
-        }
+        // 从仓库检查招贤令数量
+        int availableTokens = getWarehouseTokenCount(userId, tokenType);
         
         if (availableTokens < count) {
             throw new BusinessException(400, "招贤令数量不足");
         }
         
-        // 扣除招贤令
-        switch (tokenType.toUpperCase()) {
-            case "JUNIOR":
-                resource.setJuniorToken(resource.getJuniorToken() - count);
-                break;
-            case "INTERMEDIATE":
-                resource.setIntermediateToken(resource.getIntermediateToken() - count);
-                break;
-            case "SENIOR":
-                resource.setSeniorToken(resource.getSeniorToken() - count);
-                break;
-        }
-        resourceRepository.save(resource);
+        // 从仓库扣除招贤令
+        removeWarehouseTokens(userId, tokenType, count);
         
         // 执行招募
         List<General> recruitedGenerals = new ArrayList<>();

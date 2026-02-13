@@ -40,7 +40,7 @@ public class FormationController {
                                           HttpServletRequest request) {
         Long userIdLong = (Long) request.getAttribute("userId");
         String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
-        int slotIndex = Integer.parseInt(body.get("slotIndex").toString());
+        int slotIndex = Integer.parseInt(body.get("position").toString());
         String generalId = body.get("generalId") != null ? body.get("generalId").toString() : null;
         Formation formation = formationService.setSlot(userId, slotIndex, generalId);
         return ApiResponse.success(formation);
