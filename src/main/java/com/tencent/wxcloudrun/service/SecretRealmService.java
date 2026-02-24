@@ -4,6 +4,7 @@ import com.tencent.wxcloudrun.model.Equipment;
 import com.tencent.wxcloudrun.model.Warehouse;
 import com.tencent.wxcloudrun.model.UserResource;
 import com.tencent.wxcloudrun.repository.EquipmentRepository;
+import com.tencent.wxcloudrun.repository.SecretRealmConfigRepository;
 import com.tencent.wxcloudrun.repository.UserResourceRepository;
 import com.tencent.wxcloudrun.service.warehouse.WarehouseService;
 import com.tencent.wxcloudrun.exception.BusinessException;
@@ -12,492 +13,437 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
-/**
- * 秘境探险服务
- */
+import static com.tencent.wxcloudrun.repository.SecretRealmConfigRepository.*;
+
 @Service
 public class SecretRealmService {
-    
+
     private static final Logger logger = LoggerFactory.getLogger(SecretRealmService.class);
-    
+
     @Autowired
     private WarehouseService warehouseService;
-    
     @Autowired
     private UserResourceRepository resourceRepository;
-    
     @Autowired
     private EquipmentRepository equipmentRepository;
-    
-    // 秘境配置
-    private static final Map<String, RealmConfig> REALM_CONFIGS = new HashMap<>();
-    
-    static {
-        // 蓬莱秘宝
-        RealmConfig penglai = new RealmConfig("penglai", "蓬莱秘宝", 40, 10);
-        penglai.addReward(new RewardItem("penglai_sword", "鹰扬刀", "🗡️", "equipment", "blue", 1));
-        penglai.addReward(new RewardItem("penglai_ring", "鹰扬戒", "💍", "equipment", "blue", 2));
-        penglai.addReward(new RewardItem("penglai_necklace", "鹰扬项链", "📿", "equipment", "blue", 4));
-        penglai.addReward(new RewardItem("penglai_armor", "鹰扬铠", "🛡️", "equipment", "blue", 3));
-        penglai.addReward(new RewardItem("penglai_helm", "鹰扬盔", "⛑️", "equipment", "blue", 5));
-        penglai.addReward(new RewardItem("penglai_boots", "鹰扬靴", "👢", "equipment", "blue", 6));
-        penglai.addReward(new RewardItem("silver_ingot", "银锭", "🥈", "material", "white", 0));
-        penglai.addReward(new RewardItem("enhance_stone_4", "4级强化石", "💎", "material", "green", 0));
-        penglai.addReward(new RewardItem("exp_pill_low", "初级经验丹", "📕", "consumable", "green", 0));
-        penglai.addReward(new RewardItem("recruit_token_mid", "中级招贤令", "📜", "consumable", "blue", 0));
-        penglai.addReward(new RewardItem("compose_talisman_mid", "中级合成符", "📋", "material", "blue", 0));
-        penglai.addReward(new RewardItem("special_train", "特训符", "📑", "consumable", "purple", 0));
-        REALM_CONFIGS.put("penglai", penglai);
-        
-        // 昆仑秘宝
-        RealmConfig kunlun = new RealmConfig("kunlun", "昆仑秘宝", 60, 20);
-        kunlun.addReward(new RewardItem("kunlun_sword", "昆仑剑", "⚔️", "equipment", "purple", 1));
-        kunlun.addReward(new RewardItem("kunlun_ring", "昆仑戒", "💍", "equipment", "purple", 2));
-        kunlun.addReward(new RewardItem("kunlun_necklace", "昆仑链", "📿", "equipment", "purple", 4));
-        kunlun.addReward(new RewardItem("kunlun_armor", "昆仑甲", "🛡️", "equipment", "purple", 3));
-        kunlun.addReward(new RewardItem("kunlun_helm", "昆仑盔", "⛑️", "equipment", "purple", 5));
-        kunlun.addReward(new RewardItem("kunlun_boots", "昆仑靴", "👢", "equipment", "purple", 6));
-        kunlun.addReward(new RewardItem("gold_ingot", "金锭", "🥇", "material", "green", 0));
-        kunlun.addReward(new RewardItem("enhance_stone_5", "5级强化石", "💎", "material", "blue", 0));
-        kunlun.addReward(new RewardItem("exp_pill_mid", "中级经验丹", "📕", "consumable", "blue", 0));
-        kunlun.addReward(new RewardItem("recruit_token_high", "高级招贤令", "📜", "consumable", "purple", 0));
-        REALM_CONFIGS.put("kunlun", kunlun);
-        
-        // 瑶池秘宝
-        RealmConfig yaochi = new RealmConfig("yaochi", "瑶池秘宝", 80, 50);
-        yaochi.addReward(new RewardItem("yaochi_sword", "瑶池剑", "⚔️", "equipment", "orange", 1));
-        yaochi.addReward(new RewardItem("yaochi_ring", "瑶池戒", "💍", "equipment", "orange", 2));
-        yaochi.addReward(new RewardItem("yaochi_necklace", "瑶池链", "📿", "equipment", "purple", 4));
-        yaochi.addReward(new RewardItem("yaochi_armor", "瑶池甲", "🛡️", "equipment", "purple", 3));
-        yaochi.addReward(new RewardItem("yaochi_helm", "瑶池盔", "⛑️", "equipment", "purple", 5));
-        yaochi.addReward(new RewardItem("yaochi_boots", "瑶池靴", "👢", "equipment", "purple", 6));
-        yaochi.addReward(new RewardItem("fairy_crystal", "仙晶", "✨", "material", "blue", 0));
-        yaochi.addReward(new RewardItem("enhance_stone_6", "6级强化石", "💎", "material", "purple", 0));
-        REALM_CONFIGS.put("yaochi", yaochi);
-        
-        // 九天秘宝
-        RealmConfig jiutian = new RealmConfig("jiutian", "九天秘宝", 100, 100);
-        jiutian.addReward(new RewardItem("jiutian_sword", "九天神剑", "⚔️", "equipment", "orange", 1));
-        jiutian.addReward(new RewardItem("jiutian_ring", "九天神戒", "💍", "equipment", "orange", 2));
-        jiutian.addReward(new RewardItem("jiutian_necklace", "九天神链", "📿", "equipment", "orange", 4));
-        jiutian.addReward(new RewardItem("jiutian_armor", "九天神甲", "🛡️", "equipment", "orange", 3));
-        jiutian.addReward(new RewardItem("jiutian_helm", "九天神盔", "⛑️", "equipment", "orange", 5));
-        jiutian.addReward(new RewardItem("jiutian_boots", "九天神靴", "👢", "equipment", "orange", 6));
-        REALM_CONFIGS.put("jiutian", jiutian);
-    }
-    
+    @Autowired
+    private SecretRealmConfigRepository realmConfigRepo;
+
     /**
-     * 探索秘境
+     * 获取所有秘境概览(从数据库读取)
+     */
+    public List<Map<String, Object>> listRealms() {
+        List<Map<String, Object>> configs = realmConfigRepo.findAllRealms();
+        List<Map<String, Object>> result = new ArrayList<>();
+
+        for (Map<String, Object> cfg : configs) {
+            String realmId = getString(cfg, "id", "");
+            List<Map<String, Object>> equips = realmConfigRepo.findEquipmentsByRealmId(realmId);
+            List<Map<String, Object>> items = realmConfigRepo.findItemsByRealmId(realmId);
+
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id", realmId);
+            m.put("name", getString(cfg, "name", ""));
+            m.put("minLevel", getInt(cfg, "min_level", 1));
+            m.put("costGold", getInt(cfg, "cost_gold", 10));
+            m.put("equipSetName", getString(cfg, "equip_set_name", ""));
+            m.put("equipBaseRate", getDouble(cfg, "equip_base_rate", 0.08));
+            m.put("pityCount", getInt(cfg, "pity_count", 50));
+            m.put("equipCount", equips.size());
+            m.put("itemCount", items.size());
+            result.add(m);
+        }
+        return result;
+    }
+
+    /**
+     * 获取秘境奖励预览(12件: 6装备+6道具, 从数据库读取)
+     */
+    public List<Map<String, Object>> getRealmRewards(String realmId) {
+        Map<String, Object> cfg = realmConfigRepo.findRealmById(realmId);
+        if (cfg == null) {
+            throw new BusinessException(400, "秘境不存在: " + realmId);
+        }
+
+        List<Map<String, Object>> dbRewards = realmConfigRepo.findRewardsByRealmId(realmId);
+        List<Map<String, Object>> rewards = new ArrayList<>();
+
+        int level = getInt(cfg, "min_level", 1);
+
+        for (Map<String, Object> row : dbRewards) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            String rewardType = getString(row, "reward_type", "item");
+
+            m.put("rewardType", rewardType);
+            m.put("name", getString(row, "name", ""));
+            m.put("icon", getString(row, "icon", "📦"));
+            m.put("quality", getInt(row, "quality", 1));
+            m.put("dropWeight", getInt(row, "drop_weight", 100));
+
+            if ("equipment".equals(rewardType)) {
+                m.put("id", getInt(row, "equip_pre_id", 0));
+                m.put("equipPreId", getInt(row, "equip_pre_id", 0));
+                m.put("itemPreId", 0);
+                m.put("type", "equipment");
+                m.put("position", getString(row, "position", ""));
+                m.put("setName", getString(row, "set_name", ""));
+                m.put("setEffect3", getString(row, "set_effect_3", ""));
+                m.put("setEffect6", getString(row, "set_effect_6", ""));
+                m.put("attack", getInt(row, "attack", 0));
+                m.put("defense", getInt(row, "defense", 0));
+                m.put("soldierHp", getInt(row, "soldier_hp", 0));
+                m.put("mobility", getInt(row, "mobility", 0));
+                m.put("level", level);
+            } else {
+                m.put("id", getString(row, "item_id", ""));
+                m.put("equipPreId", 0);
+                m.put("itemPreId", getInt(row, "item_pre_id", 0));
+                m.put("type", getString(row, "item_sub_type", "material"));
+            }
+            rewards.add(m);
+        }
+        return rewards;
+    }
+
+    /**
+     * 探索秘境(含保底机制)
      */
     public ExploreResult explore(String userId, String realmId, int count) {
-        RealmConfig config = REALM_CONFIGS.get(realmId);
-        if (config == null) {
+        Map<String, Object> cfg = realmConfigRepo.findRealmById(realmId);
+        if (cfg == null) {
             throw new BusinessException(400, "秘境不存在");
         }
-        
+
+        int costGold = getInt(cfg, "cost_gold", 10);
+        int minLevel = getInt(cfg, "min_level", 1);
+        double equipBaseRate = getDouble(cfg, "equip_base_rate", 0.08);
+        int pityCount = getInt(cfg, "pity_count", 50);
+        int dailyLimit = getInt(cfg, "daily_limit", 0);
+
+        // 加载保底计数
+        Map<String, Object> pityRow = realmConfigRepo.findPity(userId, realmId);
+        int countSinceEquip = 0;
+        int totalExploreCount = 0;
+        int totalEquipCount = 0;
+        long lastEquipTime = 0;
+        int dailyCount = 0;
+
+        if (pityRow != null) {
+            countSinceEquip = getInt(pityRow, "count_since_equip", 0);
+            totalExploreCount = getInt(pityRow, "total_explore_count", 0);
+            totalEquipCount = getInt(pityRow, "total_equip_count", 0);
+            lastEquipTime = getLong(pityRow, "last_equip_time", 0);
+            dailyCount = getInt(pityRow, "daily_count", 0);
+
+            String resetDateStr = getString(pityRow, "daily_reset_date", "");
+            String today = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE);
+            if (!today.equals(resetDateStr)) {
+                dailyCount = 0;
+            }
+        }
+
+        if (dailyLimit > 0 && dailyCount + count > dailyLimit) {
+            throw new BusinessException(400, "今日探索次数已达上限(" + dailyLimit + "次)");
+        }
+
         UserResource resource = resourceRepository.findByUserId(userId);
         if (resource == null) {
             throw new BusinessException(400, "用户资源不存在");
         }
-        
-        // 计算费用
+
         double discount = 1.0;
         if (count == 10) discount = 0.95;
         if (count == 50) discount = 0.9;
-        int totalCost = (int) Math.floor(config.costGold * count * discount);
-        
+        int totalCost = (int) Math.floor(costGold * count * discount);
+
         if (resource.getGold() < totalCost) {
             throw new BusinessException(400, "黄金不足，需要" + totalCost + "黄金");
         }
-        
-        // 扣除黄金
+
         resource.setGold(resource.getGold() - totalCost);
         resourceRepository.save(resource);
-        
-        // 生成奖励
-        List<RewardItem> rewards = generateRewards(config, count);
-        
-        // 将奖励存入仓库
+
+        // 从数据库加载装备池和道具池
+        List<Map<String, Object>> equipPool = realmConfigRepo.findEquipmentsByRealmId(realmId);
+        List<Map<String, Object>> itemPool = realmConfigRepo.findItemsByRealmId(realmId);
+
+        // 计算道具池总权重
+        int itemTotalWeight = 0;
+        for (Map<String, Object> it : itemPool) {
+            itemTotalWeight += getInt(it, "drop_weight", 100);
+        }
+
+        // 计算装备池总权重
+        int equipTotalWeight = 0;
+        for (Map<String, Object> eq : equipPool) {
+            equipTotalWeight += getInt(eq, "drop_weight", 100);
+        }
+
         List<Map<String, Object>> resultItems = new ArrayList<>();
-        for (RewardItem reward : rewards) {
-            Map<String, Object> itemInfo = addRewardToWarehouse(userId, reward, config);
+        Random random = new Random();
+
+        for (int i = 0; i < count; i++) {
+            countSinceEquip++;
+            totalExploreCount++;
+            dailyCount++;
+
+            boolean shouldDropEquip = false;
+
+            // 保底判定: 达到保底次数必出装备
+            if (pityCount > 0 && countSinceEquip >= pityCount && !equipPool.isEmpty()) {
+                shouldDropEquip = true;
+                logger.info("用户 {} 在秘境 {} 触发保底(连续{}次未出装备)", userId, realmId, countSinceEquip);
+            }
+            // 常规概率判定
+            else if (random.nextDouble() < equipBaseRate && !equipPool.isEmpty()) {
+                shouldDropEquip = true;
+            }
+
+            Map<String, Object> itemInfo;
+
+            if (shouldDropEquip) {
+                // 按权重随机选择装备
+                Map<String, Object> eqRow = selectByWeight(equipPool, equipTotalWeight, random);
+
+                Equipment equipment = createEquipmentFromRow(userId, eqRow, minLevel);
+                equipmentRepository.save(equipment);
+                warehouseService.addEquipment(userId, equipment.getId());
+
+                itemInfo = new LinkedHashMap<>();
+                itemInfo.put("id", "equip_" + getInt(eqRow, "equip_pre_id", 0));
+                itemInfo.put("name", getString(eqRow, "name", ""));
+                itemInfo.put("icon", getString(eqRow, "icon", "⚔️"));
+                itemInfo.put("quality", getInt(eqRow, "quality", 3));
+                itemInfo.put("rewardType", "equipment");
+                itemInfo.put("type", "equipment");
+                itemInfo.put("equipPreId", getInt(eqRow, "equip_pre_id", 0));
+                itemInfo.put("itemPreId", 0);
+                itemInfo.put("count", 1);
+                itemInfo.put("equipmentId", equipment.getId());
+
+                countSinceEquip = 0;
+                totalEquipCount++;
+                lastEquipTime = System.currentTimeMillis();
+            } else {
+                if (itemPool.isEmpty()) continue;
+
+                // 按权重随机选择道具
+                Map<String, Object> itRow = selectByWeight(itemPool, itemTotalWeight, random);
+
+                String itemId = getString(itRow, "item_id", "");
+                String name = getString(itRow, "name", "");
+                String icon = getString(itRow, "icon", "📦");
+                String subType = getString(itRow, "item_sub_type", "material");
+                int quality = getInt(itRow, "quality", 1);
+                String desc = getString(itRow, "description", "秘境探索获得的物品");
+
+                int itemPreId = getInt(itRow, "item_pre_id", 0);
+
+                itemInfo = new LinkedHashMap<>();
+                itemInfo.put("id", itemId);
+                itemInfo.put("name", name);
+                itemInfo.put("icon", icon);
+                itemInfo.put("quality", quality);
+                itemInfo.put("rewardType", "item");
+                itemInfo.put("type", subType);
+                itemInfo.put("equipPreId", 0);
+                itemInfo.put("itemPreId", itemPreId);
+                itemInfo.put("count", 1);
+
+                Warehouse.WarehouseItem wItem = new Warehouse.WarehouseItem();
+                wItem.setItemId(itemId);
+                wItem.setName(name);
+                wItem.setIcon(icon);
+                wItem.setItemType(subType);
+                wItem.setQuality(qualityName(quality));
+                wItem.setCount(1);
+                wItem.setMaxStack(99);
+                wItem.setUsable(!"material".equals(subType));
+                wItem.setDescription(desc);
+                warehouseService.addItem(userId, wItem);
+            }
+
             resultItems.add(itemInfo);
         }
-        
-        // 合并相同物品
+
+        // 保存保底计数
+        realmConfigRepo.savePity(userId, realmId, countSinceEquip,
+                totalExploreCount, totalEquipCount, lastEquipTime, dailyCount);
+
         resultItems = mergeResults(resultItems);
-        
-        logger.info("用户 {} 在秘境 {} 探索 {} 次，花费 {} 黄金，获得 {} 种物品", 
-                   userId, realmId, count, totalCost, resultItems.size());
-        
+
+        logger.info("用户 {} 在秘境 {} 探索 {} 次，花费 {} 黄金，获得 {} 种物品，保底计数: {}/{}",
+                userId, realmId, count, totalCost, resultItems.size(), countSinceEquip, pityCount);
+
         ExploreResult result = new ExploreResult();
         result.setSuccess(true);
         result.setTotalCost(totalCost);
         result.setRemainingGold(resource.getGold() != null ? resource.getGold().intValue() : 0);
         result.setItems(resultItems);
-        
+        result.setPityCount(countSinceEquip);
+        result.setPityLimit(pityCount);
+
         return result;
     }
-    
+
+    // ==================== 私有方法 ====================
+
     /**
-     * 生成奖励
+     * 按权重随机选择
      */
-    private List<RewardItem> generateRewards(RealmConfig config, int count) {
-        List<RewardItem> results = new ArrayList<>();
-        Random random = new Random();
-        
-        // 按品质分类
-        List<RewardItem> orangeItems = new ArrayList<>();
-        List<RewardItem> purpleItems = new ArrayList<>();
-        List<RewardItem> blueItems = new ArrayList<>();
-        List<RewardItem> greenItems = new ArrayList<>();
-        List<RewardItem> whiteItems = new ArrayList<>();
-        
-        for (RewardItem r : config.rewards) {
-            switch (r.quality) {
-                case "orange": orangeItems.add(r); break;
-                case "purple": purpleItems.add(r); break;
-                case "blue": blueItems.add(r); break;
-                case "green": greenItems.add(r); break;
-                case "white": whiteItems.add(r); break;
+    private Map<String, Object> selectByWeight(List<Map<String, Object>> pool, int totalWeight, Random random) {
+        if (pool.size() == 1) return pool.get(0);
+
+        int roll = random.nextInt(totalWeight);
+        int cumulative = 0;
+        for (Map<String, Object> row : pool) {
+            cumulative += getInt(row, "drop_weight", 100);
+            if (roll < cumulative) {
+                return row;
             }
         }
-        
-        for (int i = 0; i < count; i++) {
-            double rand = random.nextDouble();
-            RewardItem selected = null;
-            
-            if (rand < 0.05 && !orangeItems.isEmpty()) {
-                selected = orangeItems.get(random.nextInt(orangeItems.size()));
-            } else if (rand < 0.15 && !purpleItems.isEmpty()) {
-                selected = purpleItems.get(random.nextInt(purpleItems.size()));
-            } else if (rand < 0.40 && !blueItems.isEmpty()) {
-                selected = blueItems.get(random.nextInt(blueItems.size()));
-            } else if (rand < 0.70 && !greenItems.isEmpty()) {
-                selected = greenItems.get(random.nextInt(greenItems.size()));
-            } else if (!whiteItems.isEmpty()) {
-                selected = whiteItems.get(random.nextInt(whiteItems.size()));
-            }
-            
-            if (selected == null && !config.rewards.isEmpty()) {
-                selected = config.rewards.get(random.nextInt(config.rewards.size()));
-            }
-            
-            if (selected != null) {
-                results.add(selected);
-            }
-        }
-        
-        return results;
+        return pool.get(pool.size() - 1);
     }
-    
-    /**
-     * 将奖励添加到仓库
-     */
-    private Map<String, Object> addRewardToWarehouse(String userId, RewardItem reward, RealmConfig config) {
-        Map<String, Object> itemInfo = new HashMap<>();
-        itemInfo.put("id", reward.id);
-        itemInfo.put("name", reward.name);
-        itemInfo.put("icon", reward.icon);
-        itemInfo.put("quality", reward.quality);
-        itemInfo.put("type", reward.type);
-        itemInfo.put("count", 1);
-        
-        if ("equipment".equals(reward.type)) {
-            // 创建装备并加入仓库
-            Equipment equipment = createEquipment(userId, reward, config);
-            equipmentRepository.save(equipment);
-            warehouseService.addEquipment(userId, equipment.getId());
-            itemInfo.put("equipmentId", equipment.getId());
-        } else {
-            // 添加物品到仓库
-            Warehouse.WarehouseItem warehouseItem = new Warehouse.WarehouseItem();
-            warehouseItem.setItemId(reward.id);
-            warehouseItem.setName(reward.name);
-            warehouseItem.setIcon(reward.icon);
-            warehouseItem.setItemType(reward.type);
-            warehouseItem.setQuality(reward.quality);
-            warehouseItem.setCount(1);
-            warehouseItem.setMaxStack(99);
-            warehouseItem.setUsable(!"material".equals(reward.type));
-            warehouseItem.setDescription(getItemDescription(reward));
-            
-            warehouseService.addItem(userId, warehouseItem);
-        }
-        
-        return itemInfo;
-    }
-    
-    /**
-     * 创建装备
-     */
-    private Equipment createEquipment(String userId, RewardItem reward, RealmConfig config) {
+
+    private Equipment createEquipmentFromRow(String userId, Map<String, Object> eqRow, int level) {
         Equipment equipment = new Equipment();
         equipment.setId(UUID.randomUUID().toString());
         equipment.setUserId(userId);
-        equipment.setName(reward.name);
-        equipment.setIcon(reward.icon);
-        equipment.setLevel(config.minLevel);
+        equipment.setName(getString(eqRow, "name", ""));
+        equipment.setIcon(getString(eqRow, "icon", "⚔️"));
+        equipment.setLevel(level);
         equipment.setEquipped(false);
         equipment.setCreateTime(System.currentTimeMillis());
         equipment.setUpdateTime(System.currentTimeMillis());
-        
-        // 设置槽位类型
+
+        String position = getString(eqRow, "position", "武器");
         Equipment.SlotType slotType = new Equipment.SlotType();
-        slotType.setId(reward.slotType);
-        slotType.setName(getSlotTypeName(reward.slotType));
+        slotType.setId(positionToSlot(position));
+        slotType.setName(position);
         equipment.setSlotType(slotType);
-        
-        // 设置品质
+
+        int qId = getInt(eqRow, "quality", 3);
         Equipment.Quality quality = new Equipment.Quality();
-        quality.setId(getQualityId(reward.quality));
-        quality.setName(getQualityName(reward.quality));
-        quality.setColor(getQualityColor(reward.quality));
-        quality.setMultiplier(getQualityMultiplier(reward.quality));
+        quality.setId(qId);
+        quality.setName(qualityName(qId));
+        quality.setColor(qualityColor(qId));
+        quality.setMultiplier(qualityMultiplier(qId));
         equipment.setQuality(quality);
-        
-        // 设置套装信息
+
+        String setName = getString(eqRow, "set_name", "");
         Equipment.SetInfo setInfo = new Equipment.SetInfo();
-        setInfo.setSetId(config.id);
-        setInfo.setSetName(config.name.replace("秘宝", "套装"));
-        setInfo.setSetLevel(config.minLevel);
+        setInfo.setSetId(setName);
+        setInfo.setSetName(setName + "套装");
+        setInfo.setSetLevel(level);
         equipment.setSetInfo(setInfo);
-        
-        // 设置基础属性
-        Equipment.Attributes baseAttrs = generateBaseAttributes(reward.slotType, config.minLevel, reward.quality);
-        equipment.setBaseAttributes(baseAttrs);
-        
-        // 设置来源
+
+        Equipment.Attributes attrs = new Equipment.Attributes();
+        attrs.setAttack(getInt(eqRow, "attack", 0));
+        attrs.setDefense(getInt(eqRow, "defense", 0));
+        attrs.setHp(getInt(eqRow, "soldier_hp", 0));
+        attrs.setMobility(getInt(eqRow, "mobility", 0));
+        equipment.setBaseAttributes(attrs);
+
         Equipment.Source source = new Equipment.Source();
         source.setType("SECRET_REALM");
-        source.setName("秘境探索");
-        source.setDetail(config.name);
+        source.setName("秘境产出");
+        source.setDetail(setName + "套 - " + position);
         equipment.setSource(source);
-        
-        equipment.setDescription(config.name + "探索获得的" + getQualityName(reward.quality) + "装备");
-        
+
+        String setEffect3 = getString(eqRow, "set_effect_3", "");
+        String setEffect6 = getString(eqRow, "set_effect_6", "");
+        equipment.setDescription(setName + "套 - " + position + " [3件:" + setEffect3 + " 6件:" + setEffect6 + "]");
+
         return equipment;
     }
-    
-    /**
-     * 生成基础属性
-     */
-    private Equipment.Attributes generateBaseAttributes(int slotType, int level, String quality) {
-        Equipment.Attributes attrs = new Equipment.Attributes();
-        double multiplier = getQualityMultiplier(quality);
-        int base = (int) (level * 2 * multiplier);
-        
-        switch (slotType) {
-            case 1: // 武器
-                attrs.setAttack(base * 2);
-                attrs.setValor((int)(base * 0.5));
-                break;
-            case 2: // 戒指
-                attrs.setAttack(base);
-                attrs.setCritRate(0.05 * multiplier);
-                break;
-            case 3: // 铠甲
-                attrs.setDefense(base * 2);
-                attrs.setHp(base * 10);
-                break;
-            case 4: // 项链
-                attrs.setCommand(base);
-                attrs.setHp(base * 5);
-                break;
-            case 5: // 头盔
-                attrs.setDefense(base);
-                attrs.setValor((int)(base * 0.3));
-                break;
-            case 6: // 鞋子
-                attrs.setMobility((int)(level * 0.1 * multiplier));
-                attrs.setDodge(0.03 * multiplier);
-                break;
+
+    private int positionToSlot(String position) {
+        switch (position) {
+            case "武器": return 1;
+            case "戒指": return 2;
+            case "铠甲": return 3;
+            case "项链": return 4;
+            case "头盔": return 5;
+            case "鞋子": return 6;
+            default: return 1;
         }
-        
-        return attrs;
     }
-    
-    /**
-     * 合并相同物品的结果
-     */
+
     private List<Map<String, Object>> mergeResults(List<Map<String, Object>> items) {
         Map<String, Map<String, Object>> merged = new LinkedHashMap<>();
-        
         for (Map<String, Object> item : items) {
-            String key = (String) item.get("id");
-            if ("equipment".equals(item.get("type"))) {
-                // 装备不合并，每件单独显示
+            String key = String.valueOf(item.get("id"));
+            if ("equipment".equals(item.get("rewardType"))) {
                 merged.put(key + "_" + System.nanoTime(), item);
             } else {
                 if (merged.containsKey(key)) {
                     Map<String, Object> existing = merged.get(key);
                     existing.put("count", (int) existing.get("count") + 1);
                 } else {
-                    merged.put(key, new HashMap<>(item));
+                    merged.put(key, new LinkedHashMap<>(item));
                 }
             }
         }
-        
-        // 按品质排序
         List<Map<String, Object>> result = new ArrayList<>(merged.values());
         result.sort((a, b) -> {
-            int qa = getQualityOrder((String) a.get("quality"));
-            int qb = getQualityOrder((String) b.get("quality"));
-            return qa - qb;
+            Object qa = a.get("quality");
+            Object qb = b.get("quality");
+            int qai = qa instanceof Integer ? (Integer) qa : 1;
+            int qbi = qb instanceof Integer ? (Integer) qb : 1;
+            return qbi - qai;
         });
-        
         return result;
     }
-    
-    private int getQualityOrder(String quality) {
-        switch (quality) {
-            case "orange": return 0;
-            case "purple": return 1;
-            case "blue": return 2;
-            case "green": return 3;
-            case "white": return 4;
-            default: return 5;
-        }
-    }
-    
-    private String getSlotTypeName(int slotType) {
-        switch (slotType) {
-            case 1: return "武器";
-            case 2: return "戒指";
-            case 3: return "铠甲";
-            case 4: return "项链";
-            case 5: return "头盔";
-            case 6: return "鞋子";
-            default: return "装备";
-        }
-    }
-    
-    private int getQualityId(String quality) {
-        switch (quality) {
-            case "white": return 1;
-            case "green": return 2;
-            case "blue": return 3;
-            case "purple": return 4;
-            case "orange": return 5;
-            default: return 1;
-        }
-    }
-    
-    private String getQualityName(String quality) {
-        switch (quality) {
-            case "white": return "普通";
-            case "green": return "优秀";
-            case "blue": return "精良";
-            case "purple": return "史诗";
-            case "orange": return "传说";
+
+    private String qualityName(int q) {
+        switch (q) {
+            case 1: return "普通"; case 2: return "优秀"; case 3: return "精良";
+            case 4: return "稀有"; case 5: return "史诗"; case 6: return "传说";
             default: return "普通";
         }
     }
-    
-    private String getQualityColor(String quality) {
-        switch (quality) {
-            case "white": return "#ffffff";
-            case "green": return "#00ff00";
-            case "blue": return "#0088ff";
-            case "purple": return "#aa00ff";
-            case "orange": return "#ff8800";
-            default: return "#ffffff";
+
+    private String qualityColor(int q) {
+        switch (q) {
+            case 1: return "#aaaaaa"; case 2: return "#55ff55"; case 3: return "#5599ff";
+            case 4: return "#ff4444"; case 5: return "#cc77ff"; case 6: return "#ff9933";
+            default: return "#aaaaaa";
         }
     }
-    
-    private double getQualityMultiplier(String quality) {
-        switch (quality) {
-            case "white": return 1.0;
-            case "green": return 1.2;
-            case "blue": return 1.5;
-            case "purple": return 2.0;
-            case "orange": return 3.0;
+
+    private double qualityMultiplier(int q) {
+        switch (q) {
+            case 1: return 1.0; case 2: return 1.2; case 3: return 1.5;
+            case 4: return 1.8; case 5: return 2.0; case 6: return 3.0;
             default: return 1.0;
         }
     }
-    
-    private String getItemDescription(RewardItem reward) {
-        switch (reward.type) {
-            case "material":
-                if (reward.id.contains("enhance_stone")) {
-                    return "用于强化装备，可提升装备属性";
-                } else if (reward.id.contains("ingot")) {
-                    return "珍贵的金属材料，可用于制作或出售";
-                } else {
-                    return "珍贵的材料";
-                }
-            case "consumable":
-                if (reward.id.contains("exp_pill")) {
-                    return "使用后可获得经验值";
-                } else if (reward.id.contains("recruit_token")) {
-                    return "用于招募武将";
-                } else if (reward.id.contains("special_train")) {
-                    return "使用后可对武将进行特训";
-                } else {
-                    return "可使用的消耗品";
-                }
-            default:
-                return "秘境探索获得的物品";
-        }
-    }
-    
-    // ==================== 内部类 ====================
-    
-    public static class RealmConfig {
-        String id;
-        String name;
-        int minLevel;
-        int costGold;
-        List<RewardItem> rewards = new ArrayList<>();
-        
-        public RealmConfig(String id, String name, int minLevel, int costGold) {
-            this.id = id;
-            this.name = name;
-            this.minLevel = minLevel;
-            this.costGold = costGold;
-        }
-        
-        public void addReward(RewardItem item) {
-            rewards.add(item);
-        }
-    }
-    
-    public static class RewardItem {
-        String id;
-        String name;
-        String icon;
-        String type; // equipment, material, consumable
-        String quality; // white, green, blue, purple, orange
-        int slotType; // 装备槽位 (仅装备有效)
-        
-        public RewardItem(String id, String name, String icon, String type, String quality, int slotType) {
-            this.id = id;
-            this.name = name;
-            this.icon = icon;
-            this.type = type;
-            this.quality = quality;
-            this.slotType = slotType;
-        }
-    }
-    
+
+    // ==================== 结果模型 ====================
+
     public static class ExploreResult {
         private boolean success;
         private int totalCost;
         private int remainingGold;
         private List<Map<String, Object>> items;
-        
+        private int pityCount;
+        private int pityLimit;
+
         public boolean isSuccess() { return success; }
         public void setSuccess(boolean success) { this.success = success; }
-        
         public int getTotalCost() { return totalCost; }
         public void setTotalCost(int totalCost) { this.totalCost = totalCost; }
-        
         public int getRemainingGold() { return remainingGold; }
         public void setRemainingGold(int remainingGold) { this.remainingGold = remainingGold; }
-        
         public List<Map<String, Object>> getItems() { return items; }
         public void setItems(List<Map<String, Object>> items) { this.items = items; }
+        public int getPityCount() { return pityCount; }
+        public void setPityCount(int pityCount) { this.pityCount = pityCount; }
+        public int getPityLimit() { return pityLimit; }
+        public void setPityLimit(int pityLimit) { this.pityLimit = pityLimit; }
     }
 }

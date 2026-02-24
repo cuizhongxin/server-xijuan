@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.dao.GeneralTemplateMapper">
+
+    <select id="listByQualityCode" resultType="java.util.HashMap">
+        SELECT t.id AS templateId, t.name, t.faction, t.slot_id AS slotId, t.sort_order AS sortOrder,
+               s.quality_code AS qualityCode, s.troop_type AS troopType, s.type,
+               s.base_attack AS baseAttack, s.base_defense AS baseDefense, s.base_valor AS baseValor,
+               s.base_command AS baseCommand, s.base_dodge AS baseDodge, s.base_mobility AS baseMobility,
+               s.base_power AS basePower
+        FROM general_template t
+        INNER JOIN general_slot s ON t.slot_id = s.id
+        WHERE s.quality_code = #{qualityCode}
+        ORDER BY t.sort_order
+    </select>
+
+    <select id="listRecruitableByQualityAndFaction" resultType="java.util.HashMap">
+        SELECT t.id AS templateId, t.name, t.faction, t.slot_id AS slotId, t.sort_order AS sortOrder,
+               s.quality_code AS qualityCode, s.troop_type AS troopType, s.type,
+               s.base_attack AS baseAttack, s.base_defense AS baseDefense, s.base_valor AS baseValor,
+               s.base_command AS baseCommand, s.base_dodge AS baseDodge, s.base_mobility AS baseMobility,
+               s.base_power AS basePower
+        FROM general_template t
+        INNER JOIN general_slot s ON t.slot_id = s.id
+        WHERE s.quality_code = #{qualityCode}
+          AND t.faction IN
+        <foreach collection="factions" item="f" open="(" separator="," close=")">
+            #{f}
+        </foreach>
+        ORDER BY t.sort_order
+    </select>
+
+</mapper>

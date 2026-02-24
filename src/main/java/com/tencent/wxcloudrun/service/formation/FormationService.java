@@ -69,6 +69,45 @@ public class FormationService {
                     slotInfo.put("power", general.getAttributes() != null ? general.getAttributes().getPower() : 0);
                     slotInfo.put("type", general.getType());
                     slotInfo.put("troopType", general.getTroopType());
+                    
+                    // 士兵信息
+                    if (general.getSoldiers() != null) {
+                        General.Soldiers soldiers = general.getSoldiers();
+                        slotInfo.put("soldierCount", soldiers.getCount() != null ? soldiers.getCount() : 0);
+                        slotInfo.put("maxSoldierCount", soldiers.getMaxCount() != null ? soldiers.getMaxCount() : 0);
+                        if (soldiers.getType() != null) {
+                            slotInfo.put("soldierTypeName", soldiers.getType().getName());
+                            slotInfo.put("soldierTypeId", soldiers.getType().getId());
+                        }
+                        slotInfo.put("soldierRank", soldiers.getRank() != null ? soldiers.getRank() : 1);
+                        int soldierHp = 100;
+                        if (soldiers.getRankInfo() != null && soldiers.getRankInfo().getPowerMultiplier() != null) {
+                            soldierHp = (int)(100 * soldiers.getRankInfo().getPowerMultiplier());
+                        }
+                        slotInfo.put("soldierHp", soldierHp);
+                    } else {
+                        slotInfo.put("soldierCount", 0);
+                        slotInfo.put("maxSoldierCount", 0);
+                        slotInfo.put("soldierHp", 100);
+                    }
+                    
+                    // 装备加成
+                    Map<String, Integer> equipBonus = calculateEquipmentBonus(general.getId());
+                    slotInfo.put("equipAttack", equipBonus.getOrDefault("attack", 0));
+                    slotInfo.put("equipDefense", equipBonus.getOrDefault("defense", 0));
+                    slotInfo.put("equipHp", equipBonus.getOrDefault("hp", 0));
+                    slotInfo.put("equipMobility", equipBonus.getOrDefault("mobility", 0));
+                    
+                    // 计算综合HP: 基础power×10 + 士兵数×士兵HP/10
+                    int basePower = general.getAttributes() != null && general.getAttributes().getPower() != null
+                        ? general.getAttributes().getPower() : 500;
+                    int soldierCount = general.getSoldiers() != null && general.getSoldiers().getCount() != null
+                        ? general.getSoldiers().getCount() : 0;
+                    int soldierHp = (Integer) slotInfo.get("soldierHp");
+                    int totalHp = basePower * 10 + (soldierCount * soldierHp) / 10;
+                    slotInfo.put("hp", totalHp);
+                    slotInfo.put("maxHp", totalHp);
+                    
                     slotInfo.put("empty", false);
                 } else {
                     slotInfo.put("empty", true);

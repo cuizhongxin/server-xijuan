@@ -13,7 +13,7 @@ import java.util.Map;
  * 精炼控制器 - 装备强化、品质提升、套装融合、装备分解
  */
 @RestController
-@RequestMapping("/api/refine")
+@RequestMapping("/refine")
 public class RefineController {
 
     @Autowired

@@ -8,20 +8,34 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 import java.util.Map;
 
-/**
- * 秘境探险控制器
- */
 @RestController
 @RequestMapping("/secret-realm")
 public class SecretRealmController {
-    
+
     private static final Logger logger = LoggerFactory.getLogger(SecretRealmController.class);
-    
+
     @Autowired
     private SecretRealmService secretRealmService;
-    
+
+    /**
+     * 获取所有秘境列表
+     */
+    @GetMapping("/list")
+    public ApiResponse<List<Map<String, Object>>> listRealms() {
+        return ApiResponse.success(secretRealmService.listRealms());
+    }
+
+    /**
+     * 获取秘境奖励预览(12件: 6装备+6道具)
+     */
+    @GetMapping("/rewards")
+    public ApiResponse<List<Map<String, Object>>> getRewards(@RequestParam String realmId) {
+        return ApiResponse.success(secretRealmService.getRealmRewards(realmId));
+    }
+
     /**
      * 探索秘境
      */
@@ -30,16 +44,14 @@ public class SecretRealmController {
                                                                   HttpServletRequest request) {
         Long userIdLong = (Long) request.getAttribute("userId");
         String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
-        
+
         String realmId = (String) body.get("realmId");
-        Integer count = (Integer) body.get("count");
-        
-        if (count == null) count = 1;
-        
+        Integer count = body.get("count") instanceof Integer ? (Integer) body.get("count") : 1;
+
         logger.info("秘境探索, userId: {}, realmId: {}, count: {}", userId, realmId, count);
-        
+
         SecretRealmService.ExploreResult result = secretRealmService.explore(userId, realmId, count);
-        
+
         return ApiResponse.success(result);
     }
 }

@@ -15,7 +15,7 @@ import java.util.Map;
  * 国战控制器
  */
 @RestController
-@RequestMapping("/api/nationwar")
+@RequestMapping("/nationwar")
 public class NationWarController {
     
     @Autowired
