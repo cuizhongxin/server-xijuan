@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.dao.GameServerMapper">
+
+    <select id="findAllServers" resultType="java.util.HashMap">
+        SELECT id, server_name AS serverName, server_status AS serverStatus,
+               max_players AS maxPlayers, current_players AS currentPlayers,
+               open_time AS openTime
+        FROM game_server ORDER BY id ASC
+    </select>
+
+    <select id="findServerById" resultType="java.util.HashMap">
+        SELECT id, server_name AS serverName, server_status AS serverStatus
+        FROM game_server WHERE id = #{id}
+    </select>
+
+    <select id="findPlayerServers" resultType="java.util.HashMap">
+        SELECT ps.server_id AS serverId, gs.server_name AS serverName,
+               gs.server_status AS serverStatus,
+               ps.player_level AS playerLevel, ps.last_login AS lastLogin
+        FROM player_server ps
+        JOIN game_server gs ON ps.server_id = gs.id
+        WHERE ps.user_id = #{userId}
+        ORDER BY ps.last_login DESC
+    </select>
+
+    <select id="findPlayerServer" resultType="java.util.HashMap">
+        SELECT ps.server_id AS serverId, ps.player_level AS playerLevel
+        FROM player_server ps
+        WHERE ps.user_id = #{userId} AND ps.server_id = #{serverId}
+    </select>
+
+    <insert id="insertPlayerServer">
+        INSERT INTO player_server (user_id, server_id, player_level, last_login, create_time)
+        VALUES (#{userId}, #{serverId}, 1, #{createTime}, #{createTime})
+    </insert>
+
+    <update id="updatePlayerLogin">
+        UPDATE player_server SET player_level = #{level}, last_login = #{lastLogin}
+        WHERE user_id = #{userId} AND server_id = #{serverId}
+    </update>
+
+    <update id="incrementServerPlayers">
+        UPDATE game_server SET current_players = current_players + 1 WHERE id = #{serverId}
+    </update>
+
+</mapper>

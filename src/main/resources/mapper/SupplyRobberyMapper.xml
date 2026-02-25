@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.dao.SupplyRobberyMapper">
+
+    <insert id="insert">
+        INSERT INTO supply_robbery
+            (attacker_id, attacker_name, defender_id, defender_name,
+             transport_id, grade_name, victory,
+             silver_stolen, paper_stolen, food_stolen, metal_stolen,
+             create_time, create_date)
+        VALUES
+            (#{attackerId}, #{attackerName}, #{defenderId}, #{defenderName},
+             #{transportId}, #{gradeName}, #{victory},
+             #{silverStolen}, #{paperStolen}, #{foodStolen}, #{metalStolen},
+             #{createTime}, #{createDate})
+    </insert>
+
+    <select id="findByAttacker" resultType="java.util.HashMap">
+        SELECT id, attacker_id AS attackerId, attacker_name AS attackerName,
+               defender_id AS defenderId, defender_name AS defenderName,
+               transport_id AS transportId, grade_name AS gradeName,
+               victory, silver_stolen AS silverStolen, paper_stolen AS paperStolen,
+               food_stolen AS foodStolen, metal_stolen AS metalStolen,
+               create_time AS createTime
+        FROM supply_robbery
+        WHERE attacker_id = #{attackerId}
+        ORDER BY create_time DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findByDefender" resultType="java.util.HashMap">
+        SELECT id, attacker_id AS attackerId, attacker_name AS attackerName,
+               defender_id AS defenderId, defender_name AS defenderName,
+               transport_id AS transportId, grade_name AS gradeName,
+               victory, silver_stolen AS silverStolen, paper_stolen AS paperStolen,
+               food_stolen AS foodStolen, metal_stolen AS metalStolen,
+               create_time AS createTime
+        FROM supply_robbery
+        WHERE defender_id = #{defenderId}
+        ORDER BY create_time DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="countTodayByAttacker" resultType="int">
+        SELECT COUNT(1)
+        FROM supply_robbery
+        WHERE attacker_id = #{attackerId} AND create_date = #{createDate}
+    </select>
+
+</mapper>

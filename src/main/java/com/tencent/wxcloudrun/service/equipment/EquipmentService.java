@@ -3,7 +3,9 @@ package com.tencent.wxcloudrun.service.equipment;
 import com.tencent.wxcloudrun.config.EquipmentConfig;
 import com.tencent.wxcloudrun.exception.BusinessException;
 import com.tencent.wxcloudrun.model.Equipment;
+import com.tencent.wxcloudrun.model.EquipmentPre;
 import com.tencent.wxcloudrun.model.SecretRealm;
+import com.tencent.wxcloudrun.repository.EquipmentPreRepository;
 import com.tencent.wxcloudrun.repository.EquipmentRepository;
 import com.tencent.wxcloudrun.repository.UserMaterialRepository;
 import com.tencent.wxcloudrun.repository.UserResourceRepository;
@@ -34,6 +36,9 @@ public class EquipmentService {
     
     @Autowired
     private EquipmentConfig equipmentConfig;
+    
+    @Autowired
+    private EquipmentPreRepository equipmentPreRepository;
     
     private final Random random = new Random();
     
@@ -275,6 +280,170 @@ public class EquipmentService {
         return equipmentRepository.save(equipment);
     }
     
+    // ==================== 军械局制作（基于 equipment_pre 模板）====================
+
+    /**
+     * 获取所有可在军械局制作的装备列表
+     */
+    public List<Map<String, Object>> getCraftableEquipmentList() {
+        List<EquipmentPre> craftable = equipmentPreRepository.findCraftable();
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (EquipmentPre pre : craftable) {
+            Map<String, Object> item = new HashMap<>();
+            item.put("preId", pre.getId());
+            item.put("name", pre.getName());
+            item.put("level", pre.getLevel());
+            item.put("position", pre.getPosition());
+            item.put("setName", pre.getSetName());
+            item.put("setEffect3", pre.getSetEffect3());
+            item.put("setEffect6", pre.getSetEffect6());
+            item.put("attack", pre.getAttack());
+            item.put("defense", pre.getDefense());
+            item.put("soldierHp", pre.getSoldierHp());
+            item.put("mobility", pre.getMobility());
+            item.put("cost", getArsenalCraftCost(pre.getLevel()));
+            result.add(item);
+        }
+        return result;
+    }
+
+    /**
+     * 军械局制作装备（基于 equipment_pre 模板）
+     */
+    public Equipment craftByPreId(String userId, Integer preId) {
+        EquipmentPre pre = equipmentPreRepository.findById(preId);
+        if (pre == null) {
+            throw new BusinessException(400, "装备模板不存在");
+        }
+        if (!"手工制作".equals(pre.getSource())) {
+            throw new BusinessException(400, "该装备不可手工制作");
+        }
+
+        Map<String, Integer> cost = getArsenalCraftCost(pre.getLevel());
+
+        UserResource resource = resourceRepository.findByUserId(userId);
+        if (resource == null) {
+            throw new BusinessException(400, "资源信息异常");
+        }
+
+        long silver = resource.getSilver() != null ? resource.getSilver() : 0;
+        long paper  = resource.getPaper()  != null ? resource.getPaper()  : 0;
+        long metal  = resource.getMetal()  != null ? resource.getMetal()  : 0;
+        long wood   = resource.getWood()   != null ? resource.getWood()   : 0;
+
+        int needSilver = cost.getOrDefault("silver", 0);
+        int needPaper  = cost.getOrDefault("paper",  0);
+        int needMetal  = cost.getOrDefault("metal",  0);
+        int needWood   = cost.getOrDefault("wood",   0);
+
+        if (silver < needSilver) throw new BusinessException(400, "银币不足，需要" + needSilver);
+        if (paper  < needPaper)  throw new BusinessException(400, "纸张不足，需要" + needPaper);
+        if (metal  < needMetal)  throw new BusinessException(400, "金属不足，需要" + needMetal);
+        if (wood   < needWood)   throw new BusinessException(400, "木材不足，需要" + needWood);
+
+        resource.setSilver(silver - needSilver);
+        resource.setPaper(paper   - needPaper);
+        resource.setMetal(metal   - needMetal);
+        resource.setWood(wood     - needWood);
+        resourceRepository.save(resource);
+
+        String equipmentId = "equip_" + System.currentTimeMillis() + "_" +
+                UUID.randomUUID().toString().substring(0, 8);
+
+        int slotTypeId = pre.getSlotTypeId();
+        Equipment.SlotType slotType = equipmentConfig.getSlotType(slotTypeId);
+        int qualityId = pre.getDefaultQualityId();
+        Equipment.Quality quality = equipmentConfig.getQuality(qualityId);
+
+        Equipment.SetInfo setInfo = null;
+        if (pre.getSetName() != null && !pre.getSetName().isEmpty()) {
+            setInfo = Equipment.SetInfo.builder()
+                    .setId("SET_" + pre.getSetName())
+                    .setName(pre.getSetName())
+                    .setLevel(pre.getLevel())
+                    .threeSetEffect(pre.getSetEffect3())
+                    .sixSetEffect(pre.getSetEffect6())
+                    .build();
+        }
+
+        Equipment.Attributes baseAttributes = Equipment.Attributes.builder()
+                .attack(pre.getAttack() != null ? pre.getAttack() : 0)
+                .defense(pre.getDefense() != null ? pre.getDefense() : 0)
+                .hp(pre.getSoldierHp() != null ? pre.getSoldierHp() : 0)
+                .mobility(pre.getMobility() != null ? pre.getMobility() : 0)
+                .build();
+
+        Equipment equipment = Equipment.builder()
+                .id(equipmentId)
+                .userId(userId)
+                .name(pre.getName())
+                .slotType(slotType)
+                .level(pre.getLevel())
+                .quality(quality)
+                .setInfo(setInfo)
+                .baseAttributes(baseAttributes)
+                .bonusAttributes(Equipment.Attributes.builder().build())
+                .source(Equipment.Source.builder()
+                        .type("CRAFT")
+                        .name("军械局制作")
+                        .detail(pre.getSetName() != null ? pre.getSetName() + "套装" : "手工制作")
+                        .build())
+                .equipped(false)
+                .equippedGeneralId(null)
+                .icon(slotType.getIcon())
+                .description(String.format("%s - %s级%s装备",
+                        pre.getSetName() != null ? pre.getSetName() + "套装" : "制作装备",
+                        pre.getLevel(), quality.getName()))
+                .createTime(System.currentTimeMillis())
+                .updateTime(System.currentTimeMillis())
+                .build();
+
+        logger.info("用户 {} 在军械局制作装备: {} (preId={})", userId, pre.getName(), preId);
+        return equipmentRepository.save(equipment);
+    }
+
+    /**
+     * 军械局制作资源消耗（纸张/金属/银币/木材）
+     * 等级越高消耗越多
+     */
+    public Map<String, Integer> getArsenalCraftCost(Integer level) {
+        Map<String, Integer> cost = new HashMap<>();
+        if (level == null) level = 40;
+        switch (level) {
+            case 40:
+                cost.put("paper", 50);
+                cost.put("metal", 100);
+                cost.put("silver", 5000);
+                cost.put("wood", 80);
+                break;
+            case 60:
+                cost.put("paper", 120);
+                cost.put("metal", 250);
+                cost.put("silver", 15000);
+                cost.put("wood", 200);
+                break;
+            case 80:
+                cost.put("paper", 250);
+                cost.put("metal", 500);
+                cost.put("silver", 40000);
+                cost.put("wood", 400);
+                break;
+            case 100:
+                cost.put("paper", 500);
+                cost.put("metal", 1000);
+                cost.put("silver", 100000);
+                cost.put("wood", 800);
+                break;
+            default:
+                int factor = Math.max(1, level / 20);
+                cost.put("paper", factor * 60);
+                cost.put("metal", factor * 120);
+                cost.put("silver", factor * 6000);
+                cost.put("wood", factor * 100);
+        }
+        return cost;
+    }
+
     /**
      * 获取制作所需材料
      */

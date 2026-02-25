@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 /**
  * 副本守关NPC
  */
@@ -114,6 +116,11 @@ public class DungeonNpc {
      * 掉落概率（百分比）
      */
     private Integer dropRate;
+
+    /**
+     * 可掉落的 equipment_pre ID 列表
+     */
+    private List<Integer> dropEquipPreIds;
     
     /**
      * 是否是BOSS（最后一个或中间特殊NPC）

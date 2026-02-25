@@ -108,6 +108,12 @@ public class Equipment {
     private Attributes qualityAttributes;
     
     /**
+     * 是否绑定到当前主公（绑定后不可交易）
+     */
+    @Builder.Default
+    private Boolean bound = false;
+    
+    /**
      * 是否锁定（防止误分解）
      */
     @Builder.Default

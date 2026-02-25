@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.dao.PeerageConfigMapper">
+
+    <select id="findAllPeerage" resultType="java.util.HashMap">
+        SELECT id, rank_name AS rankName, fame_required AS fameRequired,
+               level_required AS levelRequired, max_soldier_tier AS maxSoldierTier,
+               color, sort_order AS sortOrder
+        FROM peerage_config ORDER BY sort_order ASC
+    </select>
+
+    <select id="findAllSoldierTiers" resultType="java.util.HashMap">
+        SELECT id, tier, troop_category AS troopCategory, name, icon,
+               power_multiplier AS powerMultiplier, upgrade_silver AS upgradeSilver,
+               peerage_required AS peerageRequired, description
+        FROM soldier_tier ORDER BY troop_category, tier
+    </select>
+
+    <select id="findSoldierTiersByCategory" resultType="java.util.HashMap">
+        SELECT id, tier, troop_category AS troopCategory, name, icon,
+               power_multiplier AS powerMultiplier, upgrade_silver AS upgradeSilver,
+               peerage_required AS peerageRequired, description
+        FROM soldier_tier
+        WHERE troop_category = #{troopCategory}
+        ORDER BY tier
+    </select>
+
+    <select id="findFameTokenConfig" resultType="java.util.HashMap">
+        SELECT item_id AS itemId, fame_amount AS fameAmount, name
+        FROM fame_token_config WHERE item_id = #{itemId}
+    </select>
+
+    <select id="findAllFameTokenConfigs" resultType="java.util.HashMap">
+        SELECT item_id AS itemId, fame_amount AS fameAmount, name
+        FROM fame_token_config
+    </select>
+
+</mapper>

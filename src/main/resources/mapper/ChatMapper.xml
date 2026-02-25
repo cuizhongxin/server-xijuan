@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.dao.ChatMapper">
+
+    <insert id="insertMessage">
+        INSERT INTO chat_message (sender_id, sender_name, channel, content, create_time)
+        VALUES (#{senderId}, #{senderName}, #{channel}, #{content}, #{createTime})
+    </insert>
+
+    <select id="findRecent" resultType="java.util.HashMap">
+        SELECT id, sender_id AS senderId, sender_name AS senderName,
+               channel, content, create_time AS createTime
+        FROM chat_message
+        WHERE channel = #{channel}
+        ORDER BY create_time DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findSince" resultType="java.util.HashMap">
+        SELECT id, sender_id AS senderId, sender_name AS senderName,
+               channel, content, create_time AS createTime
+        FROM chat_message
+        WHERE channel = #{channel} AND create_time > #{sinceTime}
+        ORDER BY create_time ASC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findActiveAnnouncements" resultType="java.util.HashMap">
+        SELECT id, title, content, priority, create_time AS createTime
+        FROM announcement
+        WHERE active = 1
+          AND (start_time IS NULL OR start_time &lt;= #{now})
+          AND (end_time IS NULL OR end_time >= #{now})
+        ORDER BY priority DESC, id DESC
+    </select>
+
+    <select id="findAnnouncementById" resultType="java.util.HashMap">
+        SELECT id, title, content, priority, create_time AS createTime
+        FROM announcement WHERE id = #{id}
+    </select>
+
+</mapper>

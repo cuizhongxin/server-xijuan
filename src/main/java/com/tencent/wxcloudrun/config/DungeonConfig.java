@@ -6,6 +6,8 @@ import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * 副本配置 - 三国战役（按历史时间顺序）
@@ -350,144 +352,150 @@ public class DungeonConfig {
      */
     private DungeonNpc generateNpc(String dungeonId, int dungeonLevel, int index, int totalCount, 
                                    String[] generals, int baseExp) {
-        // 确定NPC品质
         int qualityId;
         boolean isBoss = false;
         boolean dropEquipment = false;
         String dropType = null;
         Integer dropLevel = null;
         Integer dropRate = null;
+        List<Integer> dropEquipPreIds = null;
         
-        // 根据副本等级和NPC位置确定品质和掉落
         switch (dungeonLevel) {
             case 1:
+                if (index == totalCount) {
+                    qualityId = 2;
+                    isBoss = true;
+                    dropEquipment = true;
+                    dropType = "DUNGEON";
+                    dropLevel = 1;
+                    dropRate = 80;
+                    dropEquipPreIds = rangeList(1, 6);
+                } else {
+                    qualityId = 1;
+                }
+                break;
+
             case 5:
             case 10:
-                // 前三个副本：全白色，无掉落
                 qualityId = 1;
                 break;
                 
             case 20:
-                // 20级副本：绿色为主，第10个和第15个(最后)是蓝色
-                if (index == 10) {
-                    qualityId = 3; // 蓝色
-                    isBoss = true;
-                    dropEquipment = true;
-                    dropType = "CRAFT";
-                    dropLevel = 20;
-                    dropRate = 70;
-                } else if (index == totalCount) {
-                    qualityId = 3; // 蓝色
+                if (index == totalCount) {
+                    qualityId = 3;
                     isBoss = true;
                     dropEquipment = true;
                     dropType = "DUNGEON";
                     dropLevel = 20;
-                    dropRate = 50;
+                    dropRate = 60;
+                    dropEquipPreIds = rangeList(7, 12);
                 } else {
-                    qualityId = 2; // 绿色
+                    qualityId = 2;
                 }
                 break;
                 
             case 40:
-                // 40级副本：绿色为主，第10个和第20个(最后)是蓝色
-                if (index == 10) {
-                    qualityId = 3;
-                    isBoss = true;
-                    dropEquipment = true;
-                    dropType = "CRAFT";
-                    dropLevel = 40;
-                    dropRate = 50;
-                } else if (index == totalCount) {
+                if (index == totalCount) {
                     qualityId = 3;
                     isBoss = true;
                     dropEquipment = true;
                     dropType = "DUNGEON";
                     dropLevel = 40;
                     dropRate = 45;
+                    dropEquipPreIds = rangeList(19, 24); // 陷阵套装
                 } else {
                     qualityId = 2;
                 }
                 break;
                 
             case 60:
-                // 60级副本：不再掉落手工装备
+                // NPC#10 掉落50级狂战套装; Boss掉落60级天狼+熊王套装
                 if (index == 10) {
                     qualityId = 3;
                     isBoss = true;
                     dropEquipment = true;
-                    dropType = "BLUE";
+                    dropType = "DUNGEON";
                     dropLevel = 50;
                     dropRate = 40;
+                    dropEquipPreIds = rangeList(31, 36); // 狂战套装
                 } else if (index == totalCount) {
-                    qualityId = 3;
+                    qualityId = 4;
                     isBoss = true;
                     dropEquipment = true;
-                    dropType = "BLUE";
+                    dropType = "DUNGEON";
                     dropLevel = 60;
                     dropRate = 30;
+                    List<Integer> ids = new ArrayList<>(rangeList(37, 42)); // 天狼
+                    ids.addAll(rangeList(55, 60)); // 熊王
+                    dropEquipPreIds = ids;
                 } else {
                     qualityId = 2;
                 }
                 break;
                 
             case 80:
+                // NPC#10 掉落70级天诛/地煞/幽冥; Boss掉落80级雄狮
                 if (index == 10) {
-                    qualityId = 4; // 紫色NPC
+                    qualityId = 4;
                     isBoss = true;
                     dropEquipment = true;
-                    dropType = "RED";
-                    dropLevel = 60;
-                    dropRate = 20;
+                    dropType = "DUNGEON";
+                    dropLevel = 70;
+                    dropRate = 25;
+                    dropEquipPreIds = rangeList(61, 78); // 天诛+地煞+幽冥
                 } else if (index == totalCount) {
                     qualityId = 4;
                     isBoss = true;
                     dropEquipment = true;
-                    dropType = "RED";
+                    dropType = "DUNGEON";
                     dropLevel = 80;
                     dropRate = 15;
+                    dropEquipPreIds = rangeList(79, 84); // 雄狮套装
                 } else {
                     qualityId = 2;
                 }
                 break;
                 
             case 100:
+                // NPC#10 掉落90级圣象; Boss掉落100级玄武
                 if (index == 10) {
-                    qualityId = 4;
+                    qualityId = 5;
                     isBoss = true;
                     dropEquipment = true;
-                    dropType = "RED";
-                    dropLevel = 80;
-                    dropRate = 13;
+                    dropType = "DUNGEON";
+                    dropLevel = 90;
+                    dropRate = 18;
+                    dropEquipPreIds = rangeList(97, 102); // 圣象套装
                 } else if (index == totalCount) {
-                    qualityId = 4;
+                    qualityId = 5;
                     isBoss = true;
                     dropEquipment = true;
-                    dropType = "RED";
+                    dropType = "DUNGEON";
                     dropLevel = 100;
                     dropRate = 10;
+                    dropEquipPreIds = rangeList(109, 114); // 玄武套装
                 } else {
                     qualityId = 2;
                 }
                 break;
                 
             default:
-                // 高级副本（110+）
                 if (index == 10) {
-                    qualityId = 5; // 橙色NPC
+                    qualityId = 5;
                     isBoss = true;
                     dropEquipment = true;
-                    dropType = "ORANGE";
+                    dropType = "DUNGEON";
                     dropLevel = dungeonLevel - 20;
                     dropRate = Math.max(8, 15 - (dungeonLevel - 100) / 20);
                 } else if (index == totalCount) {
                     qualityId = 5;
                     isBoss = true;
                     dropEquipment = true;
-                    dropType = "ORANGE";
+                    dropType = "DUNGEON";
                     dropLevel = dungeonLevel;
                     dropRate = Math.max(5, 12 - (dungeonLevel - 100) / 20);
                 } else {
-                    qualityId = 3; // 蓝色
+                    qualityId = 3;
                 }
         }
         
@@ -554,6 +562,7 @@ public class DungeonConfig {
             .dropType(dropType)
             .dropLevel(dropLevel)
             .dropRate(dropRate)
+            .dropEquipPreIds(dropEquipPreIds)
             .isBoss(isBoss)
             .defeated(false)
             .expReward(expReward)
@@ -614,5 +623,9 @@ public class DungeonConfig {
             }
         }
         return result;
+    }
+
+    private static List<Integer> rangeList(int from, int to) {
+        return IntStream.rangeClosed(from, to).boxed().collect(Collectors.toList());
     }
 }

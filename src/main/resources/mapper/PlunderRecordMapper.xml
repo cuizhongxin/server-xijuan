@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.dao.PlunderRecordMapper">
+
+    <insert id="insert">
+        INSERT INTO plunder_record
+            (attacker_id, attacker_name, attacker_level,
+             defender_id, defender_name, defender_level, defender_faction,
+             is_npc, victory, silver_gain, wood_gain, paper_gain, food_gain, create_time)
+        VALUES
+            (#{attackerId}, #{attackerName}, #{attackerLevel},
+             #{defenderId}, #{defenderName}, #{defenderLevel}, #{defenderFaction},
+             #{isNpc}, #{victory}, #{silverGain}, #{woodGain}, #{paperGain}, #{foodGain}, #{createTime})
+    </insert>
+
+    <select id="findByAttacker" resultType="java.util.HashMap">
+        SELECT id, attacker_id AS attackerId, attacker_name AS attackerName, attacker_level AS attackerLevel,
+               defender_id AS defenderId, defender_name AS defenderName, defender_level AS defenderLevel,
+               defender_faction AS defenderFaction, is_npc AS isNpc, victory,
+               silver_gain AS silverGain, wood_gain AS woodGain,
+               paper_gain AS paperGain, food_gain AS foodGain,
+               create_time AS timestamp
+        FROM plunder_record
+        WHERE attacker_id = #{attackerId}
+        ORDER BY create_time DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findByDefender" resultType="java.util.HashMap">
+        SELECT id, attacker_id AS attackerId, attacker_name AS attackerName, attacker_level AS attackerLevel,
+               defender_id AS defenderId, defender_name AS defenderName, defender_level AS defenderLevel,
+               defender_faction AS defenderFaction, is_npc AS isNpc, victory,
+               silver_gain AS silverGain, wood_gain AS woodGain,
+               paper_gain AS paperGain, food_gain AS foodGain,
+               create_time AS timestamp
+        FROM plunder_record
+        WHERE defender_id = #{defenderId} AND is_npc = 0
+        ORDER BY create_time DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="countRecentAttack" resultType="int">
+        SELECT COUNT(1)
+        FROM plunder_record
+        WHERE attacker_id = #{attackerId}
+          AND defender_id = #{defenderId}
+          AND is_npc = 0
+          AND create_time >= #{sinceTime}
+    </select>
+
+</mapper>

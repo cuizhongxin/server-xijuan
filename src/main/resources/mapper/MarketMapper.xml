@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.dao.MarketMapper">
+
+    <insert id="insertListing">
+        INSERT INTO market_listing (seller_id, seller_name, item_type, item_id, item_name,
+                                     item_icon, item_level, item_quality, item_count,
+                                     price, commission, item_snapshot, status, create_time, update_time)
+        VALUES (#{sellerId}, #{sellerName}, #{itemType}, #{itemId}, #{itemName},
+                #{itemIcon}, #{itemLevel}, #{itemQuality}, #{itemCount},
+                #{price}, #{commission}, #{itemSnapshot}, 'active', #{createTime}, #{createTime})
+    </insert>
+
+    <select id="findById" resultType="java.util.HashMap">
+        SELECT id, seller_id AS sellerId, seller_name AS sellerName,
+               item_type AS itemType, item_id AS itemId, item_name AS itemName,
+               item_icon AS itemIcon, item_level AS itemLevel, item_quality AS itemQuality,
+               item_count AS itemCount, price, commission, item_snapshot AS itemSnapshot,
+               status, buyer_id AS buyerId, buyer_name AS buyerName,
+               create_time AS createTime, update_time AS updateTime
+        FROM market_listing WHERE id = #{id}
+    </select>
+
+    <select id="findActive" resultType="java.util.HashMap">
+        SELECT id, seller_id AS sellerId, seller_name AS sellerName,
+               item_type AS itemType, item_id AS itemId, item_name AS itemName,
+               item_icon AS itemIcon, item_level AS itemLevel, item_quality AS itemQuality,
+               item_count AS itemCount, price, commission,
+               create_time AS createTime
+        FROM market_listing
+        WHERE status = 'active'
+        <if test="itemType != null and itemType != '' and itemType != 'all'">
+            AND item_type = #{itemType}
+        </if>
+        ORDER BY create_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="countActive" resultType="int">
+        SELECT COUNT(*) FROM market_listing WHERE status = 'active'
+        <if test="itemType != null and itemType != '' and itemType != 'all'">
+            AND item_type = #{itemType}
+        </if>
+    </select>
+
+    <select id="findBySeller" resultType="java.util.HashMap">
+        SELECT id, item_type AS itemType, item_id AS itemId, item_name AS itemName,
+               item_icon AS itemIcon, item_level AS itemLevel, item_quality AS itemQuality,
+               item_count AS itemCount, price, commission, status,
+               buyer_name AS buyerName, create_time AS createTime
+        FROM market_listing
+        WHERE seller_id = #{sellerId}
+        ORDER BY create_time DESC
+        LIMIT #{limit}
+    </select>
+
+    <update id="updateStatus">
+        UPDATE market_listing SET status = #{status}, buyer_id = #{buyerId},
+               buyer_name = #{buyerName}, update_time = #{updateTime}
+        WHERE id = #{id}
+    </update>
+
+    <insert id="insertTradeLog">
+        INSERT INTO market_trade_log (listing_id, seller_id, buyer_id, item_type, item_name, price, create_time)
+        VALUES (#{listingId}, #{sellerId}, #{buyerId}, #{itemType}, #{itemName}, #{price}, #{createTime})
+    </insert>
+
+    <select id="findTradeLogs" resultType="java.util.HashMap">
+        SELECT id, listing_id AS listingId, seller_id AS sellerId, buyer_id AS buyerId,
+               item_type AS itemType, item_name AS itemName, price, create_time AS createTime
+        FROM market_trade_log
+        WHERE seller_id = #{userId} OR buyer_id = #{userId}
+        ORDER BY create_time DESC
+        LIMIT #{limit}
+    </select>
+
+</mapper>

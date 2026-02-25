@@ -1,5 +1,6 @@
 package com.tencent.wxcloudrun.service.warehouse;
 
+import com.tencent.wxcloudrun.dao.PeerageConfigMapper;
 import com.tencent.wxcloudrun.exception.BusinessException;
 import com.tencent.wxcloudrun.model.Equipment;
 import com.tencent.wxcloudrun.model.UserResource;
@@ -7,6 +8,7 @@ import com.tencent.wxcloudrun.model.Warehouse;
 import com.tencent.wxcloudrun.repository.EquipmentRepository;
 import com.tencent.wxcloudrun.repository.UserResourceRepository;
 import com.tencent.wxcloudrun.repository.WarehouseRepository;
+import com.tencent.wxcloudrun.service.UserResourceService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +32,12 @@ public class WarehouseService {
     
     @Autowired
     private EquipmentRepository equipmentRepository;
+    
+    @Autowired
+    private UserResourceService userResourceService;
+    
+    @Autowired
+    private PeerageConfigMapper peerageConfigMapper;
     
     /**
      * 获取用户仓库
@@ -398,6 +406,22 @@ public class WarehouseService {
                 effect.put("type", "silver");
                 effect.put("gain", silverGain);
                 effect.put("message", "获得" + silverGain + "银两");
+                break;
+                
+            case "fame_token": // 声望符
+                int itemIdNum = 0;
+                try { itemIdNum = Integer.parseInt(item.getItemId()); } catch (Exception ignored) {}
+                Map<String, Object> fameConfig = peerageConfigMapper.findFameTokenConfig(itemIdNum);
+                long fameGain = 500;
+                if (fameConfig != null) {
+                    Object fa = fameConfig.get("fameAmount");
+                    if (fa instanceof Number) fameGain = ((Number) fa).longValue();
+                }
+                long totalFame = fameGain * count;
+                userResourceService.addFame(userId, totalFame);
+                effect.put("type", "fame");
+                effect.put("gain", totalFame);
+                effect.put("message", "获得" + totalFame + "声望");
                 break;
                 
             default:

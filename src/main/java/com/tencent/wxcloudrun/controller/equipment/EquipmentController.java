@@ -157,21 +157,19 @@ public class EquipmentController {
     // ==================== 装备制作 ====================
     
     /**
-     * 获取制作所需材料
+     * 获取制作所需材料（旧接口）
      */
     @GetMapping("/craft/materials")
     public ApiResponse<Map<String, Integer>> getCraftMaterials(@RequestParam Integer slotTypeId,
                                                                @RequestParam Integer level,
                                                                HttpServletRequest request) {
         logger.info("获取制作材料需求, slotTypeId: {}, level: {}", slotTypeId, level);
-        
         Map<String, Integer> materials = equipmentService.getCraftMaterials(slotTypeId, level);
-        
         return ApiResponse.success(materials);
     }
     
     /**
-     * 制作装备
+     * 制作装备（旧接口）
      */
     @PostMapping("/craft")
     public ApiResponse<Equipment> craftEquipment(@RequestBody Map<String, Object> body,
@@ -182,9 +180,45 @@ public class EquipmentController {
         Integer level = (Integer) body.get("level");
         
         logger.info("制作装备, userId: {}, slotTypeId: {}, level: {}", userId, slotTypeId, level);
-        
         Equipment equipment = equipmentService.craftEquipment(userId, slotTypeId, level);
-        
+        return ApiResponse.success(equipment);
+    }
+
+    // ==================== 军械局制作（基于 equipment_pre）====================
+
+    /**
+     * 获取军械局可制作的装备列表
+     */
+    @GetMapping("/arsenal/list")
+    public ApiResponse<List<Map<String, Object>>> getArsenalList(HttpServletRequest request) {
+        logger.info("获取军械局可制作装备列表");
+        List<Map<String, Object>> list = equipmentService.getCraftableEquipmentList();
+        return ApiResponse.success(list);
+    }
+
+    /**
+     * 获取军械局装备制作消耗
+     */
+    @GetMapping("/arsenal/cost")
+    public ApiResponse<Map<String, Integer>> getArsenalCost(@RequestParam Integer level,
+                                                             HttpServletRequest request) {
+        logger.info("获取军械局制作消耗, level: {}", level);
+        Map<String, Integer> cost = equipmentService.getArsenalCraftCost(level);
+        return ApiResponse.success(cost);
+    }
+
+    /**
+     * 军械局制作装备
+     */
+    @PostMapping("/arsenal/craft")
+    public ApiResponse<Equipment> arsenalCraft(@RequestBody Map<String, Object> body,
+                                                HttpServletRequest request) {
+        Long userIdLong = (Long) request.getAttribute("userId");
+        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        Integer preId = (Integer) body.get("preId");
+
+        logger.info("军械局制作装备, userId: {}, preId: {}", userId, preId);
+        Equipment equipment = equipmentService.craftByPreId(userId, preId);
         return ApiResponse.success(equipment);
     }
     

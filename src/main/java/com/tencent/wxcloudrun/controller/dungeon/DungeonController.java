@@ -132,6 +132,11 @@ public class DungeonController {
         
         logger.info("进入副本, userId: {}, dungeonId: {}, playerLevel: {}", userId, req.getDungeonId(), req.getPlayerLevel());
         
+        DungeonProgress progressBefore = dungeonService.getUserProgress(userId, req.getDungeonId());
+        boolean isResume = !progressBefore.getCleared()
+                && progressBefore.getDefeatedNpcs() != null 
+                && !progressBefore.getDefeatedNpcs().isEmpty();
+        
         int remainingEntries = dungeonService.enterDungeon(userId, req.getDungeonId(), req.getPlayerLevel(), req.getCurrentStamina());
         
         Dungeon dungeon = dungeonService.getDungeonDetail(req.getDungeonId());
@@ -139,8 +144,9 @@ public class DungeonController {
         
         Map<String, Object> result = new HashMap<>();
         result.put("remainingEntries", remainingEntries);
-        result.put("staminaCost", dungeon.getStaminaCost());
+        result.put("staminaCost", isResume ? 0 : dungeon.getStaminaCost());
         result.put("progress", progress);
+        result.put("resumed", isResume);
         
         return ApiResponse.success(result);
     }
@@ -185,6 +191,22 @@ public class DungeonController {
         logger.info("重置副本进度, userId: {}, dungeonId: {}", userId, req.getDungeonId());
         
         DungeonProgress progress = dungeonService.resetProgress(userId, req.getDungeonId());
+        
+        return ApiResponse.success(progress);
+    }
+    
+    /**
+     * 放弃副本挑战（重置进度并退还挑战次数）
+     */
+    @PostMapping("/abandon")
+    public ApiResponse<DungeonProgress> abandonDungeon(@RequestBody DungeonRequest.ResetRequest req,
+                                                       HttpServletRequest request) {
+        Long userIdLong = (Long) request.getAttribute("userId");
+        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        
+        logger.info("放弃副本挑战, userId: {}, dungeonId: {}", userId, req.getDungeonId());
+        
+        DungeonProgress progress = dungeonService.abandonDungeon(userId, req.getDungeonId());
         
         return ApiResponse.success(progress);
     }

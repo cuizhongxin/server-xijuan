@@ -357,6 +357,7 @@ public class SecretRealmService {
         String setEffect3 = getString(eqRow, "set_effect_3", "");
         String setEffect6 = getString(eqRow, "set_effect_6", "");
         equipment.setDescription(setName + "套 - " + position + " [3件:" + setEffect3 + " 6件:" + setEffect6 + "]");
+        equipment.setBound(true);
 
         return equipment;
     }

@@ -5,6 +5,7 @@ import com.tencent.wxcloudrun.config.EquipmentConfig;
 import com.tencent.wxcloudrun.exception.BusinessException;
 import com.tencent.wxcloudrun.model.*;
 import com.tencent.wxcloudrun.repository.DungeonProgressRepository;
+import com.tencent.wxcloudrun.repository.EquipmentPreRepository;
 import com.tencent.wxcloudrun.repository.EquipmentRepository;
 import com.tencent.wxcloudrun.service.general.GeneralService;
 import com.tencent.wxcloudrun.service.level.LevelService;
@@ -35,6 +36,9 @@ public class DungeonService {
     
     @Autowired
     private EquipmentRepository equipmentRepository;
+    
+    @Autowired
+    private EquipmentPreRepository equipmentPreRepository;
     
     @Autowired
     private LevelService levelService;
@@ -98,30 +102,37 @@ public class DungeonService {
     
     /**
      * 进入副本（消耗体力）
+     * 如果玩家有未完成的进度（已击败部分NPC但未通关），则恢复进度不消耗次数
      * @return 返回剩余次数
      */
     public int enterDungeon(String userId, String dungeonId, int playerLevel, int currentStamina) {
         Dungeon dungeon = getDungeonDetail(dungeonId);
         
-        // 检查等级
         if (playerLevel < dungeon.getUnlockLevel()) {
             throw new BusinessException(400, "等级不足，需要" + dungeon.getUnlockLevel() + "级");
         }
         
-        // 检查体力
+        DungeonProgress progress = getUserProgress(userId, dungeonId);
+        
+        // 如果有未完成的进度（已击败部分NPC但未通关），恢复进度不消耗次数和体力
+        boolean hasOngoingProgress = !progress.getCleared() 
+                && progress.getDefeatedNpcs() != null 
+                && !progress.getDefeatedNpcs().isEmpty();
+        
+        if (hasOngoingProgress) {
+            logger.info("用户 {} 恢复副本 {} 进度，已击败 {} 个NPC", 
+                       userId, dungeonId, progress.getDefeatedNpcs().size());
+            return dungeon.getDailyLimit() - progress.getTodayEntries();
+        }
+        
         if (currentStamina < dungeon.getStaminaCost()) {
             throw new BusinessException(400, "体力不足");
         }
         
-        // 获取进度
-        DungeonProgress progress = getUserProgress(userId, dungeonId);
-        
-        // 检查每日次数
         if (progress.getTodayEntries() >= dungeon.getDailyLimit()) {
             throw new BusinessException(400, "今日进入次数已用完");
         }
         
-        // 增加进入次数
         progress.setTodayEntries(progress.getTodayEntries() + 1);
         progressRepository.save(progress);
         
@@ -264,86 +275,147 @@ public class DungeonService {
     }
     
     /**
-     * 生成掉落装备
+     * 生成掉落装备 - 优先从 equipment_pre 模板生成
      */
     private Equipment generateDropEquipment(String userId, DungeonNpc npc, String dungeonId) {
-        String equipmentId = "equip_" + System.currentTimeMillis() + "_" + 
-                            UUID.randomUUID().toString().substring(0, 8);
-        
-        // 随机槽位
+        // 如果配置了 equipment_pre IDs，从模板生成
+        if (npc.getDropEquipPreIds() != null && !npc.getDropEquipPreIds().isEmpty()) {
+            return generateFromPreTemplate(userId, npc, dungeonId);
+        }
+        // 降级：随机生成
+        return generateRandomDropEquipment(userId, npc, dungeonId);
+    }
+
+    /**
+     * 基于 equipment_pre 模板生成装备
+     */
+    private Equipment generateFromPreTemplate(String userId, DungeonNpc npc, String dungeonId) {
+        List<Integer> preIds = npc.getDropEquipPreIds();
+        Integer pickedId = preIds.get(random.nextInt(preIds.size()));
+        EquipmentPre pre = equipmentPreRepository.findById(pickedId);
+
+        if (pre == null) {
+            logger.warn("equipment_pre id={} 未找到，降级为随机生成", pickedId);
+            return generateRandomDropEquipment(userId, npc, dungeonId);
+        }
+
+        String equipmentId = "equip_" + System.currentTimeMillis() + "_" +
+                UUID.randomUUID().toString().substring(0, 8);
+
+        int slotTypeId = pre.getSlotTypeId();
+        Equipment.SlotType slotType = equipmentConfig.getSlotType(slotTypeId);
+        int qualityId = pre.getDefaultQualityId();
+        Equipment.Quality quality = equipmentConfig.getQuality(qualityId);
+
+        Equipment.SetInfo setInfo = null;
+        if (pre.getSetName() != null && !pre.getSetName().isEmpty()) {
+            setInfo = Equipment.SetInfo.builder()
+                    .setId("SET_" + pre.getSetName())
+                    .setName(pre.getSetName())
+                    .setLevel(pre.getLevel())
+                    .threeSetEffect(pre.getSetEffect3())
+                    .sixSetEffect(pre.getSetEffect6())
+                    .build();
+        }
+
+        Equipment.Attributes baseAttributes = Equipment.Attributes.builder()
+                .attack(pre.getAttack() != null ? pre.getAttack() : 0)
+                .defense(pre.getDefense() != null ? pre.getDefense() : 0)
+                .hp(pre.getSoldierHp() != null ? pre.getSoldierHp() : 0)
+                .mobility(pre.getMobility() != null ? pre.getMobility() : 0)
+                .build();
+
+        Equipment equipment = Equipment.builder()
+                .id(equipmentId)
+                .userId(userId)
+                .name(pre.getName())
+                .slotType(slotType)
+                .level(pre.getLevel())
+                .quality(quality)
+                .setInfo(setInfo)
+                .baseAttributes(baseAttributes)
+                .bonusAttributes(Equipment.Attributes.builder().build())
+                .source(Equipment.Source.builder()
+                        .type("DUNGEON")
+                        .name("副本掉落")
+                        .detail(dungeonId)
+                        .build())
+                .equipped(false)
+                .equippedGeneralId(null)
+                .icon(slotType.getIcon())
+                .description(String.format("%s - %s级%s装备",
+                        pre.getSetName() != null ? pre.getSetName() + "套装" : "副本装备",
+                        pre.getLevel(), quality.getName()))
+                .createTime(System.currentTimeMillis())
+                .updateTime(System.currentTimeMillis())
+                .build();
+
+        equipmentRepository.save(equipment);
+        return equipment;
+    }
+
+    /**
+     * 随机生成掉落装备（降级方案，无 equipment_pre 模板时使用）
+     */
+    private Equipment generateRandomDropEquipment(String userId, DungeonNpc npc, String dungeonId) {
+        String equipmentId = "equip_" + System.currentTimeMillis() + "_" +
+                UUID.randomUUID().toString().substring(0, 8);
+
         int slotTypeId = random.nextInt(6) + 1;
         Equipment.SlotType slotType = equipmentConfig.getSlotType(slotTypeId);
-        
-        // 确定品质
+
         int qualityId;
-        switch (npc.getDropType()) {
-            case "CRAFT":
-                qualityId = random.nextInt(100) < 70 ? 1 : 2; // 白色70%，绿色30%
-                break;
-            case "DUNGEON":
-                qualityId = 3; // 蓝色
-                break;
-            case "BLUE":
-                qualityId = 3; // 蓝色
-                break;
-            case "RED":
-                qualityId = 6; // 红色
-                break;
-            default:
-                qualityId = 2;
+        String dt = npc.getDropType() != null ? npc.getDropType() : "";
+        switch (dt) {
+            case "CRAFT":  qualityId = random.nextInt(100) < 70 ? 1 : 2; break;
+            case "BLUE":   qualityId = 3; break;
+            case "RED":    qualityId = 6; break;
+            case "DUNGEON": qualityId = 3; break;
+            default:       qualityId = 2;
         }
         Equipment.Quality quality = equipmentConfig.getQuality(qualityId);
-        
-        // 装备等级
         int level = npc.getDropLevel();
-        
-        // 套装（副本装备有专属套装）
+
         String setId = null;
-        if ("DUNGEON".equals(npc.getDropType()) || "BLUE".equals(npc.getDropType()) || "RED".equals(npc.getDropType())) {
-            List<Equipment.SetInfo> sets = equipmentConfig.getEquipmentSetsByLevel(level);
-            if (!sets.isEmpty()) {
-                setId = sets.get(random.nextInt(sets.size())).getSetId();
-            }
+        List<Equipment.SetInfo> sets = equipmentConfig.getEquipmentSetsByLevel(level);
+        if (!sets.isEmpty()) {
+            setId = sets.get(random.nextInt(sets.size())).getSetId();
         }
         Equipment.SetInfo setInfo = setId != null ? equipmentConfig.getEquipmentSet(setId) : null;
-        
-        // 生成名称
+
         String name = generateEquipmentName(slotTypeId, level, quality);
-        
-        // 计算属性
         Equipment.Attributes baseAttributes = calculateBaseAttributes(slotType, level, quality);
         Equipment.Attributes bonusAttributes = calculateBonusAttributes(level, quality);
-        
+
         Equipment equipment = Equipment.builder()
-            .id(equipmentId)
-            .userId(userId)
-            .name(name)
-            .slotType(slotType)
-            .level(level)
-            .quality(quality)
-            .setInfo(setInfo)
-            .baseAttributes(baseAttributes)
-            .bonusAttributes(bonusAttributes)
-            .source(Equipment.Source.builder()
-                .type("DUNGEON")
-                .name("副本掉落")
-                .detail(dungeonId)
-                .build())
-            .equipped(false)
-            .equippedGeneralId(null)
-            .icon(slotType.getIcon())
-            .description(String.format("来自副本的%s级%s装备", level, quality.getName()))
-            .createTime(System.currentTimeMillis())
-            .updateTime(System.currentTimeMillis())
-            .build();
-        
+                .id(equipmentId)
+                .userId(userId)
+                .name(name)
+                .slotType(slotType)
+                .level(level)
+                .quality(quality)
+                .setInfo(setInfo)
+                .baseAttributes(baseAttributes)
+                .bonusAttributes(bonusAttributes)
+                .source(Equipment.Source.builder()
+                        .type("DUNGEON")
+                        .name("副本掉落")
+                        .detail(dungeonId)
+                        .build())
+                .equipped(false)
+                .equippedGeneralId(null)
+                .icon(slotType.getIcon())
+                .description(String.format("来自副本的%s级%s装备", level, quality.getName()))
+                .createTime(System.currentTimeMillis())
+                .updateTime(System.currentTimeMillis())
+                .build();
+
         equipmentRepository.save(equipment);
-        
         return equipment;
     }
     
     /**
-     * 重置副本进度
+     * 重置副本进度（用于已通关副本的再次挑战）
      */
     public DungeonProgress resetProgress(String userId, String dungeonId) {
         DungeonProgress progress = getUserProgress(userId, dungeonId);
@@ -351,6 +423,35 @@ public class DungeonService {
         progress.setDefeatedNpcs(new HashSet<>());
         progress.setCleared(false);
         return progressRepository.save(progress);
+    }
+    
+    /**
+     * 放弃副本挑战 - 重置进度并退还本次挑战次数
+     */
+    public DungeonProgress abandonDungeon(String userId, String dungeonId) {
+        DungeonProgress progress = getUserProgress(userId, dungeonId);
+        
+        if (progress.getCleared()) {
+            throw new BusinessException(400, "副本已通关，无需放弃");
+        }
+        
+        progress.setCurrentProgress(0);
+        progress.setDefeatedNpcs(new HashSet<>());
+        progress.setCleared(false);
+        
+        // 退还挑战次数
+        if (progress.getTodayEntries() > 0) {
+            progress.setTodayEntries(progress.getTodayEntries() - 1);
+        }
+        
+        progressRepository.save(progress);
+        
+        logger.info("用户 {} 放弃副本 {}，退还挑战次数，剩余次数: {}/{}", 
+                   userId, dungeonId, 
+                   getDungeonDetail(dungeonId).getDailyLimit() - progress.getTodayEntries(),
+                   getDungeonDetail(dungeonId).getDailyLimit());
+        
+        return progress;
     }
     
     // ==================== 私有辅助方法 ====================

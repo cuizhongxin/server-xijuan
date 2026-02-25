@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.dao.EquipmentPreMapper">
+
+    <resultMap id="equipmentPreMap" type="com.tencent.wxcloudrun.model.EquipmentPre">
+        <id column="id" property="id"/>
+        <result column="name" property="name"/>
+        <result column="level" property="level"/>
+        <result column="source" property="source"/>
+        <result column="position" property="position"/>
+        <result column="set_name" property="setName"/>
+        <result column="set_effect_3" property="setEffect3"/>
+        <result column="set_effect_6" property="setEffect6"/>
+        <result column="attack" property="attack"/>
+        <result column="defense" property="defense"/>
+        <result column="soldier_hp" property="soldierHp"/>
+        <result column="mobility" property="mobility"/>
+    </resultMap>
+
+    <select id="findById" resultMap="equipmentPreMap">
+        SELECT * FROM equipment_pre WHERE id = #{id}
+    </select>
+
+    <select id="findAll" resultMap="equipmentPreMap">
+        SELECT * FROM equipment_pre ORDER BY level, id
+    </select>
+
+    <select id="findBySource" resultMap="equipmentPreMap">
+        SELECT * FROM equipment_pre WHERE source = #{source} ORDER BY level, id
+    </select>
+
+    <select id="findByLevel" resultMap="equipmentPreMap">
+        SELECT * FROM equipment_pre WHERE level = #{level} ORDER BY id
+    </select>
+
+    <select id="findByLevelAndSource" resultMap="equipmentPreMap">
+        SELECT * FROM equipment_pre WHERE level = #{level} AND source = #{source} ORDER BY id
+    </select>
+
+    <select id="findByIds" resultMap="equipmentPreMap">
+        SELECT * FROM equipment_pre WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        ORDER BY id
+    </select>
+
+    <select id="findBySetName" resultMap="equipmentPreMap">
+        SELECT * FROM equipment_pre WHERE set_name = #{setName} ORDER BY id
+    </select>
+
+</mapper>

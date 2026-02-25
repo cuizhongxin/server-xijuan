@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.dao.HeroRankMapper">
+
+    <select id="findByUserId" resultType="java.util.HashMap">
+        SELECT user_id AS userId, user_name AS userName, level, power, fame,
+               rank_name AS rankName, ranking,
+               today_challenge AS todayChallenge, today_wins AS todayWins,
+               today_purchased AS todayPurchased, last_reset_date AS lastResetDate,
+               update_time AS updateTime
+        FROM hero_rank WHERE user_id = #{userId}
+    </select>
+
+    <insert id="upsert">
+        INSERT INTO hero_rank (user_id, user_name, level, power, fame, rank_name, ranking,
+                               today_challenge, today_wins, today_purchased, last_reset_date, update_time)
+        VALUES (#{userId}, #{userName}, #{level}, #{power}, #{fame}, #{rankName}, #{ranking},
+                #{todayChallenge}, #{todayWins}, #{todayPurchased}, #{lastResetDate}, #{updateTime})
+        ON DUPLICATE KEY UPDATE
+            user_name = #{userName}, level = #{level}, power = #{power}, fame = #{fame},
+            rank_name = #{rankName}, ranking = #{ranking},
+            today_challenge = #{todayChallenge}, today_wins = #{todayWins},
+            today_purchased = #{todayPurchased}, last_reset_date = #{lastResetDate},
+            update_time = #{updateTime}
+    </insert>
+
+    <select id="findTopN" resultType="java.util.HashMap">
+        SELECT user_id AS userId, user_name AS userName, level, power, fame,
+               rank_name AS rankName, ranking
+        FROM hero_rank ORDER BY power DESC LIMIT #{limit}
+    </select>
+
+    <select id="findPage" resultType="java.util.HashMap">
+        SELECT user_id AS userId, user_name AS userName, level, power, fame,
+               rank_name AS rankName, ranking
+        FROM hero_rank ORDER BY power DESC LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="countAll" resultType="int">
+        SELECT COUNT(*) FROM hero_rank
+    </select>
+
+    <select id="findAllOrderByPower" resultType="java.util.HashMap">
+        SELECT user_id AS userId, user_name AS userName, level, power, fame,
+               rank_name AS rankName, ranking
+        FROM hero_rank ORDER BY power DESC
+    </select>
+
+    <update id="updateRanking">
+        UPDATE hero_rank SET ranking = #{ranking} WHERE user_id = #{userId}
+    </update>
+
+    <!-- 挑战记录 -->
+    <insert id="insertBattle">
+        INSERT INTO hero_rank_battle (attacker_id, attacker_name, attacker_level,
+                                       defender_id, defender_name, defender_level,
+                                       victory, fame_gain, create_time, create_date)
+        VALUES (#{attackerId}, #{attackerName}, #{attackerLevel},
+                #{defenderId}, #{defenderName}, #{defenderLevel},
+                #{victory}, #{fameGain}, #{createTime}, #{createDate})
+    </insert>
+
+    <select id="findBattlesByAttacker" resultType="java.util.HashMap">
+        SELECT id, attacker_id AS attackerId, attacker_name AS attackerName, attacker_level AS attackerLevel,
+               defender_id AS defenderId, defender_name AS defenderName, defender_level AS defenderLevel,
+               victory, fame_gain AS fameGain, create_time AS createTime, create_date AS createDate
+        FROM hero_rank_battle
+        WHERE attacker_id = #{attackerId}
+        ORDER BY create_time DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 奖励记录 -->
+    <insert id="insertRewardLog">
+        INSERT INTO hero_rank_reward_log (user_id, ranking, fame_reward, silver_reward, settle_date, create_time)
+        VALUES (#{userId}, #{ranking}, #{fameReward}, #{silverReward}, #{settleDate}, #{createTime})
+    </insert>
+
+    <select id="findRewardLogs" resultType="java.util.HashMap">
+        SELECT id, user_id AS userId, ranking, fame_reward AS fameReward,
+               silver_reward AS silverReward, settle_date AS settleDate, create_time AS createTime
+        FROM hero_rank_reward_log
+        WHERE user_id = #{userId}
+        ORDER BY create_time DESC
+        LIMIT #{limit}
+    </select>
+
+</mapper>
