@@ -24,8 +24,7 @@ public class PlunderController {
      */
     @GetMapping("/info")
     public ApiResponse<Map<String, Object>> getInfo(HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         return ApiResponse.success(plunderService.getPlunderInfo(userId));
     }
 
@@ -36,8 +35,7 @@ public class PlunderController {
     public ApiResponse<Map<String, Object>> getTargets(
             @RequestParam(defaultValue = "0") int page,
             HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         return ApiResponse.success(plunderService.getTargetList(userId, page));
     }
 
@@ -48,8 +46,7 @@ public class PlunderController {
     public ApiResponse<Map<String, Object>> attack(
             @RequestBody Map<String, Object> body,
             HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         String targetId = (String) body.get("targetId");
         String generalId = (String) body.get("generalId");
 
@@ -62,8 +59,7 @@ public class PlunderController {
      */
     @PostMapping("/purchase")
     public ApiResponse<Map<String, Object>> purchase(HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         return ApiResponse.success(plunderService.purchaseCount(userId));
     }
 
@@ -74,8 +70,7 @@ public class PlunderController {
     public ApiResponse<Map<String, Object>> getRecords(
             @RequestParam(defaultValue = "attack") String type,
             HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         return ApiResponse.success(plunderService.getRecords(userId, type));
     }
 }

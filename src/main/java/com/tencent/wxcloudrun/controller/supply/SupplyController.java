@@ -20,8 +20,7 @@ public class SupplyController {
     private SupplyService supplyService;
 
     private String getUserId(HttpServletRequest request) {
-        Long uid = (Long) request.getAttribute("userId");
-        return uid != null ? String.valueOf(uid) : null;
+        return String.valueOf(request.getAttribute("userId"));
     }
 
     @GetMapping("/info")

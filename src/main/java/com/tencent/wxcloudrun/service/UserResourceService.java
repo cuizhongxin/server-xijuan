@@ -102,6 +102,27 @@ public class UserResourceService {
         resource.setSilver(resource.getSilver() + amount);
         resourceRepository.save(resource);
     }
+
+    /** 增加粮食 */
+    public void addFood(String odUserId, long amount) {
+        UserResource resource = getUserResource(odUserId);
+        resource.setFood((resource.getFood() != null ? resource.getFood() : 0L) + amount);
+        resourceRepository.save(resource);
+    }
+
+    /** 增加木材 */
+    public void addWood(String odUserId, long amount) {
+        UserResource resource = getUserResource(odUserId);
+        resource.setWood((resource.getWood() != null ? resource.getWood() : 0L) + amount);
+        resourceRepository.save(resource);
+    }
+
+    /** 增加纸张 */
+    public void addPaper(String odUserId, long amount) {
+        UserResource resource = getUserResource(odUserId);
+        resource.setPaper((resource.getPaper() != null ? resource.getPaper() : 0L) + amount);
+        resourceRepository.save(resource);
+    }
     
     /**
      * 消耗钻石
@@ -197,8 +218,9 @@ public class UserResourceService {
     private void updateVipLevel(UserResource resource) {
         long totalYuan = resource.getTotalRecharge() / 100;
         
-        // VIP等级规则
-        int[] vipThresholds = {0, 6, 30, 98, 198, 328, 648, 998, 1998, 3998, 6998, 9998, 19998};
+        // VIP等级规则（元）: VIP1=6, VIP2=30, VIP3=98, VIP4=198, VIP5=328,
+        // VIP6=648, VIP7=998, VIP8=1998, VIP9=6000, VIP10=20000
+        int[] vipThresholds = {0, 6, 30, 98, 198, 328, 648, 998, 1998, 6000, 20000};
         int vipLevel = 0;
         
         for (int i = vipThresholds.length - 1; i >= 0; i--) {

@@ -26,8 +26,7 @@ public class FormationController {
      */
     @GetMapping("")
     public ApiResponse<Map<String, Object>> getFormation(HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         Map<String, Object> formation = formationService.getFormationDetail(userId);
         return ApiResponse.success(formation);
     }
@@ -38,8 +37,7 @@ public class FormationController {
     @PostMapping("/slot")
     public ApiResponse<Formation> setSlot(@RequestBody Map<String, Object> body,
                                           HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         int slotIndex = Integer.parseInt(body.get("position").toString());
         String generalId = body.get("generalId") != null ? body.get("generalId").toString() : null;
         Formation formation = formationService.setSlot(userId, slotIndex, generalId);
@@ -52,8 +50,7 @@ public class FormationController {
     @PostMapping("/batch")
     public ApiResponse<Formation> setFormation(@RequestBody Map<String, Object> body,
                                                HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         @SuppressWarnings("unchecked")
         List<String> generalIds = (List<String>) body.get("generalIds");
         Formation formation = formationService.setFormation(userId, generalIds);
@@ -66,8 +63,7 @@ public class FormationController {
     @PostMapping("/swap")
     public ApiResponse<Formation> swapSlots(@RequestBody Map<String, Object> body,
                                             HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         int slotIndex1 = Integer.parseInt(body.get("slotIndex1").toString());
         int slotIndex2 = Integer.parseInt(body.get("slotIndex2").toString());
         Formation formation = formationService.swapSlots(userId, slotIndex1, slotIndex2);
@@ -80,8 +76,7 @@ public class FormationController {
     @PostMapping("/clear")
     public ApiResponse<Formation> clearSlot(@RequestBody Map<String, Object> body,
                                             HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         int slotIndex = Integer.parseInt(body.get("position").toString());
         Formation formation = formationService.setSlot(userId, slotIndex, null);
         return ApiResponse.success(formation);
@@ -92,8 +87,7 @@ public class FormationController {
      */
     @GetMapping("/battle-order")
     public ApiResponse<List<General>> getBattleOrder(HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         List<General> order = formationService.getBattleOrder(userId);
         return ApiResponse.success(order);
     }

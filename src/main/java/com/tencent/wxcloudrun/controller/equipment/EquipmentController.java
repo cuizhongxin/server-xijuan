@@ -43,8 +43,7 @@ public class EquipmentController {
      */
     @GetMapping("/list")
     public ApiResponse<List<Equipment>> getUserEquipments(HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         logger.info("获取用户装备列表, userId: {}", userId);
         
@@ -58,8 +57,7 @@ public class EquipmentController {
      */
     @GetMapping("/bag")
     public ApiResponse<List<Equipment>> getBagEquipments(HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         logger.info("获取用户背包装备, userId: {}", userId);
         
@@ -74,8 +72,7 @@ public class EquipmentController {
     @GetMapping("/general/{generalId}")
     public ApiResponse<Map<String, Object>> getGeneralEquipments(@PathVariable String generalId,
                                                                  HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         logger.info("获取武将装备, userId: {}, generalId: {}", userId, generalId);
         
@@ -95,8 +92,7 @@ public class EquipmentController {
     @GetMapping("/{equipmentId}")
     public ApiResponse<Equipment> getEquipment(@PathVariable String equipmentId,
                                                HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         logger.info("获取装备详情, userId: {}, equipmentId: {}", userId, equipmentId);
         
@@ -117,8 +113,7 @@ public class EquipmentController {
     @PostMapping("/equip")
     public ApiResponse<Equipment> equipToGeneral(@RequestBody Map<String, Object> body,
                                                   HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         String equipmentId = (String) body.get("equipmentId");
         String generalId = (String) body.get("generalId");
         
@@ -143,8 +138,7 @@ public class EquipmentController {
     @PostMapping("/unequip")
     public ApiResponse<Equipment> unequip(@RequestBody Map<String, Object> body,
                                           HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         String equipmentId = (String) body.get("equipmentId");
         
         logger.info("卸下装备, userId: {}, equipmentId: {}", userId, equipmentId);
@@ -174,8 +168,7 @@ public class EquipmentController {
     @PostMapping("/craft")
     public ApiResponse<Equipment> craftEquipment(@RequestBody Map<String, Object> body,
                                                   HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         Integer slotTypeId = (Integer) body.get("slotTypeId");
         Integer level = (Integer) body.get("level");
         
@@ -213,8 +206,7 @@ public class EquipmentController {
     @PostMapping("/arsenal/craft")
     public ApiResponse<Equipment> arsenalCraft(@RequestBody Map<String, Object> body,
                                                 HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         Integer preId = (Integer) body.get("preId");
 
         logger.info("军械局制作装备, userId: {}, preId: {}", userId, preId);
@@ -242,8 +234,7 @@ public class EquipmentController {
     @GetMapping("/secret-realm/unlocked")
     public ApiResponse<List<SecretRealm>> getUnlockedSecretRealms(@RequestParam Integer playerLevel,
                                                                   HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         logger.info("获取已解锁秘境, userId: {}, playerLevel: {}", userId, playerLevel);
         
@@ -258,8 +249,7 @@ public class EquipmentController {
     @PostMapping("/secret-realm/explore")
     public ApiResponse<Equipment> exploreSecretRealm(@RequestBody Map<String, Object> body,
                                                      HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         String realmId = (String) body.get("realmId");
         Integer playerLevel = (Integer) body.get("playerLevel");
         
@@ -277,8 +267,7 @@ public class EquipmentController {
      */
     @GetMapping("/materials")
     public ApiResponse<Map<String, Integer>> getUserMaterials(HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         logger.info("获取用户材料, userId: {}", userId);
         

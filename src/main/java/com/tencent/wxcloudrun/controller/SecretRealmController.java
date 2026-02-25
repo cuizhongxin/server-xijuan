@@ -42,8 +42,7 @@ public class SecretRealmController {
     @PostMapping("/explore")
     public ApiResponse<SecretRealmService.ExploreResult> explore(@RequestBody Map<String, Object> body,
                                                                   HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
 
         String realmId = (String) body.get("realmId");
         Integer count = body.get("count") instanceof Integer ? (Integer) body.get("count") : 1;

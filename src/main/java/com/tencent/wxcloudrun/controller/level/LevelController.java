@@ -28,8 +28,7 @@ public class LevelController {
      */
     @GetMapping
     public ApiResponse<UserLevel> getUserLevel(HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         logger.info("获取用户等级, userId: {}", userId);
         
@@ -43,8 +42,7 @@ public class LevelController {
      */
     @PostMapping("/daily-login")
     public ApiResponse<Map<String, Object>> claimDailyLogin(HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         logger.info("领取每日登录经验, userId: {}", userId);
         

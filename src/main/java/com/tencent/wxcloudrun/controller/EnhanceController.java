@@ -28,8 +28,7 @@ public class EnhanceController {
     @PostMapping("/equipment")
     public ApiResponse<Map<String, Object>> enhanceEquipment(@RequestBody Map<String, Object> body,
                                                              HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         String equipmentId = (String) body.get("equipmentId");
         
@@ -45,8 +44,7 @@ public class EnhanceController {
     @PostMapping("/transfer")
     public ApiResponse<Map<String, Object>> transferEnhance(@RequestBody Map<String, Object> body,
                                                            HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         String fromEquipmentId = (String) body.get("fromEquipmentId");
         String toEquipmentId = (String) body.get("toEquipmentId");
@@ -63,8 +61,7 @@ public class EnhanceController {
     @PostMapping("/merge")
     public ApiResponse<Map<String, Object>> mergeEnhanceStones(@RequestBody Map<String, Object> body,
                                                                HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         Integer stoneLevel = body.get("stoneLevel") != null ? 
             Integer.parseInt(body.get("stoneLevel").toString()) : 1;

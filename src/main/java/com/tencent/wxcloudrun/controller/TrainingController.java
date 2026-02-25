@@ -39,8 +39,7 @@ public class TrainingController {
     @PostMapping("/train")
     public ApiResponse<Map<String, Object>> train(@RequestBody Map<String, Object> body,
                                                    HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         String mode = (String) body.get("mode"); // lord 或 general
         String foodLevel = (String) body.get("foodLevel");

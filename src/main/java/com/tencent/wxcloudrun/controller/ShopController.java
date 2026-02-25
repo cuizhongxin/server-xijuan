@@ -37,9 +37,8 @@ public class ShopController {
      */
     @PostMapping("/buy")
     public ApiResponse<Map<String, Object>> buyGoods(
-            @RequestAttribute("userId") Long userIdLong,
+            @RequestAttribute("userId") String userId,
             @RequestBody Map<String, Object> request) {
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
         
         // 解析参数
         Long goodsId;

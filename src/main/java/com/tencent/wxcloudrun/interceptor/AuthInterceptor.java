@@ -82,9 +82,26 @@ public class AuthInterceptor implements HandlerInterceptor {
         
         // 将openId和userId存入request attribute
         request.setAttribute("openId", openId);
-        request.setAttribute("userId", userId);
         
-        logger.debug("设置用户信息: openId={}, userId={}", openId, userId);
+        // 区服数据隔离：如果有 X-Server-Id，拼接复合userId实现数据隔离
+        String serverId = request.getHeader("X-Server-Id");
+        String uri = request.getRequestURI();
+        // 区服列表、进入区服等接口不做隔离，用原始userId
+        boolean skipIsolation = uri.contains("/server/") || uri.contains("/auth/");
+        
+        if (serverId != null && !serverId.isEmpty() && !skipIsolation) {
+            // 复合ID格式: "userId_serverId"，实现不同区服数据完全隔离
+            String gameUserId = userId + "_" + serverId;
+            request.setAttribute("userId", gameUserId);
+            request.setAttribute("rawUserId", userId);
+            request.setAttribute("serverId", serverId);
+            logger.debug("区服隔离: rawUserId={}, serverId={}, gameUserId={}", userId, serverId, gameUserId);
+        } else {
+            request.setAttribute("userId", String.valueOf(userId));
+            request.setAttribute("rawUserId", userId);
+        }
+        
+        logger.debug("设置用户信息: openId={}, userId={}", openId, request.getAttribute("userId"));
         
         return true;
     }

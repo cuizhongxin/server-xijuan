@@ -25,8 +25,7 @@ public class UserResourceController {
      */
     @GetMapping("")
     public ApiResponse<UserResource> getUserResource(HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         UserResource resource = resourceService.getUserResource(userId);
         return ApiResponse.success(resource);
@@ -37,8 +36,7 @@ public class UserResourceController {
      */
     @GetMapping("/summary")
     public ApiResponse<Map<String, Object>> getResourceSummary(HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         UserResource resource = resourceService.getUserResource(userId);
         
@@ -63,8 +61,7 @@ public class UserResourceController {
      */
     @GetMapping("/general-slots")
     public ApiResponse<Map<String, Object>> getGeneralSlotInfo(HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         Map<String, Object> slotInfo = resourceService.getGeneralSlotInfo(userId);
         return ApiResponse.success(slotInfo);
@@ -75,8 +72,7 @@ public class UserResourceController {
      */
     @PostMapping("/general-slots/purchase")
     public ApiResponse<Map<String, Object>> purchaseGeneralSlot(HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         Map<String, Object> result = resourceService.purchaseGeneralSlot(userId);
         return ApiResponse.success(result);

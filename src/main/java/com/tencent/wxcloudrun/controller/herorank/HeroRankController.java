@@ -57,7 +57,6 @@ public class HeroRankController {
     }
 
     private String getUserId(HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        return userIdLong != null ? String.valueOf(userIdLong) : null;
+        return String.valueOf(request.getAttribute("userId"));
     }
 }

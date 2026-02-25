@@ -59,8 +59,7 @@ public class DungeonController {
     @GetMapping("/unlocked")
     public ApiResponse<List<Dungeon>> getUnlockedDungeons(@RequestParam Integer playerLevel,
                                                          HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         logger.info("获取已解锁副本, userId: {}, playerLevel: {}", userId, playerLevel);
         
@@ -75,8 +74,7 @@ public class DungeonController {
     @GetMapping("/{dungeonId}")
     public ApiResponse<Map<String, Object>> getDungeonDetail(@PathVariable String dungeonId,
                                                              HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         logger.info("获取副本详情, userId: {}, dungeonId: {}", userId, dungeonId);
         
@@ -96,8 +94,7 @@ public class DungeonController {
     @GetMapping("/progress/{dungeonId}")
     public ApiResponse<DungeonProgress> getUserProgress(@PathVariable String dungeonId,
                                                         HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         logger.info("获取用户副本进度, userId: {}, dungeonId: {}", userId, dungeonId);
         
@@ -111,8 +108,7 @@ public class DungeonController {
      */
     @GetMapping("/progress/all")
     public ApiResponse<List<DungeonProgress>> getAllProgress(HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         logger.info("获取用户所有副本进度, userId: {}", userId);
         
@@ -127,8 +123,7 @@ public class DungeonController {
     @PostMapping("/enter")
     public ApiResponse<Map<String, Object>> enterDungeon(@RequestBody DungeonRequest.EnterRequest req,
                                                          HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         logger.info("进入副本, userId: {}, dungeonId: {}, playerLevel: {}", userId, req.getDungeonId(), req.getPlayerLevel());
         
@@ -157,8 +152,7 @@ public class DungeonController {
     @PostMapping("/challenge")
     public ApiResponse<DungeonService.BattleResult> challengeNpc(@RequestBody DungeonRequest.ChallengeRequest req,
                                                                   HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         logger.info("挑战NPC, userId: {}, dungeonId: {}, npcIndex: {}, generalId: {}", 
                    userId, req.getDungeonId(), req.getNpcIndex(), req.getGeneralId());
@@ -185,8 +179,7 @@ public class DungeonController {
     @PostMapping("/reset")
     public ApiResponse<DungeonProgress> resetProgress(@RequestBody DungeonRequest.ResetRequest req,
                                                       HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         logger.info("重置副本进度, userId: {}, dungeonId: {}", userId, req.getDungeonId());
         
@@ -201,8 +194,7 @@ public class DungeonController {
     @PostMapping("/abandon")
     public ApiResponse<DungeonProgress> abandonDungeon(@RequestBody DungeonRequest.ResetRequest req,
                                                        HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         logger.info("放弃副本挑战, userId: {}, dungeonId: {}", userId, req.getDungeonId());
         
@@ -218,8 +210,7 @@ public class DungeonController {
     @PostMapping("/victory")
     public ApiResponse<Map<String, Object>> battleVictory(@RequestBody Map<String, Object> body,
                                                           HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         String dungeonId = (String) body.get("dungeonId");
         int npcIndex = body.get("npcIndex") != null ? Integer.parseInt(body.get("npcIndex").toString()) : 1;

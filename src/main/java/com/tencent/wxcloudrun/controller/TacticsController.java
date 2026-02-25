@@ -53,8 +53,7 @@ public class TacticsController {
      */
     @GetMapping("/learned")
     public ApiResponse<List<String>> getLearnedTactics(HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         Set<String> learned = loadLearnedTactics(userId);
         return ApiResponse.success(new ArrayList<>(learned));
@@ -66,8 +65,7 @@ public class TacticsController {
     @PostMapping("/learn")
     public ApiResponse<Map<String, Object>> learnTactics(@RequestBody Map<String, Object> body,
                                                           HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         String tacticsId = (String) body.get("tacticsId");
         Integer paperCost = body.get("paperCost") != null ? Integer.parseInt(body.get("paperCost").toString()) : 0;
@@ -121,8 +119,7 @@ public class TacticsController {
     @PostMapping("/equip")
     public ApiResponse<General> equipTactics(@RequestBody Map<String, Object> body,
                                               HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         String generalId = (String) body.get("generalId");
         String tacticsId = (String) body.get("tacticsId");
@@ -165,8 +162,7 @@ public class TacticsController {
     @PostMapping("/unequip")
     public ApiResponse<General> unequipTactics(@RequestBody Map<String, Object> body,
                                                 HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         String generalId = (String) body.get("generalId");
         

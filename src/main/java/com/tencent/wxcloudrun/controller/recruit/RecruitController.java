@@ -32,8 +32,7 @@ public class RecruitController {
      */
     @GetMapping("/resource")
     public ApiResponse<UserResource> getResource(HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         logger.info("获取用户资源, userId: {}", userId);
         
@@ -47,8 +46,7 @@ public class RecruitController {
      */
     @PostMapping("/claim-daily")
     public ApiResponse<UserResource> claimDaily(HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         logger.info("领取每日招贤令, userId: {}", userId);
         
@@ -79,8 +77,7 @@ public class RecruitController {
     @PostMapping("/compose")
     public ApiResponse<UserResource> composeToken(@RequestBody Map<String, Object> body,
                                                   HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         String fromType = (String) body.get("fromType");
         
         logger.info("合成招贤令, userId: {}, fromType: {}", userId, fromType);
@@ -96,8 +93,7 @@ public class RecruitController {
     @PostMapping("/recruit")
     public ApiResponse<RecruitResult> recruit(@RequestBody RecruitRequest recruitRequest,
                                              HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         logger.info("招募武将, userId: {}, tokenType: {}, count: {}", 
                    userId, recruitRequest.getTokenType(), recruitRequest.getCount());

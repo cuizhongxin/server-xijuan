@@ -29,8 +29,7 @@ public class GeneralController {
     @GetMapping("/list")
     public ApiResponse<List<General>> getGeneralList(HttpServletRequest request) {
         // 从request attribute获取userId（由拦截器设置）
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         logger.info("获取武将列表, userId: {}", userId);
         
@@ -45,8 +44,7 @@ public class GeneralController {
     @GetMapping("/{generalId}")
     public ApiResponse<General> getGeneralDetail(@PathVariable String generalId, 
                                                   HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         logger.info("获取武将详情, userId: {}, generalId: {}", userId, generalId);
         
@@ -69,8 +67,7 @@ public class GeneralController {
      */
     @PostMapping("/init")
     public ApiResponse<List<General>> initGenerals(HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         logger.info("初始化武将, userId: {}", userId);
         
@@ -85,8 +82,7 @@ public class GeneralController {
     @PostMapping("/dismiss")
     public ApiResponse<?> dismissGeneral(@RequestBody java.util.Map<String, String> params,
                                          HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         String generalId = params.get("generalId");
         
         logger.info("解雇武将, userId: {}, generalId: {}", userId, generalId);
@@ -105,8 +101,7 @@ public class GeneralController {
     @PostMapping("/inherit")
     public ApiResponse<?> inheritGeneral(@RequestBody java.util.Map<String, String> params,
                                          HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         String sourceGeneralId = params.get("sourceGeneralId");
         String targetGeneralId = params.get("targetGeneralId");
         String scrollType = params.get("scrollType");
@@ -129,8 +124,7 @@ public class GeneralController {
     @PostMapping("/drill")
     public ApiResponse<?> drill(@RequestBody java.util.Map<String, Object> params,
                                 HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         String generalId = (String) params.get("generalId");
         String drillType = (String) params.get("drillType");
         Integer count = (Integer) params.get("count");

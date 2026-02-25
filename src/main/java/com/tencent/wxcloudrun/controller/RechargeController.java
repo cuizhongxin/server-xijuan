@@ -38,8 +38,7 @@ public class RechargeController {
     public ApiResponse<Map<String, Object>> createOrder(
             @RequestBody Map<String, String> request,
             HttpServletRequest httpRequest) {
-        Long userIdLong = (Long) httpRequest.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(httpRequest.getAttribute("userId"));
         
         String productId = request.get("productId");
         String paymentMethod = request.get("paymentMethod");
@@ -81,8 +80,7 @@ public class RechargeController {
      */
     @GetMapping("/orders")
     public ApiResponse<List<RechargeOrder>> getUserOrders(HttpServletRequest request) {
-        Long userIdLong = (Long) request.getAttribute("userId");
-        String userId = userIdLong != null ? String.valueOf(userIdLong) : null;
+        String userId = String.valueOf(request.getAttribute("userId"));
         
         List<RechargeOrder> orders = rechargeService.getUserOrders(userId);
         return ApiResponse.success(orders);
