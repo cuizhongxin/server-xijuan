@@ -146,7 +146,7 @@ public class RechargeController {
     @PostMapping("/mock/pay")
     public ApiResponse<Map<String, Object>> mockPay(@RequestBody Map<String, String> request) {
         String orderId = request.get("orderId");
-        Map<String, Object> result = rechargeService.mockPaySuccess(orderId);
+        Map<String, Object> result = rechargeService.mockPayment(orderId);
         return ApiResponse.success(result);
     }
 }

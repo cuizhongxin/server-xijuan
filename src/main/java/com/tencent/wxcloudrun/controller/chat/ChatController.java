@@ -1,8 +1,7 @@
 package com.tencent.wxcloudrun.controller.chat;
 
+import com.tencent.wxcloudrun.dao.GameServerMapper;
 import com.tencent.wxcloudrun.dto.ApiResponse;
-import com.tencent.wxcloudrun.model.UserResource;
-import com.tencent.wxcloudrun.service.UserResourceService;
 import com.tencent.wxcloudrun.service.chat.ChatService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -19,7 +18,7 @@ public class ChatController {
     private ChatService chatService;
 
     @Autowired
-    private UserResourceService resourceService;
+    private GameServerMapper gameServerMapper;
 
     @PostMapping("/send")
     public ApiResponse<Map<String, Object>> send(HttpServletRequest request,
@@ -28,9 +27,7 @@ public class ChatController {
         String channel = (String) body.getOrDefault("channel", "world");
         String content = (String) body.get("content");
 
-        UserResource res = resourceService.getUserResource(userId);
-        String userName = "Lv." + (res != null && res.getLevel() != null ? res.getLevel() : 1) + "主公";
-
+        String userName = getLordName(request, userId);
         return ApiResponse.success(chatService.sendMessage(userId, userName, channel, content));
     }
 
@@ -51,6 +48,30 @@ public class ChatController {
     @GetMapping("/announcements")
     public ApiResponse<List<Map<String, Object>>> announcements() {
         return ApiResponse.success(chatService.getAnnouncements());
+    }
+
+    private String getLordName(HttpServletRequest request, String compositeUserId) {
+        // 用原始userId查询，不是复合ID
+        Object rawId = request.getAttribute("rawUserId");
+        String userId = rawId != null ? String.valueOf(rawId) : compositeUserId;
+        
+        Object sidObj = request.getAttribute("serverId");
+        if (sidObj != null) {
+            try {
+                int serverId = Integer.parseInt(String.valueOf(sidObj));
+                Map<String, Object> ps = gameServerMapper.findPlayerServer(userId, serverId);
+                if (ps != null && ps.get("lordName") != null) {
+                    return (String) ps.get("lordName");
+                }
+            } catch (Exception ignored) {}
+        }
+        // fallback: 查该用户最近的区服
+        List<Map<String, Object>> servers = gameServerMapper.findPlayerServers(userId);
+        if (servers != null && !servers.isEmpty()) {
+            Object name = servers.get(0).get("lordName");
+            if (name != null) return (String) name;
+        }
+        return "玩家";
     }
 
     private String getUserId(HttpServletRequest request) {

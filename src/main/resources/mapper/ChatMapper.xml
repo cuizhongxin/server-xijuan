@@ -27,16 +27,16 @@
     </select>
 
     <select id="findActiveAnnouncements" resultType="java.util.HashMap">
-        SELECT id, title, content, priority, create_time AS createTime
+        SELECT id, title, content, type, create_time AS createTime
         FROM announcement
-        WHERE active = 1
+        WHERE enabled = 1
           AND (start_time IS NULL OR start_time &lt;= #{now})
           AND (end_time IS NULL OR end_time >= #{now})
-        ORDER BY priority DESC, id DESC
+        ORDER BY id DESC
     </select>
 
     <select id="findAnnouncementById" resultType="java.util.HashMap">
-        SELECT id, title, content, priority, create_time AS createTime
+        SELECT id, title, content, type, create_time AS createTime
         FROM announcement WHERE id = #{id}
     </select>
 

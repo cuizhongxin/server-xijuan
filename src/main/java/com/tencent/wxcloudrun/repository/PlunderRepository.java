@@ -1,6 +1,5 @@
 package com.tencent.wxcloudrun.repository;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tencent.wxcloudrun.dao.PlunderMapper;
 import com.tencent.wxcloudrun.model.PlunderData;
 import org.slf4j.Logger;
@@ -15,20 +14,12 @@ import java.util.*;
 public class PlunderRepository {
 
     private static final Logger logger = LoggerFactory.getLogger(PlunderRepository.class);
-    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
     private PlunderMapper plunderMapper;
 
     public PlunderData findByUserId(String userId) {
-        String data = plunderMapper.findByUserId(userId);
-        if (data == null) return null;
-        try {
-            return objectMapper.readValue(data, PlunderData.class);
-        } catch (Exception e) {
-            logger.error("解析掠夺数据失败: userId={}", userId, e);
-            return null;
-        }
+        return plunderMapper.findByUserId(userId);
     }
 
     public PlunderData getOrInit(String userId) {
@@ -47,13 +38,9 @@ public class PlunderRepository {
     }
 
     public void save(PlunderData pd) {
-        try {
-            String data = objectMapper.writeValueAsString(pd);
-            plunderMapper.upsert(pd.getUserId(), data,
-                    System.currentTimeMillis(), System.currentTimeMillis());
-        } catch (Exception e) {
-            logger.error("保存掠夺数据失败: userId={}", pd.getUserId(), e);
-        }
+        long now = System.currentTimeMillis();
+        plunderMapper.upsert(pd.getUserId(), pd.getTodayCount(), pd.getTodayPurchased(),
+                pd.getLastResetDate(), now, now);
     }
 
     public List<Map<String, Object>> findAllUserLevels() {

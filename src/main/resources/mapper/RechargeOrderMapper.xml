@@ -2,18 +2,40 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.tencent.wxcloudrun.dao.RechargeOrderMapper">
 
-    <select id="findById" resultType="java.lang.String">
-        SELECT data FROM recharge_order WHERE id = #{id}
+    <resultMap id="orderMap" type="com.tencent.wxcloudrun.model.RechargeOrder">
+        <id property="id" column="id"/>
+        <result property="odUserId" column="od_user_id"/>
+        <result property="amount" column="amount"/>
+        <result property="productId" column="product_id"/>
+        <result property="productName" column="product_name"/>
+        <result property="paymentMethod" column="payment_method"/>
+        <result property="tradeNo" column="trade_no"/>
+        <result property="status" column="status"/>
+        <result property="goldAmount" column="gold_amount"/>
+        <result property="diamondAmount" column="diamond_amount"/>
+        <result property="bonusItems" column="bonus_items"/>
+        <result property="createTime" column="create_time"/>
+        <result property="payTime" column="pay_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <select id="findById" resultMap="orderMap">
+        SELECT * FROM recharge_order WHERE id = #{id}
     </select>
 
-    <select id="findByUserId" resultType="java.util.HashMap">
-        SELECT id, data FROM recharge_order WHERE od_user_id = #{odUserId} ORDER BY create_time DESC
+    <select id="findByUserId" resultMap="orderMap">
+        SELECT * FROM recharge_order WHERE od_user_id = #{odUserId} ORDER BY create_time DESC
     </select>
 
     <insert id="upsert">
-        INSERT INTO recharge_order (id, od_user_id, status, data, create_time)
-        VALUES (#{id}, #{odUserId}, #{status}, #{data}, #{createTime})
-        ON DUPLICATE KEY UPDATE status = #{status}, data = #{data}
+        INSERT INTO recharge_order (id, od_user_id, amount, product_id, product_name,
+            payment_method, trade_no, status, gold_amount, diamond_amount, bonus_items,
+            create_time, pay_time, update_time)
+        VALUES (#{id}, #{odUserId}, #{amount}, #{productId}, #{productName},
+            #{paymentMethod}, #{tradeNo}, #{status}, #{goldAmount}, #{diamondAmount}, #{bonusItems},
+            #{createTime}, #{payTime}, #{updateTime})
+        ON DUPLICATE KEY UPDATE
+            status = #{status}, trade_no = #{tradeNo}, pay_time = #{payTime}, update_time = #{updateTime}
     </insert>
 
 </mapper>

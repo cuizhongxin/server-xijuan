@@ -2,18 +2,60 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.tencent.wxcloudrun.dao.FormationMapper">
 
-    <select id="findById" resultType="java.lang.String">
-        SELECT data FROM formation WHERE id = #{id}
+    <resultMap id="formationMap" type="com.tencent.wxcloudrun.model.Formation">
+        <id property="id" column="id"/>
+        <result property="odUserId" column="od_user_id"/>
+        <result property="name" column="name"/>
+        <result property="active" column="active"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+        <collection property="slots" ofType="com.tencent.wxcloudrun.model.Formation$FormationSlot">
+            <result property="index" column="slot_position"/>
+            <result property="generalId" column="slot_general_id"/>
+            <result property="generalName" column="slot_general_name"/>
+            <result property="quality" column="slot_quality"/>
+            <result property="avatar" column="slot_avatar"/>
+            <result property="mobility" column="slot_mobility"/>
+        </collection>
+    </resultMap>
+
+    <select id="findById" resultMap="formationMap">
+        SELECT f.*, s.position AS slot_position, s.general_id AS slot_general_id,
+               s.general_name AS slot_general_name, s.general_quality AS slot_quality,
+               s.general_avatar AS slot_avatar, s.mobility AS slot_mobility
+        FROM formation f
+        LEFT JOIN formation_slot s ON f.id = s.formation_id
+        WHERE f.id = #{id}
+        ORDER BY s.position
     </select>
 
-    <select id="findByUserId" resultType="java.lang.String">
-        SELECT data FROM formation WHERE od_user_id = #{odUserId} LIMIT 1
+    <select id="findByUserId" resultMap="formationMap">
+        SELECT f.*, s.position AS slot_position, s.general_id AS slot_general_id,
+               s.general_name AS slot_general_name, s.general_quality AS slot_quality,
+               s.general_avatar AS slot_avatar, s.mobility AS slot_mobility
+        FROM formation f
+        LEFT JOIN formation_slot s ON f.id = s.formation_id
+        WHERE f.od_user_id = #{odUserId}
+        ORDER BY s.position
+        LIMIT 7
     </select>
 
-    <insert id="upsert">
-        INSERT INTO formation (id, od_user_id, data, create_time, update_time)
-        VALUES (#{id}, #{odUserId}, #{data}, #{createTime}, #{updateTime})
-        ON DUPLICATE KEY UPDATE od_user_id = #{odUserId}, data = #{data}, update_time = #{updateTime}
+    <insert id="upsertFormation">
+        INSERT INTO formation (id, od_user_id, name, active, create_time, update_time)
+        VALUES (#{id}, #{odUserId}, #{name}, #{active}, #{createTime}, #{updateTime})
+        ON DUPLICATE KEY UPDATE name = #{name}, active = #{active}, update_time = #{updateTime}
+    </insert>
+
+    <delete id="deleteSlotsByFormationId">
+        DELETE FROM formation_slot WHERE formation_id = #{formationId}
+    </delete>
+
+    <insert id="insertSlots">
+        INSERT INTO formation_slot (formation_id, position, general_id, general_name, general_quality, general_avatar, mobility)
+        VALUES
+        <foreach collection="slots" item="slot" separator=",">
+            (#{formationId}, #{slot.index}, #{slot.generalId}, #{slot.generalName}, #{slot.quality}, #{slot.avatar}, #{slot.mobility})
+        </foreach>
     </insert>
 
 </mapper>

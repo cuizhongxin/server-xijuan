@@ -1,24 +1,27 @@
 package com.tencent.wxcloudrun.dao;
 
+import com.tencent.wxcloudrun.model.Equipment;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
-import java.util.Map;
 
 @Mapper
 public interface EquipmentMapper {
     
-    String findById(@Param("id") String id);
+    Equipment findById(@Param("id") String id);
     
-    List<Map<String, Object>> findByUserId(@Param("userId") String userId);
+    List<Equipment> findByUserId(@Param("userId") String userId);
     
-    void upsert(@Param("id") String id, @Param("userId") String userId, @Param("data") String data,
-                @Param("createTime") Long createTime, @Param("updateTime") Long updateTime);
+    void upsert(Equipment equipment);
     
     void deleteById(@Param("id") String id);
     
     void deleteByUserId(@Param("userId") String userId);
     
     int countByUserId(@Param("userId") String userId);
+    
+    List<Equipment> findUnequippedByUserId(@Param("userId") String userId);
+    
+    List<Equipment> findEquippedByGeneralId(@Param("generalId") String generalId);
 }

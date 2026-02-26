@@ -359,11 +359,11 @@ public class SupplyService {
 
         UserResource myRes = userResourceRepository.findByUserId(userId);
         int myLevel = myRes != null && myRes.getLevel() != null ? myRes.getLevel() : 1;
-        int playerPower = general.getAttributes() != null ? general.getAttributes().getPower() : myLevel * 500;
+        int playerPower = general.getAttrValor() != null ? general.getAttrValor() : myLevel * 500;
 
         List<General> defGenerals = generalRepository.findByUserId(defenderId);
         int defPower = defGenerals.stream()
-                .mapToInt(g -> g.getAttributes() != null ? g.getAttributes().getPower() : 0)
+                .mapToInt(g -> g.getAttrValor() != null ? g.getAttrValor() : 0)
                 .max().orElse(myLevel * 400);
 
         double powerRatio = (double) playerPower / (playerPower + defPower);

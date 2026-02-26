@@ -2,18 +2,99 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.tencent.wxcloudrun.dao.GeneralMapper">
 
-    <select id="findById" resultType="java.lang.String">
-        SELECT data FROM general WHERE id = #{id}
+    <resultMap id="generalMap" type="com.tencent.wxcloudrun.model.General">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="templateId" column="template_id"/>
+        <result property="name" column="name"/>
+        <result property="level" column="level"/>
+        <result property="exp" column="exp"/>
+        <result property="maxExp" column="max_exp"/>
+        <result property="avatar" column="avatar"/>
+        <result property="faction" column="faction"/>
+        <result property="qualityId" column="quality_id"/>
+        <result property="qualityName" column="quality_name"/>
+        <result property="qualityColor" column="quality_color"/>
+        <result property="qualityBaseMultiplier" column="quality_base_multiplier"/>
+        <result property="qualityStar" column="quality_star"/>
+        <result property="qualityIcon" column="quality_icon"/>
+        <result property="troopType" column="troop_type"/>
+        <result property="attrAttack" column="attr_attack"/>
+        <result property="attrDefense" column="attr_defense"/>
+        <result property="attrValor" column="attr_valor"/>
+        <result property="attrCommand" column="attr_command"/>
+        <result property="attrDodge" column="attr_dodge"/>
+        <result property="attrMobility" column="attr_mobility"/>
+        <result property="soldierRank" column="soldier_rank"/>
+        <result property="soldierCount" column="soldier_count"/>
+        <result property="soldierMaxCount" column="soldier_max_count"/>
+        <result property="equipWeaponId" column="equip_weapon_id"/>
+        <result property="equipArmorId" column="equip_armor_id"/>
+        <result property="equipNecklaceId" column="equip_necklace_id"/>
+        <result property="equipRingId" column="equip_ring_id"/>
+        <result property="equipShoesId" column="equip_shoes_id"/>
+        <result property="equipHelmetId" column="equip_helmet_id"/>
+        <result property="tacticsId" column="tactics_id"/>
+        <result property="statusLocked" column="status_locked"/>
+        <result property="statusInBattle" column="status_in_battle"/>
+        <result property="statusInjured" column="status_injured"/>
+        <result property="statusMorale" column="status_morale"/>
+        <result property="statTotalBattles" column="stat_total_battles"/>
+        <result property="statVictories" column="stat_victories"/>
+        <result property="statDefeats" column="stat_defeats"/>
+        <result property="statKills" column="stat_kills"/>
+        <result property="statMvpCount" column="stat_mvp_count"/>
+        <result property="traitsJson" column="traits_json"/>
+        <result property="equipmentBonusJson" column="equipment_bonus_json"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <select id="findById" resultMap="generalMap">
+        SELECT * FROM general WHERE id = #{id}
     </select>
 
-    <select id="findByUserId" resultType="java.util.HashMap">
-        SELECT id, data FROM general WHERE user_id = #{userId}
+    <select id="findByUserId" resultMap="generalMap">
+        SELECT * FROM general WHERE user_id = #{userId}
     </select>
 
     <insert id="upsert">
-        INSERT INTO general (id, user_id, data, create_time, update_time)
-        VALUES (#{id}, #{userId}, #{data}, #{createTime}, #{updateTime})
-        ON DUPLICATE KEY UPDATE user_id = #{userId}, data = #{data}, update_time = #{updateTime}
+        INSERT INTO general (
+            id, user_id, template_id, name, level, exp, max_exp, avatar, faction,
+            quality_id, quality_name, quality_color, quality_base_multiplier, quality_star, quality_icon,
+            troop_type, attr_attack, attr_defense, attr_valor, attr_command, attr_dodge, attr_mobility,
+            soldier_rank, soldier_count, soldier_max_count,
+            equip_weapon_id, equip_armor_id, equip_necklace_id, equip_ring_id, equip_shoes_id, equip_helmet_id,
+            tactics_id, status_locked, status_in_battle, status_injured, status_morale,
+            stat_total_battles, stat_victories, stat_defeats, stat_kills, stat_mvp_count,
+            traits_json, equipment_bonus_json, create_time, update_time
+        ) VALUES (
+            #{id}, #{userId}, #{templateId}, #{name}, #{level}, #{exp}, #{maxExp}, #{avatar}, #{faction},
+            #{qualityId}, #{qualityName}, #{qualityColor}, #{qualityBaseMultiplier}, #{qualityStar}, #{qualityIcon},
+            #{troopType}, #{attrAttack}, #{attrDefense}, #{attrValor}, #{attrCommand}, #{attrDodge}, #{attrMobility},
+            #{soldierRank}, #{soldierCount}, #{soldierMaxCount},
+            #{equipWeaponId}, #{equipArmorId}, #{equipNecklaceId}, #{equipRingId}, #{equipShoesId}, #{equipHelmetId},
+            #{tacticsId}, #{statusLocked}, #{statusInBattle}, #{statusInjured}, #{statusMorale},
+            #{statTotalBattles}, #{statVictories}, #{statDefeats}, #{statKills}, #{statMvpCount},
+            #{traitsJson}, #{equipmentBonusJson}, #{createTime}, #{updateTime}
+        ) ON DUPLICATE KEY UPDATE
+            user_id = #{userId}, template_id = #{templateId}, name = #{name},
+            level = #{level}, exp = #{exp}, max_exp = #{maxExp}, avatar = #{avatar}, faction = #{faction},
+            quality_id = #{qualityId}, quality_name = #{qualityName}, quality_color = #{qualityColor},
+            quality_base_multiplier = #{qualityBaseMultiplier}, quality_star = #{qualityStar}, quality_icon = #{qualityIcon},
+            troop_type = #{troopType},
+            attr_attack = #{attrAttack}, attr_defense = #{attrDefense}, attr_valor = #{attrValor},
+            attr_command = #{attrCommand}, attr_dodge = #{attrDodge}, attr_mobility = #{attrMobility},
+            soldier_rank = #{soldierRank}, soldier_count = #{soldierCount}, soldier_max_count = #{soldierMaxCount},
+            equip_weapon_id = #{equipWeaponId}, equip_armor_id = #{equipArmorId}, equip_necklace_id = #{equipNecklaceId},
+            equip_ring_id = #{equipRingId}, equip_shoes_id = #{equipShoesId}, equip_helmet_id = #{equipHelmetId},
+            tactics_id = #{tacticsId},
+            status_locked = #{statusLocked}, status_in_battle = #{statusInBattle},
+            status_injured = #{statusInjured}, status_morale = #{statusMorale},
+            stat_total_battles = #{statTotalBattles}, stat_victories = #{statVictories},
+            stat_defeats = #{statDefeats}, stat_kills = #{statKills}, stat_mvp_count = #{statMvpCount},
+            traits_json = #{traitsJson}, equipment_bonus_json = #{equipmentBonusJson},
+            update_time = #{updateTime}
     </insert>
 
     <delete id="deleteById">

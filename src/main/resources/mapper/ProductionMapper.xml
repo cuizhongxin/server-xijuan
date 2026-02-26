@@ -2,14 +2,180 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.tencent.wxcloudrun.dao.ProductionMapper">
 
-    <select id="findByUserId" resultType="java.lang.String">
-        SELECT data FROM production WHERE od_user_id = #{odUserId}
+    <resultMap id="productionMap" type="com.tencent.wxcloudrun.model.Production">
+        <id property="odUserId" column="od_user_id"/>
+        <association property="silverMine" javaType="com.tencent.wxcloudrun.model.Production$Facility">
+            <result property="id" column="sm_id"/>
+            <result property="name" column="sm_name"/>
+            <result property="type" column="sm_type"/>
+            <result property="level" column="sm_level"/>
+            <result property="maxLevel" column="sm_max_level"/>
+            <result property="outputPerTime" column="sm_output"/>
+            <result property="dailyLimit" column="sm_daily_limit"/>
+            <result property="usedToday" column="sm_used_today"/>
+            <result property="lastResetDate" column="sm_last_reset"/>
+            <result property="icon" column="sm_icon"/>
+            <result property="upgradeSilver" column="sm_up_silver"/>
+            <result property="upgradeMetal" column="sm_up_metal"/>
+            <result property="upgradeFood" column="sm_up_food"/>
+            <result property="upgradePaper" column="sm_up_paper"/>
+        </association>
+        <association property="metalMine" javaType="com.tencent.wxcloudrun.model.Production$Facility">
+            <result property="id" column="mm_id"/>
+            <result property="name" column="mm_name"/>
+            <result property="type" column="mm_type"/>
+            <result property="level" column="mm_level"/>
+            <result property="maxLevel" column="mm_max_level"/>
+            <result property="outputPerTime" column="mm_output"/>
+            <result property="dailyLimit" column="mm_daily_limit"/>
+            <result property="usedToday" column="mm_used_today"/>
+            <result property="lastResetDate" column="mm_last_reset"/>
+            <result property="icon" column="mm_icon"/>
+            <result property="upgradeSilver" column="mm_up_silver"/>
+            <result property="upgradeMetal" column="mm_up_metal"/>
+            <result property="upgradeFood" column="mm_up_food"/>
+            <result property="upgradePaper" column="mm_up_paper"/>
+        </association>
+        <association property="farm" javaType="com.tencent.wxcloudrun.model.Production$Facility">
+            <result property="id" column="fm_id"/>
+            <result property="name" column="fm_name"/>
+            <result property="type" column="fm_type"/>
+            <result property="level" column="fm_level"/>
+            <result property="maxLevel" column="fm_max_level"/>
+            <result property="outputPerTime" column="fm_output"/>
+            <result property="dailyLimit" column="fm_daily_limit"/>
+            <result property="usedToday" column="fm_used_today"/>
+            <result property="lastResetDate" column="fm_last_reset"/>
+            <result property="icon" column="fm_icon"/>
+            <result property="upgradeSilver" column="fm_up_silver"/>
+            <result property="upgradeMetal" column="fm_up_metal"/>
+            <result property="upgradeFood" column="fm_up_food"/>
+            <result property="upgradePaper" column="fm_up_paper"/>
+        </association>
+        <association property="paperMill" javaType="com.tencent.wxcloudrun.model.Production$Facility">
+            <result property="id" column="pm_id"/>
+            <result property="name" column="pm_name"/>
+            <result property="type" column="pm_type"/>
+            <result property="level" column="pm_level"/>
+            <result property="maxLevel" column="pm_max_level"/>
+            <result property="outputPerTime" column="pm_output"/>
+            <result property="dailyLimit" column="pm_daily_limit"/>
+            <result property="usedToday" column="pm_used_today"/>
+            <result property="lastResetDate" column="pm_last_reset"/>
+            <result property="icon" column="pm_icon"/>
+            <result property="upgradeSilver" column="pm_up_silver"/>
+            <result property="upgradeMetal" column="pm_up_metal"/>
+            <result property="upgradeFood" column="pm_up_food"/>
+            <result property="upgradePaper" column="pm_up_paper"/>
+        </association>
+        <association property="arsenal" javaType="com.tencent.wxcloudrun.model.Production$ManufactureFacility">
+            <result property="id" column="ar_id"/>
+            <result property="name" column="ar_name"/>
+            <result property="type" column="ar_type"/>
+            <result property="level" column="ar_level"/>
+            <result property="maxLevel" column="ar_max_level"/>
+            <result property="icon" column="ar_icon"/>
+            <result property="description" column="ar_desc"/>
+            <result property="upgradeSilver" column="ar_up_silver"/>
+            <result property="upgradeMetal" column="ar_up_metal"/>
+            <result property="upgradeFood" column="ar_up_food"/>
+            <result property="upgradePaper" column="ar_up_paper"/>
+        </association>
+        <association property="workshop" javaType="com.tencent.wxcloudrun.model.Production$ManufactureFacility">
+            <result property="id" column="ws_id"/>
+            <result property="name" column="ws_name"/>
+            <result property="type" column="ws_type"/>
+            <result property="level" column="ws_level"/>
+            <result property="maxLevel" column="ws_max_level"/>
+            <result property="icon" column="ws_icon"/>
+            <result property="description" column="ws_desc"/>
+            <result property="upgradeSilver" column="ws_up_silver"/>
+            <result property="upgradeMetal" column="ws_up_metal"/>
+            <result property="upgradeFood" column="ws_up_food"/>
+            <result property="upgradePaper" column="ws_up_paper"/>
+        </association>
+        <association property="academy" javaType="com.tencent.wxcloudrun.model.Production$ManufactureFacility">
+            <result property="id" column="ac_id"/>
+            <result property="name" column="ac_name"/>
+            <result property="type" column="ac_type"/>
+            <result property="level" column="ac_level"/>
+            <result property="maxLevel" column="ac_max_level"/>
+            <result property="icon" column="ac_icon"/>
+            <result property="description" column="ac_desc"/>
+            <result property="upgradeSilver" column="ac_up_silver"/>
+            <result property="upgradeMetal" column="ac_up_metal"/>
+            <result property="upgradeFood" column="ac_up_food"/>
+            <result property="upgradePaper" column="ac_up_paper"/>
+        </association>
+    </resultMap>
+
+    <select id="findByUserId" resultMap="productionMap">
+        SELECT * FROM production WHERE od_user_id = #{odUserId}
     </select>
 
     <insert id="upsert">
-        INSERT INTO production (od_user_id, data)
-        VALUES (#{odUserId}, #{data})
-        ON DUPLICATE KEY UPDATE data = #{data}
+        INSERT INTO production (
+            od_user_id,
+            sm_id, sm_name, sm_type, sm_level, sm_max_level, sm_output, sm_daily_limit, sm_used_today, sm_last_reset, sm_icon,
+            sm_up_silver, sm_up_metal, sm_up_food, sm_up_paper,
+            mm_id, mm_name, mm_type, mm_level, mm_max_level, mm_output, mm_daily_limit, mm_used_today, mm_last_reset, mm_icon,
+            mm_up_silver, mm_up_metal, mm_up_food, mm_up_paper,
+            fm_id, fm_name, fm_type, fm_level, fm_max_level, fm_output, fm_daily_limit, fm_used_today, fm_last_reset, fm_icon,
+            fm_up_silver, fm_up_metal, fm_up_food, fm_up_paper,
+            pm_id, pm_name, pm_type, pm_level, pm_max_level, pm_output, pm_daily_limit, pm_used_today, pm_last_reset, pm_icon,
+            pm_up_silver, pm_up_metal, pm_up_food, pm_up_paper,
+            ar_id, ar_name, ar_type, ar_level, ar_max_level, ar_icon, ar_desc,
+            ar_up_silver, ar_up_metal, ar_up_food, ar_up_paper,
+            ws_id, ws_name, ws_type, ws_level, ws_max_level, ws_icon, ws_desc,
+            ws_up_silver, ws_up_metal, ws_up_food, ws_up_paper,
+            ac_id, ac_name, ac_type, ac_level, ac_max_level, ac_icon, ac_desc,
+            ac_up_silver, ac_up_metal, ac_up_food, ac_up_paper
+        ) VALUES (
+            #{odUserId},
+            #{silverMine.id}, #{silverMine.name}, #{silverMine.type}, #{silverMine.level}, #{silverMine.maxLevel},
+            #{silverMine.outputPerTime}, #{silverMine.dailyLimit}, #{silverMine.usedToday}, #{silverMine.lastResetDate}, #{silverMine.icon},
+            #{silverMine.upgradeSilver}, #{silverMine.upgradeMetal}, #{silverMine.upgradeFood}, #{silverMine.upgradePaper},
+            #{metalMine.id}, #{metalMine.name}, #{metalMine.type}, #{metalMine.level}, #{metalMine.maxLevel},
+            #{metalMine.outputPerTime}, #{metalMine.dailyLimit}, #{metalMine.usedToday}, #{metalMine.lastResetDate}, #{metalMine.icon},
+            #{metalMine.upgradeSilver}, #{metalMine.upgradeMetal}, #{metalMine.upgradeFood}, #{metalMine.upgradePaper},
+            #{farm.id}, #{farm.name}, #{farm.type}, #{farm.level}, #{farm.maxLevel},
+            #{farm.outputPerTime}, #{farm.dailyLimit}, #{farm.usedToday}, #{farm.lastResetDate}, #{farm.icon},
+            #{farm.upgradeSilver}, #{farm.upgradeMetal}, #{farm.upgradeFood}, #{farm.upgradePaper},
+            #{paperMill.id}, #{paperMill.name}, #{paperMill.type}, #{paperMill.level}, #{paperMill.maxLevel},
+            #{paperMill.outputPerTime}, #{paperMill.dailyLimit}, #{paperMill.usedToday}, #{paperMill.lastResetDate}, #{paperMill.icon},
+            #{paperMill.upgradeSilver}, #{paperMill.upgradeMetal}, #{paperMill.upgradeFood}, #{paperMill.upgradePaper},
+            #{arsenal.id}, #{arsenal.name}, #{arsenal.type}, #{arsenal.level}, #{arsenal.maxLevel}, #{arsenal.icon}, #{arsenal.description},
+            #{arsenal.upgradeSilver}, #{arsenal.upgradeMetal}, #{arsenal.upgradeFood}, #{arsenal.upgradePaper},
+            #{workshop.id}, #{workshop.name}, #{workshop.type}, #{workshop.level}, #{workshop.maxLevel}, #{workshop.icon}, #{workshop.description},
+            #{workshop.upgradeSilver}, #{workshop.upgradeMetal}, #{workshop.upgradeFood}, #{workshop.upgradePaper},
+            #{academy.id}, #{academy.name}, #{academy.type}, #{academy.level}, #{academy.maxLevel}, #{academy.icon}, #{academy.description},
+            #{academy.upgradeSilver}, #{academy.upgradeMetal}, #{academy.upgradeFood}, #{academy.upgradePaper}
+        ) ON DUPLICATE KEY UPDATE
+            sm_level = #{silverMine.level}, sm_output = #{silverMine.outputPerTime}, sm_daily_limit = #{silverMine.dailyLimit},
+            sm_used_today = #{silverMine.usedToday}, sm_last_reset = #{silverMine.lastResetDate},
+            sm_up_silver = #{silverMine.upgradeSilver}, sm_up_metal = #{silverMine.upgradeMetal},
+            sm_up_food = #{silverMine.upgradeFood}, sm_up_paper = #{silverMine.upgradePaper},
+            mm_level = #{metalMine.level}, mm_output = #{metalMine.outputPerTime}, mm_daily_limit = #{metalMine.dailyLimit},
+            mm_used_today = #{metalMine.usedToday}, mm_last_reset = #{metalMine.lastResetDate},
+            mm_up_silver = #{metalMine.upgradeSilver}, mm_up_metal = #{metalMine.upgradeMetal},
+            mm_up_food = #{metalMine.upgradeFood}, mm_up_paper = #{metalMine.upgradePaper},
+            fm_level = #{farm.level}, fm_output = #{farm.outputPerTime}, fm_daily_limit = #{farm.dailyLimit},
+            fm_used_today = #{farm.usedToday}, fm_last_reset = #{farm.lastResetDate},
+            fm_up_silver = #{farm.upgradeSilver}, fm_up_metal = #{farm.upgradeMetal},
+            fm_up_food = #{farm.upgradeFood}, fm_up_paper = #{farm.upgradePaper},
+            pm_level = #{paperMill.level}, pm_output = #{paperMill.outputPerTime}, pm_daily_limit = #{paperMill.dailyLimit},
+            pm_used_today = #{paperMill.usedToday}, pm_last_reset = #{paperMill.lastResetDate},
+            pm_up_silver = #{paperMill.upgradeSilver}, pm_up_metal = #{paperMill.upgradeMetal},
+            pm_up_food = #{paperMill.upgradeFood}, pm_up_paper = #{paperMill.upgradePaper},
+            ar_level = #{arsenal.level}, ar_desc = #{arsenal.description},
+            ar_up_silver = #{arsenal.upgradeSilver}, ar_up_metal = #{arsenal.upgradeMetal},
+            ar_up_food = #{arsenal.upgradeFood}, ar_up_paper = #{arsenal.upgradePaper},
+            ws_level = #{workshop.level}, ws_desc = #{workshop.description},
+            ws_up_silver = #{workshop.upgradeSilver}, ws_up_metal = #{workshop.upgradeMetal},
+            ws_up_food = #{workshop.upgradeFood}, ws_up_paper = #{workshop.upgradePaper},
+            ac_level = #{academy.level}, ac_desc = #{academy.description},
+            ac_up_silver = #{academy.upgradeSilver}, ac_up_metal = #{academy.upgradeMetal},
+            ac_up_food = #{academy.upgradeFood}, ac_up_paper = #{academy.upgradePaper}
     </insert>
 
 </mapper>

@@ -16,13 +16,15 @@ public interface GameServerMapper {
 
     Map<String, Object> findPlayerServer(@Param("userId") String userId, @Param("serverId") int serverId);
 
+    int isNameTaken(@Param("serverId") int serverId, @Param("lordName") String lordName);
+
     void insertPlayerServer(@Param("userId") String userId,
                             @Param("serverId") int serverId,
+                            @Param("lordName") String lordName,
                             @Param("createTime") long createTime);
 
     void updatePlayerLogin(@Param("userId") String userId,
                            @Param("serverId") int serverId,
-                           @Param("level") int level,
                            @Param("lastLogin") long lastLogin);
 
     void incrementServerPlayers(@Param("serverId") int serverId);

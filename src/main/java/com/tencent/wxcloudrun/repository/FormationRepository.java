@@ -1,6 +1,5 @@
 package com.tencent.wxcloudrun.repository;
 
-import com.alibaba.fastjson.JSON;
 import com.tencent.wxcloudrun.dao.FormationMapper;
 import com.tencent.wxcloudrun.model.Formation;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,22 +22,14 @@ public class FormationRepository {
      * 根据用户ID查找阵型
      */
     public Formation findByUserId(String odUserId) {
-        String data = formationMapper.findByUserId(odUserId);
-        if (data == null) {
-            return null;
-        }
-        return JSON.parseObject(data, Formation.class);
+        return formationMapper.findByUserId(odUserId);
     }
     
     /**
      * 根据ID查找阵型
      */
     public Formation findById(String id) {
-        String data = formationMapper.findById(id);
-        if (data == null) {
-            return null;
-        }
-        return JSON.parseObject(data, Formation.class);
+        return formationMapper.findById(id);
     }
     
     /**
@@ -69,8 +60,8 @@ public class FormationRepository {
             .updateTime(System.currentTimeMillis())
             .build();
         
-        formationMapper.upsert(formationId, odUserId, JSON.toJSONString(formation),
-                formation.getCreateTime(), formation.getUpdateTime());
+        formationMapper.upsertFormation(formation);
+        formationMapper.insertSlots(formationId, slots);
         return formation;
     }
     
@@ -79,8 +70,11 @@ public class FormationRepository {
      */
     public Formation save(Formation formation) {
         formation.setUpdateTime(System.currentTimeMillis());
-        formationMapper.upsert(formation.getId(), formation.getOdUserId(), JSON.toJSONString(formation),
-                formation.getCreateTime(), formation.getUpdateTime());
+        formationMapper.upsertFormation(formation);
+        formationMapper.deleteSlotsByFormationId(formation.getId());
+        if (formation.getSlots() != null && !formation.getSlots().isEmpty()) {
+            formationMapper.insertSlots(formation.getId(), formation.getSlots());
+        }
         return formation;
     }
 }

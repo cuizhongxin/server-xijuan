@@ -124,9 +124,9 @@ public class RecruitController {
         boolean hasOrange = false;
         boolean hasPurple = false;
         for (General general : generals) {
-            if (general.getQuality().getId() == 6) {
+            if (general.getQualityId() != null && general.getQualityId() == 6) {
                 hasOrange = true;
-            } else if (general.getQuality().getId() == 5) {
+            } else if (general.getQualityId() != null && general.getQualityId() == 5) {
                 hasPurple = true;
             }
         }

@@ -1,20 +1,19 @@
 package com.tencent.wxcloudrun.dao;
 
+import com.tencent.wxcloudrun.model.General;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
-import java.util.Map;
 
 @Mapper
 public interface GeneralMapper {
     
-    String findById(@Param("id") String id);
+    General findById(@Param("id") String id);
     
-    List<Map<String, Object>> findByUserId(@Param("userId") String userId);
+    List<General> findByUserId(@Param("userId") String userId);
     
-    void upsert(@Param("id") String id, @Param("userId") String userId, @Param("data") String data,
-                @Param("createTime") Long createTime, @Param("updateTime") Long updateTime);
+    void upsert(General general);
     
     void deleteById(@Param("id") String id);
     

@@ -1,6 +1,5 @@
 package com.tencent.wxcloudrun.repository;
 
-import com.alibaba.fastjson.JSON;
 import com.tencent.wxcloudrun.dao.UserResourceMapper;
 import com.tencent.wxcloudrun.model.UserResource;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,11 +18,7 @@ public class UserResourceRepository {
      * 根据用户ID获取资源
      */
     public UserResource findByUserId(String odUserId) {
-        String data = userResourceMapper.findByUserId(odUserId);
-        if (data == null) {
-            return null;
-        }
-        return JSON.parseObject(data, UserResource.class);
+        return userResourceMapper.findByUserId(odUserId);
     }
     
     /**
@@ -34,8 +29,7 @@ public class UserResourceRepository {
         if (resource.getCreateTime() == null) {
             resource.setCreateTime(System.currentTimeMillis());
         }
-        userResourceMapper.upsert(resource.getOdUserId(), JSON.toJSONString(resource),
-                resource.getCreateTime(), resource.getUpdateTime());
+        userResourceMapper.upsert(resource);
         return resource;
     }
     
@@ -51,8 +45,7 @@ public class UserResourceRepository {
         UserResource resource = UserResource.createDefault(odUserId);
         resource.setCreateTime(System.currentTimeMillis());
         resource.setUpdateTime(System.currentTimeMillis());
-        userResourceMapper.upsert(odUserId, JSON.toJSONString(resource),
-                resource.getCreateTime(), resource.getUpdateTime());
+        userResourceMapper.upsert(resource);
         return resource;
     }
     

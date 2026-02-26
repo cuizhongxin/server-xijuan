@@ -165,7 +165,7 @@ public class PlunderService {
         if (general == null) {
             throw new BusinessException(400, "武将不存在");
         }
-        int playerPower = general.getAttributes() != null ? general.getAttributes().getPower() : myLevel * 500;
+        int playerPower = general.getAttrValor() != null ? general.getAttrValor() : myLevel * 500;
 
         // 冷却检查（非NPC目标）- 直接查数据库
         boolean isNpcTarget = targetId.startsWith("npc_");
@@ -210,7 +210,7 @@ public class PlunderService {
 
             List<General> targetGenerals = generalRepository.findByUserId(targetId);
             targetPower = targetGenerals.stream()
-                    .mapToInt(g -> g.getAttributes() != null ? g.getAttributes().getPower() : 0)
+                    .mapToInt(g -> g.getAttrValor() != null ? g.getAttrValor() : 0)
                     .max().orElse(targetLevel * 400);
         }
 

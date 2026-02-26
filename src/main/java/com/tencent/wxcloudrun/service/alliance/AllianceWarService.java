@@ -135,7 +135,6 @@ public class AllianceWarService {
                 .playerName(playerName)
                 .allianceId(alliance.getId())
                 .allianceName(alliance.getName())
-                .faction(alliance.getFaction())
                 .playerNumber(playerNumber)
                 .level(level != null ? level : 1)
                 .power(power != null ? power : 10000L)

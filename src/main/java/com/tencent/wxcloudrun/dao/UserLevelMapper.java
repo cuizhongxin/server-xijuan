@@ -1,15 +1,15 @@
 package com.tencent.wxcloudrun.dao;
 
+import com.tencent.wxcloudrun.model.UserLevel;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 @Mapper
 public interface UserLevelMapper {
     
-    String findByUserId(@Param("userId") String userId);
+    UserLevel findByUserId(@Param("userId") String userId);
     
-    void upsert(@Param("userId") String userId, @Param("data") String data,
-                @Param("createTime") Long createTime, @Param("updateTime") Long updateTime);
+    void upsert(UserLevel userLevel);
     
     void deleteByUserId(@Param("userId") String userId);
 }

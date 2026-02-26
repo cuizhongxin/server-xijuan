@@ -1,5 +1,6 @@
 package com.tencent.wxcloudrun.model;
 
+import com.alibaba.fastjson.JSON;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -128,6 +129,18 @@ public class Equipment {
      * 更新时间
      */
     private Long updateTime;
+    
+    // ====== JSON 辅助字段（SetInfo 含嵌套 Attributes，用 JSON 列存储） ======
+    
+    public String getSetInfoJson() {
+        return setInfo != null ? JSON.toJSONString(setInfo) : null;
+    }
+    
+    public void setSetInfoJson(String json) {
+        if (json != null && !json.isEmpty()) {
+            this.setInfo = JSON.parseObject(json, SetInfo.class);
+        }
+    }
     
     // ==================== 内部类 ====================
     

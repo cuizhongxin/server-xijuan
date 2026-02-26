@@ -4,40 +4,45 @@
 <mapper namespace="com.tencent.wxcloudrun.dao.GameServerMapper">
 
     <select id="findAllServers" resultType="java.util.HashMap">
-        SELECT id, server_name AS serverName, server_status AS serverStatus,
+        SELECT id, name AS serverName, status AS serverStatus,
                max_players AS maxPlayers, current_players AS currentPlayers,
                open_time AS openTime
         FROM game_server ORDER BY id ASC
     </select>
 
     <select id="findServerById" resultType="java.util.HashMap">
-        SELECT id, server_name AS serverName, server_status AS serverStatus
+        SELECT id, name AS serverName, status AS serverStatus
         FROM game_server WHERE id = #{id}
     </select>
 
     <select id="findPlayerServers" resultType="java.util.HashMap">
-        SELECT ps.server_id AS serverId, gs.server_name AS serverName,
-               gs.server_status AS serverStatus,
-               ps.player_level AS playerLevel, ps.last_login AS lastLogin
-        FROM player_server ps
-        JOIN game_server gs ON ps.server_id = gs.id
-        WHERE ps.user_id = #{userId}
-        ORDER BY ps.last_login DESC
+        SELECT us.server_id AS serverId, gs.name AS serverName,
+               gs.status AS serverStatus, us.lord_name AS lordName,
+               us.last_login_time AS lastLoginTime
+        FROM user_server us
+        JOIN game_server gs ON us.server_id = gs.id
+        WHERE us.user_id = #{userId}
+        ORDER BY us.last_login_time DESC
     </select>
 
     <select id="findPlayerServer" resultType="java.util.HashMap">
-        SELECT ps.server_id AS serverId, ps.player_level AS playerLevel
-        FROM player_server ps
-        WHERE ps.user_id = #{userId} AND ps.server_id = #{serverId}
+        SELECT us.server_id AS serverId, us.lord_name AS lordName
+        FROM user_server us
+        WHERE us.user_id = #{userId} AND us.server_id = #{serverId}
+    </select>
+
+    <select id="isNameTaken" resultType="int">
+        SELECT COUNT(1) FROM user_server
+        WHERE server_id = #{serverId} AND lord_name = #{lordName}
     </select>
 
     <insert id="insertPlayerServer">
-        INSERT INTO player_server (user_id, server_id, player_level, last_login, create_time)
-        VALUES (#{userId}, #{serverId}, 1, #{createTime}, #{createTime})
+        INSERT INTO user_server (user_id, server_id, lord_name, create_time, last_login_time)
+        VALUES (#{userId}, #{serverId}, #{lordName}, #{createTime}, #{createTime})
     </insert>
 
     <update id="updatePlayerLogin">
-        UPDATE player_server SET player_level = #{level}, last_login = #{lastLogin}
+        UPDATE user_server SET last_login_time = #{lastLogin}
         WHERE user_id = #{userId} AND server_id = #{serverId}
     </update>
 

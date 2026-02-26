@@ -1,6 +1,5 @@
 package com.tencent.wxcloudrun.repository;
 
-import com.alibaba.fastjson.JSON;
 import com.tencent.wxcloudrun.dao.UserLevelMapper;
 import com.tencent.wxcloudrun.model.UserLevel;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,11 +18,7 @@ public class UserLevelRepository {
      * 获取用户等级信息
      */
     public UserLevel findByUserId(String userId) {
-        String data = userLevelMapper.findByUserId(userId);
-        if (data == null) {
-            return null;
-        }
-        return JSON.parseObject(data, UserLevel.class);
+        return userLevelMapper.findByUserId(userId);
     }
     
     /**
@@ -34,8 +29,7 @@ public class UserLevelRepository {
         if (userLevel.getCreateTime() == null) {
             userLevel.setCreateTime(System.currentTimeMillis());
         }
-        userLevelMapper.upsert(userLevel.getUserId(), JSON.toJSONString(userLevel),
-                userLevel.getCreateTime(), userLevel.getUpdateTime());
+        userLevelMapper.upsert(userLevel);
         return userLevel;
     }
     

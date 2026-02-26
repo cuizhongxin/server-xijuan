@@ -1,6 +1,5 @@
 package com.tencent.wxcloudrun.service;
 
-import com.alibaba.fastjson.JSON;
 import com.tencent.wxcloudrun.dao.RechargeOrderMapper;
 import com.tencent.wxcloudrun.exception.BusinessException;
 import com.tencent.wxcloudrun.model.RechargeOrder;
@@ -67,27 +66,18 @@ public class RechargeService {
                 .bonusItems(product.getBonusItems()).createTime(System.currentTimeMillis()).updateTime(System.currentTimeMillis())
                 .build();
         
-        rechargeOrderMapper.upsert(orderId, odUserId, order.getStatus(), JSON.toJSONString(order), order.getCreateTime());
+        rechargeOrderMapper.upsert(order);
         logger.info("创建充值订单: {}, 用户: {}, 商品: {}, 支付方式: {}", orderId, odUserId, productId, paymentMethod);
         return order;
     }
     
     public RechargeOrder getOrder(String orderId) {
-        String data = rechargeOrderMapper.findById(orderId);
-        if (data == null) return null;
-        return JSON.parseObject(data, RechargeOrder.class);
+        return rechargeOrderMapper.findById(orderId);
     }
     
     public List<RechargeOrder> getUserOrders(String odUserId) {
-        List<Map<String, Object>> rows = rechargeOrderMapper.findByUserId(odUserId);
-        List<RechargeOrder> result = new ArrayList<>();
-        if (rows != null) {
-            for (Map<String, Object> row : rows) {
-                String data = (String) row.get("data");
-                if (data != null) { result.add(JSON.parseObject(data, RechargeOrder.class)); }
-            }
-        }
-        return result;
+        List<RechargeOrder> result = rechargeOrderMapper.findByUserId(odUserId);
+        return result != null ? result : new ArrayList<>();
     }
     
     public Map<String, Object> handleWechatCallback(String orderId, String tradeNo, boolean success) {
@@ -103,70 +93,69 @@ public class RechargeService {
     }
     
     private Map<String, Object> handlePaymentCallback(String orderId, String tradeNo, String paymentMethod, boolean success) {
-        RechargeOrder order = getOrder(orderId);
+        RechargeOrder order = rechargeOrderMapper.findById(orderId);
         if (order == null) { throw new BusinessException(400, "订单不存在"); }
-        if (!RechargeOrder.Status.PENDING.equals(order.getStatus())) { throw new BusinessException(400, "订单状态异常"); }
+        if (!RechargeOrder.Status.PENDING.equals(order.getStatus())) {
+            throw new BusinessException(400, "订单状态异常，当前状态: " + order.getStatus());
+        }
         
         order.setTradeNo(tradeNo);
+        order.setPayTime(System.currentTimeMillis());
         order.setUpdateTime(System.currentTimeMillis());
         
         Map<String, Object> result = new HashMap<>();
-        result.put("orderId", orderId);
-        
         if (success) {
             order.setStatus(RechargeOrder.Status.PAID);
-            order.setPayTime(System.currentTimeMillis());
-            resourceService.handleRecharge(order.getOdUserId(), order.getAmount(), paymentMethod);
+            rechargeOrderMapper.upsert(order);
+            
+            // 发放道具
+            if (order.getGoldAmount() != null && order.getGoldAmount() > 0) {
+                resourceService.addGold(order.getOdUserId(), order.getGoldAmount().intValue());
+            }
+            if (order.getDiamondAmount() != null && order.getDiamondAmount() > 0) {
+                resourceService.addDiamond(order.getOdUserId(), order.getDiamondAmount().intValue());
+            }
+            
             result.put("success", true);
-            result.put("goldAmount", order.getGoldAmount());
-            result.put("diamondAmount", order.getDiamondAmount());
-            logger.info("支付成功: 订单 {}, 用户 {}, 金额 {} 分", orderId, order.getOdUserId(), order.getAmount());
+            result.put("order", order);
+            result.put("message", "充值成功");
+            logger.info("充值成功: orderId={}, userId={}, amount={}", orderId, order.getOdUserId(), order.getAmount());
         } else {
             order.setStatus(RechargeOrder.Status.FAILED);
+            rechargeOrderMapper.upsert(order);
             result.put("success", false);
-            logger.warn("支付失败: 订单 {}", orderId);
+            result.put("message", "支付失败");
+            logger.warn("充值失败: orderId={}", orderId);
         }
-        
-        rechargeOrderMapper.upsert(orderId, order.getOdUserId(), order.getStatus(), JSON.toJSONString(order), order.getCreateTime());
         return result;
     }
     
-    public Map<String, Object> generateWechatPayParams(RechargeOrder order) {
-        Map<String, Object> params = new HashMap<>();
-        String appId = "wx8f7d0509e671ceb4";
-        String timeStamp = String.valueOf(System.currentTimeMillis() / 1000);
-        String nonceStr = UUID.randomUUID().toString().replace("-", "");
-        String prepayId = "wx" + System.currentTimeMillis();
-        
-        params.put("appId", appId); params.put("timeStamp", timeStamp); params.put("nonceStr", nonceStr);
-        params.put("package", "prepay_id=" + prepayId); params.put("signType", "RSA");
-        params.put("paySign", generatePaySign(appId, timeStamp, nonceStr, "prepay_id=" + prepayId));
-        params.put("totalFee", order.getAmount()); params.put("outTradeNo", order.getId());
-        params.put("total_fee", order.getAmount()); params.put("out_trade_no", order.getId());
-        params.put("TOTAL_FEE", order.getAmount()); params.put("OUT_TRADE_NO", order.getId());
-        params.put("orderId", order.getId()); params.put("body", order.getProductName()); params.put("amount", order.getAmount());
-        return params;
+    public Map<String, Object> mockPayment(String orderId) {
+        RechargeOrder order = rechargeOrderMapper.findById(orderId);
+        if (order == null) { throw new BusinessException(400, "订单不存在"); }
+        return handlePaymentCallback(orderId, "MOCK_" + System.currentTimeMillis(), order.getPaymentMethod(), true);
     }
     
-    private String generatePaySign(String appId, String timeStamp, String nonceStr, String packageVal) {
-        return "MOCK_SIGN_" + System.currentTimeMillis();
+    public Map<String, String> generateWechatPayParams(RechargeOrder order) {
+        Map<String, String> params = new HashMap<>();
+        params.put("appId", "wx_mock_appid");
+        params.put("timeStamp", String.valueOf(System.currentTimeMillis() / 1000));
+        params.put("nonceStr", UUID.randomUUID().toString().replace("-", ""));
+        params.put("package", "prepay_id=mock_" + order.getId());
+        params.put("signType", "MD5");
+        params.put("paySign", "mock_sign");
+        return params;
     }
     
     public Map<String, String> generateAlipayParams(RechargeOrder order) {
         Map<String, String> params = new HashMap<>();
-        params.put("orderString", "alipay_sdk=java&app_id=xxx&biz_content={\"out_trade_no\":\"" + order.getId() + "\",\"total_amount\":\"" + (order.getAmount() / 100.0) + "\"}");
+        params.put("orderString", "mock_alipay_order_" + order.getId());
         return params;
     }
     
     public Map<String, String> generateUnionpayParams(RechargeOrder order) {
         Map<String, String> params = new HashMap<>();
-        params.put("tn", "MOCK_TN_" + order.getId()); params.put("mode", "00");
+        params.put("tn", "mock_unionpay_tn_" + order.getId());
         return params;
-    }
-    
-    public Map<String, Object> mockPaySuccess(String orderId) {
-        RechargeOrder order = getOrder(orderId);
-        if (order == null) { throw new BusinessException(400, "订单不存在"); }
-        return handlePaymentCallback(orderId, "MOCK_" + System.currentTimeMillis(), order.getPaymentMethod(), true);
     }
 }

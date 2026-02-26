@@ -2,14 +2,76 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.tencent.wxcloudrun.dao.WarehouseMapper">
 
-    <select id="findByUserId" resultType="java.lang.String">
-        SELECT data FROM warehouse WHERE user_id = #{userId} LIMIT 1
+    <resultMap id="warehouseMap" type="com.tencent.wxcloudrun.model.Warehouse">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+        <association property="equipmentStorage" javaType="com.tencent.wxcloudrun.model.Warehouse$EquipmentStorage">
+            <result property="capacity" column="equip_capacity"/>
+            <result property="baseCapacity" column="equip_base_capacity"/>
+            <result property="expandTimes" column="equip_expand_times"/>
+            <result property="usedSlots" column="equip_used_slots"/>
+        </association>
+        <association property="itemStorage" javaType="com.tencent.wxcloudrun.model.Warehouse$ItemStorage">
+            <result property="capacity" column="item_capacity"/>
+            <result property="baseCapacity" column="item_base_capacity"/>
+            <result property="expandTimes" column="item_expand_times"/>
+            <result property="usedSlots" column="item_used_slots"/>
+        </association>
+        <collection property="itemStorage.items" ofType="com.tencent.wxcloudrun.model.Warehouse$WarehouseItem">
+            <result property="itemId" column="wi_item_id"/>
+            <result property="itemType" column="wi_item_type"/>
+            <result property="name" column="wi_name"/>
+            <result property="icon" column="wi_icon"/>
+            <result property="quality" column="wi_quality"/>
+            <result property="count" column="wi_count"/>
+            <result property="maxStack" column="wi_max_stack"/>
+            <result property="description" column="wi_description"/>
+            <result property="usable" column="wi_usable"/>
+            <result property="bound" column="wi_bound"/>
+        </collection>
+    </resultMap>
+
+    <select id="findByUserId" resultMap="warehouseMap">
+        SELECT w.*,
+               wi.item_id AS wi_item_id, wi.item_type AS wi_item_type, wi.name AS wi_name,
+               wi.icon AS wi_icon, wi.quality AS wi_quality, wi.count AS wi_count,
+               wi.max_stack AS wi_max_stack, wi.description AS wi_description,
+               wi.usable AS wi_usable, wi.bound AS wi_bound
+        FROM warehouse w
+        LEFT JOIN warehouse_item wi ON w.id = wi.warehouse_id
+        WHERE w.user_id = #{userId}
     </select>
 
-    <insert id="upsert">
-        INSERT INTO warehouse (id, user_id, data, create_time, update_time)
-        VALUES (#{id}, #{userId}, #{data}, #{createTime}, #{updateTime})
-        ON DUPLICATE KEY UPDATE data = #{data}, update_time = #{updateTime}
+    <insert id="upsertWarehouse">
+        INSERT INTO warehouse (id, user_id,
+            equip_capacity, equip_base_capacity, equip_expand_times, equip_used_slots, equipment_ids,
+            item_capacity, item_base_capacity, item_expand_times, item_used_slots,
+            create_time, update_time)
+        VALUES (#{id}, #{userId},
+            #{equipmentStorage.capacity}, #{equipmentStorage.baseCapacity}, #{equipmentStorage.expandTimes}, #{equipmentStorage.usedSlots}, #{equipmentIdsStr},
+            #{itemStorage.capacity}, #{itemStorage.baseCapacity}, #{itemStorage.expandTimes}, #{itemStorage.usedSlots},
+            #{createTime}, #{updateTime})
+        ON DUPLICATE KEY UPDATE
+            equip_capacity = #{equipmentStorage.capacity}, equip_expand_times = #{equipmentStorage.expandTimes},
+            equip_used_slots = #{equipmentStorage.usedSlots}, equipment_ids = #{equipmentIdsStr},
+            item_capacity = #{itemStorage.capacity}, item_expand_times = #{itemStorage.expandTimes},
+            item_used_slots = #{itemStorage.usedSlots},
+            update_time = #{updateTime}
+    </insert>
+
+    <delete id="deleteItemsByWarehouseId">
+        DELETE FROM warehouse_item WHERE warehouse_id = #{warehouseId}
+    </delete>
+
+    <insert id="insertItems">
+        INSERT INTO warehouse_item (warehouse_id, item_id, item_type, name, icon, quality, count, max_stack, description, usable, bound)
+        VALUES
+        <foreach collection="items" item="item" separator=",">
+            (#{warehouseId}, #{item.itemId}, #{item.itemType}, #{item.name}, #{item.icon}, #{item.quality},
+             #{item.count}, #{item.maxStack}, #{item.description}, #{item.usable}, #{item.bound})
+        </foreach>
     </insert>
 
 </mapper>

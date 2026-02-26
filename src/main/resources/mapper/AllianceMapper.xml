@@ -2,37 +2,115 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.tencent.wxcloudrun.dao.AllianceMapper">
 
-    <select id="findById" resultType="java.lang.String">
-        SELECT data FROM alliance WHERE id = #{id}
+    <resultMap id="allianceMap" type="com.tencent.wxcloudrun.model.Alliance">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="leaderId" column="leader_id"/>
+        <result property="leaderName" column="leader_name"/>
+        <result property="level" column="level"/>
+        <result property="notice" column="notice"/>
+        <result property="maxMembers" column="max_members"/>
+        <result property="autoApprove" column="auto_approve"/>
+        <result property="minLevel" column="min_level"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+        <collection property="members" ofType="com.tencent.wxcloudrun.model.Alliance$AllianceMember"
+                    column="id" select="findMembersByAllianceId"/>
+        <collection property="applications" ofType="com.tencent.wxcloudrun.model.Alliance$AllianceApplication"
+                    column="id" select="findApplicationsByAllianceId"/>
+    </resultMap>
+
+    <resultMap id="memberMap" type="com.tencent.wxcloudrun.model.Alliance$AllianceMember">
+        <result property="userId" column="user_id"/>
+        <result property="name" column="name"/>
+        <result property="role" column="role"/>
+        <result property="level" column="level"/>
+        <result property="contribution" column="contribution"/>
+        <result property="joinTime" column="join_time"/>
+    </resultMap>
+
+    <resultMap id="applicationMap" type="com.tencent.wxcloudrun.model.Alliance$AllianceApplication">
+        <result property="userId" column="user_id"/>
+        <result property="userName" column="user_name"/>
+        <result property="userLevel" column="user_level"/>
+        <result property="status" column="status"/>
+        <result property="applyTime" column="apply_time"/>
+    </resultMap>
+
+    <select id="findMembersByAllianceId" resultMap="memberMap">
+        SELECT * FROM alliance_member WHERE alliance_id = #{id}
     </select>
 
-    <select id="findAll" resultType="java.util.HashMap">
-        SELECT id, data FROM alliance
+    <select id="findApplicationsByAllianceId" resultMap="applicationMap">
+        SELECT * FROM alliance_application WHERE alliance_id = #{id} AND status = 'pending'
     </select>
 
-    <insert id="upsert">
-        INSERT INTO alliance (id, name, leader_id, data, create_time, update_time)
-        VALUES (#{id}, #{name}, #{leaderId}, #{data}, #{createTime}, #{updateTime})
-        ON DUPLICATE KEY UPDATE name = #{name}, leader_id = #{leaderId}, data = #{data}, update_time = #{updateTime}
+    <select id="findById" resultMap="allianceMap">
+        SELECT * FROM alliance WHERE id = #{id}
+    </select>
+
+    <select id="findAll" resultMap="allianceMap">
+        SELECT * FROM alliance
+    </select>
+
+    <insert id="upsertAlliance">
+        INSERT INTO alliance (id, name, leader_id, leader_name, level, notice,
+            max_members, auto_approve, min_level, create_time, update_time)
+        VALUES (#{id}, #{name}, #{leaderId}, #{leaderName}, #{level}, #{notice},
+            #{maxMembers}, #{autoApprove}, #{minLevel}, #{createTime}, #{updateTime})
+        ON DUPLICATE KEY UPDATE
+            name = #{name}, leader_id = #{leaderId}, leader_name = #{leaderName},
+            level = #{level}, notice = #{notice}, max_members = #{maxMembers},
+            auto_approve = #{autoApprove}, min_level = #{minLevel}, update_time = #{updateTime}
     </insert>
 
     <delete id="deleteById">
         DELETE FROM alliance WHERE id = #{id}
     </delete>
 
+    <delete id="deleteMembersByAllianceId">
+        DELETE FROM alliance_member WHERE alliance_id = #{allianceId}
+    </delete>
+
+    <delete id="deleteApplicationsByAllianceId">
+        DELETE FROM alliance_application WHERE alliance_id = #{allianceId}
+    </delete>
+
+    <insert id="insertMember">
+        INSERT INTO alliance_member (alliance_id, user_id, name, role, level, contribution, join_time)
+        VALUES (#{allianceId}, #{m.userId}, #{m.name}, #{m.role}, #{m.level}, #{m.contribution}, #{m.joinTime})
+        ON DUPLICATE KEY UPDATE
+            name = #{m.name}, role = #{m.role}, level = #{m.level}, contribution = #{m.contribution}
+    </insert>
+
+    <insert id="insertApplication">
+        INSERT INTO alliance_application (alliance_id, user_id, user_name, user_level, status, apply_time)
+        VALUES (#{allianceId}, #{a.userId}, #{a.userName}, #{a.userLevel}, #{a.status}, #{a.applyTime})
+        ON DUPLICATE KEY UPDATE user_name = #{a.userName}, user_level = #{a.userLevel}, status = #{a.status}
+    </insert>
+
+    <update id="updateApplicationStatus">
+        UPDATE alliance_application SET status = #{status}
+        WHERE alliance_id = #{allianceId} AND user_id = #{userId}
+    </update>
+
+    <delete id="deleteMember">
+        DELETE FROM alliance_member WHERE alliance_id = #{allianceId} AND user_id = #{userId}
+    </delete>
+
     <!-- 用户联盟映射 -->
     <select id="findAllianceIdByUserId" resultType="java.lang.String">
-        SELECT alliance_id FROM user_alliance WHERE od_user_id = #{odUserId}
+        SELECT alliance_id FROM user_alliance WHERE od_user_id = #{userId}
     </select>
 
     <insert id="upsertUserAlliance">
         INSERT INTO user_alliance (od_user_id, alliance_id)
-        VALUES (#{odUserId}, #{allianceId})
+        VALUES (#{userId}, #{allianceId})
         ON DUPLICATE KEY UPDATE alliance_id = #{allianceId}
     </insert>
 
     <delete id="deleteUserAlliance">
-        DELETE FROM user_alliance WHERE od_user_id = #{odUserId}
+        DELETE FROM user_alliance WHERE od_user_id = #{userId}
     </delete>
 
     <delete id="deleteUserAllianceByAllianceId">
@@ -40,7 +118,7 @@
     </delete>
 
     <select id="userAllianceExists" resultType="int">
-        SELECT COUNT(1) FROM user_alliance WHERE od_user_id = #{odUserId}
+        SELECT COUNT(1) FROM user_alliance WHERE od_user_id = #{userId}
     </select>
 
 </mapper>

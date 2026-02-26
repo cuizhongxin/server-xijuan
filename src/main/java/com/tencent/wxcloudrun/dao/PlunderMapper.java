@@ -1,5 +1,6 @@
 package com.tencent.wxcloudrun.dao;
 
+import com.tencent.wxcloudrun.model.PlunderData;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -9,9 +10,10 @@ import java.util.Map;
 @Mapper
 public interface PlunderMapper {
 
-    String findByUserId(@Param("userId") String userId);
+    PlunderData findByUserId(@Param("userId") String userId);
 
-    void upsert(@Param("userId") String userId, @Param("data") String data,
+    void upsert(@Param("userId") String userId, @Param("todayCount") Integer todayCount,
+                @Param("todayPurchased") Integer todayPurchased, @Param("lastResetDate") String lastResetDate,
                 @Param("createTime") Long createTime, @Param("updateTime") Long updateTime);
 
     /**

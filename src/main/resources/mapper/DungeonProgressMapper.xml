@@ -2,18 +2,36 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.tencent.wxcloudrun.dao.DungeonProgressMapper">
 
-    <select id="findByUserIdAndDungeonId" resultType="java.lang.String">
-        SELECT data FROM dungeon_progress WHERE user_id = #{userId} AND dungeon_id = #{dungeonId}
+    <resultMap id="dungeonProgressMap" type="com.tencent.wxcloudrun.model.DungeonProgress">
+        <result property="userId" column="user_id"/>
+        <result property="dungeonId" column="dungeon_id"/>
+        <result property="currentProgress" column="current_progress"/>
+        <result property="defeatedNpcsStr" column="defeated_npcs"/>
+        <result property="todayEntries" column="today_entries"/>
+        <result property="lastEntryDate" column="last_entry_date"/>
+        <result property="cleared" column="cleared"/>
+        <result property="clearCount" column="clear_count"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <select id="findByUserIdAndDungeonId" resultMap="dungeonProgressMap">
+        SELECT * FROM dungeon_progress WHERE user_id = #{userId} AND dungeon_id = #{dungeonId}
     </select>
 
-    <select id="findByUserId" resultType="java.util.HashMap">
-        SELECT dungeon_id AS dungeonId, data FROM dungeon_progress WHERE user_id = #{userId}
+    <select id="findByUserId" resultMap="dungeonProgressMap">
+        SELECT * FROM dungeon_progress WHERE user_id = #{userId}
     </select>
 
     <insert id="upsert">
-        INSERT INTO dungeon_progress (user_id, dungeon_id, data, create_time, update_time)
-        VALUES (#{userId}, #{dungeonId}, #{data}, #{createTime}, #{updateTime})
-        ON DUPLICATE KEY UPDATE data = #{data}, update_time = #{updateTime}
+        INSERT INTO dungeon_progress (user_id, dungeon_id, current_progress, defeated_npcs,
+            today_entries, last_entry_date, cleared, clear_count, create_time, update_time)
+        VALUES (#{userId}, #{dungeonId}, #{currentProgress}, #{defeatedNpcsStr},
+            #{todayEntries}, #{lastEntryDate}, #{cleared}, #{clearCount}, #{createTime}, #{updateTime})
+        ON DUPLICATE KEY UPDATE
+            current_progress = #{currentProgress}, defeated_npcs = #{defeatedNpcsStr},
+            today_entries = #{todayEntries}, last_entry_date = #{lastEntryDate},
+            cleared = #{cleared}, clear_count = #{clearCount}, update_time = #{updateTime}
     </insert>
 
     <delete id="deleteByUserId">

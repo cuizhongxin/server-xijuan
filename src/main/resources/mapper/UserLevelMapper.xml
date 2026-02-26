@@ -2,14 +2,32 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.tencent.wxcloudrun.dao.UserLevelMapper">
 
-    <select id="findByUserId" resultType="java.lang.String">
-        SELECT data FROM user_level WHERE user_id = #{userId}
+    <resultMap id="userLevelMap" type="com.tencent.wxcloudrun.model.UserLevel">
+        <id property="userId" column="user_id"/>
+        <result property="level" column="level"/>
+        <result property="totalExp" column="total_exp"/>
+        <result property="currentLevelExp" column="current_level_exp"/>
+        <result property="expToNextLevel" column="exp_to_next_level"/>
+        <result property="vipLevel" column="vip_level"/>
+        <result property="todayExp" column="today_exp"/>
+        <result property="lastUpdateDate" column="last_update_date"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <select id="findByUserId" resultMap="userLevelMap">
+        SELECT * FROM user_level WHERE user_id = #{userId}
     </select>
 
     <insert id="upsert">
-        INSERT INTO user_level (user_id, data, create_time, update_time)
-        VALUES (#{userId}, #{data}, #{createTime}, #{updateTime})
-        ON DUPLICATE KEY UPDATE data = #{data}, update_time = #{updateTime}
+        INSERT INTO user_level (user_id, level, total_exp, current_level_exp, exp_to_next_level,
+                                vip_level, today_exp, last_update_date, create_time, update_time)
+        VALUES (#{userId}, #{level}, #{totalExp}, #{currentLevelExp}, #{expToNextLevel},
+                #{vipLevel}, #{todayExp}, #{lastUpdateDate}, #{createTime}, #{updateTime})
+        ON DUPLICATE KEY UPDATE
+            level = #{level}, total_exp = #{totalExp}, current_level_exp = #{currentLevelExp},
+            exp_to_next_level = #{expToNextLevel}, vip_level = #{vipLevel},
+            today_exp = #{todayExp}, last_update_date = #{lastUpdateDate}, update_time = #{updateTime}
     </insert>
 
     <delete id="deleteByUserId">

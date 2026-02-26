@@ -97,7 +97,8 @@ public class DungeonService {
      * 获取用户所有副本进度
      */
     public List<DungeonProgress> getUserAllProgress(String userId) {
-        return progressRepository.findByUserId(userId);
+        Map<String, DungeonProgress> map = progressRepository.findAllByUserId(userId);
+        return new java.util.ArrayList<>(map.values());
     }
     
     /**
@@ -229,7 +230,7 @@ public class DungeonService {
     private BattleResult executeBattle(General player, DungeonNpc npc) {
         // 简化的战斗逻辑
         // 基于双方战力计算胜率
-        int playerPower = player.getAttributes().getPower();
+        int playerPower = player.getAttrValor() != null ? player.getAttrValor() : player.getLevel() * 500;
         int npcPower = npc.getPower();
         
         // 战力差距影响胜率
@@ -244,9 +245,9 @@ public class DungeonService {
         
         if (victory) {
             npcLoss = npc.getSoldiers();
-            playerLoss = (int)(player.getSoldiers().getCount() * (1 - powerRatio) * 0.3);
+            playerLoss = (int)(player.getSoldierCount() * (1 - powerRatio) * 0.3);
         } else {
-            playerLoss = (int)(player.getSoldiers().getCount() * 0.5);
+            playerLoss = (int)(player.getSoldierCount() * 0.5);
             npcLoss = (int)(npc.getSoldiers() * powerRatio * 0.5);
         }
         
@@ -422,7 +423,8 @@ public class DungeonService {
         progress.setCurrentProgress(0);
         progress.setDefeatedNpcs(new HashSet<>());
         progress.setCleared(false);
-        return progressRepository.save(progress);
+        progressRepository.save(progress);
+        return progress;
     }
     
     /**

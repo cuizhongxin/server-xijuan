@@ -2,18 +2,147 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.tencent.wxcloudrun.dao.EquipmentMapper">
 
-    <select id="findById" resultType="java.lang.String">
-        SELECT data FROM equipment WHERE id = #{id}
+    <resultMap id="equipmentMap" type="com.tencent.wxcloudrun.model.Equipment">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="name" column="name"/>
+        <result property="level" column="level"/>
+        <result property="icon" column="icon"/>
+        <result property="description" column="description"/>
+        <result property="enhanceLevel" column="enhance_level"/>
+        <result property="qualityValue" column="quality_value"/>
+        <result property="equipped" column="equipped"/>
+        <result property="equippedGeneralId" column="equipped_general_id"/>
+        <result property="bound" column="bound"/>
+        <result property="locked" column="locked"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+        <association property="slotType" javaType="com.tencent.wxcloudrun.model.Equipment$SlotType">
+            <result property="id" column="slot_type_id"/>
+            <result property="name" column="slot_type_name"/>
+            <result property="icon" column="slot_type_icon"/>
+            <result property="mainAttribute" column="slot_main_attribute"/>
+        </association>
+        <association property="quality" javaType="com.tencent.wxcloudrun.model.Equipment$Quality">
+            <result property="id" column="quality_id"/>
+            <result property="name" column="quality_name"/>
+            <result property="color" column="quality_color"/>
+            <result property="multiplier" column="quality_multiplier"/>
+            <result property="icon" column="quality_icon"/>
+        </association>
+        <association property="baseAttributes" javaType="com.tencent.wxcloudrun.model.Equipment$Attributes">
+            <result property="attack" column="base_attack"/>
+            <result property="defense" column="base_defense"/>
+            <result property="valor" column="base_valor"/>
+            <result property="command" column="base_command"/>
+            <result property="dodge" column="base_dodge"/>
+            <result property="mobility" column="base_mobility"/>
+            <result property="hp" column="base_hp"/>
+            <result property="critRate" column="base_crit_rate"/>
+            <result property="critDamage" column="base_crit_damage"/>
+        </association>
+        <association property="bonusAttributes" javaType="com.tencent.wxcloudrun.model.Equipment$Attributes">
+            <result property="attack" column="bonus_attack"/>
+            <result property="defense" column="bonus_defense"/>
+            <result property="valor" column="bonus_valor"/>
+            <result property="command" column="bonus_command"/>
+            <result property="dodge" column="bonus_dodge"/>
+            <result property="mobility" column="bonus_mobility"/>
+            <result property="hp" column="bonus_hp"/>
+            <result property="critRate" column="bonus_crit_rate"/>
+            <result property="critDamage" column="bonus_crit_damage"/>
+        </association>
+        <association property="enhanceAttributes" javaType="com.tencent.wxcloudrun.model.Equipment$Attributes">
+            <result property="attack" column="enhance_attack"/>
+            <result property="defense" column="enhance_defense"/>
+            <result property="valor" column="enhance_valor"/>
+            <result property="command" column="enhance_command"/>
+            <result property="dodge" column="enhance_dodge"/>
+            <result property="mobility" column="enhance_mobility"/>
+            <result property="hp" column="enhance_hp"/>
+            <result property="critRate" column="enhance_crit_rate"/>
+            <result property="critDamage" column="enhance_crit_damage"/>
+        </association>
+        <association property="qualityAttributes" javaType="com.tencent.wxcloudrun.model.Equipment$Attributes">
+            <result property="attack" column="qa_attack"/>
+            <result property="defense" column="qa_defense"/>
+            <result property="valor" column="qa_valor"/>
+            <result property="command" column="qa_command"/>
+            <result property="dodge" column="qa_dodge"/>
+            <result property="mobility" column="qa_mobility"/>
+            <result property="hp" column="qa_hp"/>
+            <result property="critRate" column="qa_crit_rate"/>
+            <result property="critDamage" column="qa_crit_damage"/>
+        </association>
+        <association property="source" javaType="com.tencent.wxcloudrun.model.Equipment$Source">
+            <result property="type" column="source_type"/>
+            <result property="name" column="source_name"/>
+            <result property="detail" column="source_detail"/>
+        </association>
+    </resultMap>
+
+    <select id="findById" resultMap="equipmentMap">
+        SELECT * FROM equipment WHERE id = #{id}
     </select>
 
-    <select id="findByUserId" resultType="java.util.HashMap">
-        SELECT id, data FROM equipment WHERE user_id = #{userId}
+    <select id="findByUserId" resultMap="equipmentMap">
+        SELECT * FROM equipment WHERE user_id = #{userId}
     </select>
+
+    <sql id="allColumns">
+        id, user_id, name, level, icon, description, enhance_level, quality_value,
+        equipped, equipped_general_id, bound, locked,
+        slot_type_id, slot_type_name, slot_type_icon, slot_main_attribute,
+        quality_id, quality_name, quality_color, quality_multiplier, quality_icon,
+        base_attack, base_defense, base_valor, base_command, base_dodge, base_mobility, base_hp, base_crit_rate, base_crit_damage,
+        bonus_attack, bonus_defense, bonus_valor, bonus_command, bonus_dodge, bonus_mobility, bonus_hp, bonus_crit_rate, bonus_crit_damage,
+        enhance_attack, enhance_defense, enhance_valor, enhance_command, enhance_dodge, enhance_mobility, enhance_hp, enhance_crit_rate, enhance_crit_damage,
+        qa_attack, qa_defense, qa_valor, qa_command, qa_dodge, qa_mobility, qa_hp, qa_crit_rate, qa_crit_damage,
+        source_type, source_name, source_detail,
+        set_info_json,
+        create_time, update_time
+    </sql>
 
     <insert id="upsert">
-        INSERT INTO equipment (id, user_id, data, create_time, update_time)
-        VALUES (#{id}, #{userId}, #{data}, #{createTime}, #{updateTime})
-        ON DUPLICATE KEY UPDATE user_id = #{userId}, data = #{data}, update_time = #{updateTime}
+        INSERT INTO equipment (
+            <include refid="allColumns"/>
+        ) VALUES (
+            #{id}, #{userId}, #{name}, #{level}, #{icon}, #{description}, #{enhanceLevel}, #{qualityValue},
+            #{equipped}, #{equippedGeneralId}, #{bound}, #{locked},
+            #{slotType.id}, #{slotType.name}, #{slotType.icon}, #{slotType.mainAttribute},
+            #{quality.id}, #{quality.name}, #{quality.color}, #{quality.multiplier}, #{quality.icon},
+            #{baseAttributes.attack}, #{baseAttributes.defense}, #{baseAttributes.valor}, #{baseAttributes.command},
+            #{baseAttributes.dodge}, #{baseAttributes.mobility}, #{baseAttributes.hp}, #{baseAttributes.critRate}, #{baseAttributes.critDamage},
+            #{bonusAttributes.attack}, #{bonusAttributes.defense}, #{bonusAttributes.valor}, #{bonusAttributes.command},
+            #{bonusAttributes.dodge}, #{bonusAttributes.mobility}, #{bonusAttributes.hp}, #{bonusAttributes.critRate}, #{bonusAttributes.critDamage},
+            #{enhanceAttributes.attack}, #{enhanceAttributes.defense}, #{enhanceAttributes.valor}, #{enhanceAttributes.command},
+            #{enhanceAttributes.dodge}, #{enhanceAttributes.mobility}, #{enhanceAttributes.hp}, #{enhanceAttributes.critRate}, #{enhanceAttributes.critDamage},
+            #{qualityAttributes.attack}, #{qualityAttributes.defense}, #{qualityAttributes.valor}, #{qualityAttributes.command},
+            #{qualityAttributes.dodge}, #{qualityAttributes.mobility}, #{qualityAttributes.hp}, #{qualityAttributes.critRate}, #{qualityAttributes.critDamage},
+            #{source.type}, #{source.name}, #{source.detail},
+            #{setInfoJson},
+            #{createTime}, #{updateTime}
+        ) ON DUPLICATE KEY UPDATE
+            user_id = #{userId}, name = #{name}, level = #{level}, icon = #{icon}, description = #{description},
+            enhance_level = #{enhanceLevel}, quality_value = #{qualityValue},
+            equipped = #{equipped}, equipped_general_id = #{equippedGeneralId}, bound = #{bound}, locked = #{locked},
+            slot_type_id = #{slotType.id}, slot_type_name = #{slotType.name}, slot_type_icon = #{slotType.icon}, slot_main_attribute = #{slotType.mainAttribute},
+            quality_id = #{quality.id}, quality_name = #{quality.name}, quality_color = #{quality.color}, quality_multiplier = #{quality.multiplier}, quality_icon = #{quality.icon},
+            base_attack = #{baseAttributes.attack}, base_defense = #{baseAttributes.defense}, base_valor = #{baseAttributes.valor},
+            base_command = #{baseAttributes.command}, base_dodge = #{baseAttributes.dodge}, base_mobility = #{baseAttributes.mobility},
+            base_hp = #{baseAttributes.hp}, base_crit_rate = #{baseAttributes.critRate}, base_crit_damage = #{baseAttributes.critDamage},
+            bonus_attack = #{bonusAttributes.attack}, bonus_defense = #{bonusAttributes.defense}, bonus_valor = #{bonusAttributes.valor},
+            bonus_command = #{bonusAttributes.command}, bonus_dodge = #{bonusAttributes.dodge}, bonus_mobility = #{bonusAttributes.mobility},
+            bonus_hp = #{bonusAttributes.hp}, bonus_crit_rate = #{bonusAttributes.critRate}, bonus_crit_damage = #{bonusAttributes.critDamage},
+            enhance_attack = #{enhanceAttributes.attack}, enhance_defense = #{enhanceAttributes.defense}, enhance_valor = #{enhanceAttributes.valor},
+            enhance_command = #{enhanceAttributes.command}, enhance_dodge = #{enhanceAttributes.dodge}, enhance_mobility = #{enhanceAttributes.mobility},
+            enhance_hp = #{enhanceAttributes.hp}, enhance_crit_rate = #{enhanceAttributes.critRate}, enhance_crit_damage = #{enhanceAttributes.critDamage},
+            qa_attack = #{qualityAttributes.attack}, qa_defense = #{qualityAttributes.defense}, qa_valor = #{qualityAttributes.valor},
+            qa_command = #{qualityAttributes.command}, qa_dodge = #{qualityAttributes.dodge}, qa_mobility = #{qualityAttributes.mobility},
+            qa_hp = #{qualityAttributes.hp}, qa_crit_rate = #{qualityAttributes.critRate}, qa_crit_damage = #{qualityAttributes.critDamage},
+            source_type = #{source.type}, source_name = #{source.name}, source_detail = #{source.detail},
+            set_info_json = #{setInfoJson},
+            update_time = #{updateTime}
     </insert>
 
     <delete id="deleteById">
@@ -26,6 +155,14 @@
 
     <select id="countByUserId" resultType="int">
         SELECT COUNT(1) FROM equipment WHERE user_id = #{userId}
+    </select>
+
+    <select id="findUnequippedByUserId" resultMap="equipmentMap">
+        SELECT * FROM equipment WHERE user_id = #{userId} AND (equipped = false OR equipped IS NULL)
+    </select>
+
+    <select id="findEquippedByGeneralId" resultMap="equipmentMap">
+        SELECT * FROM equipment WHERE equipped_general_id = #{generalId} AND equipped = true
     </select>
 
 </mapper>

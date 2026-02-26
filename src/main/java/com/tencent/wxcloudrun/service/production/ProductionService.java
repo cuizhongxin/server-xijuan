@@ -1,6 +1,5 @@
 package com.tencent.wxcloudrun.service.production;
 
-import com.alibaba.fastjson.JSON;
 import com.tencent.wxcloudrun.dao.ProductionMapper;
 import com.tencent.wxcloudrun.exception.BusinessException;
 import com.tencent.wxcloudrun.model.Equipment;
@@ -86,18 +85,18 @@ public class ProductionService {
      * 获取用户生产数据
      */
     public Production getProduction(String odUserId) {
-        String data = productionMapper.findByUserId(odUserId);
-        if (data != null) {
-            return JSON.parseObject(data, Production.class);
+        Production production = productionMapper.findByUserId(odUserId);
+        if (production != null) {
+            return production;
         }
         // 不存在则创建默认数据并保存
-        Production production = Production.createDefault(odUserId);
-        productionMapper.upsert(odUserId, JSON.toJSONString(production));
+        production = Production.createDefault(odUserId);
+        productionMapper.upsert(production);
         return production;
     }
     
     private void saveProduction(String odUserId, Production production) {
-        productionMapper.upsert(odUserId, JSON.toJSONString(production));
+        productionMapper.upsert(production);
     }
     
     public Map<String, Object> produce(String odUserId, String facilityType) {

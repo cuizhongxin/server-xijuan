@@ -1,6 +1,5 @@
 package com.tencent.wxcloudrun.repository;
 
-import com.alibaba.fastjson.JSON;
 import com.tencent.wxcloudrun.dao.WarehouseMapper;
 import com.tencent.wxcloudrun.model.Warehouse;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,11 +25,7 @@ public class WarehouseRepository {
      * 根据用户ID查找仓库
      */
     public Warehouse findByUserId(String userId) {
-        String data = warehouseMapper.findByUserId(userId);
-        if (data == null) {
-            return null;
-        }
-        return JSON.parseObject(data, Warehouse.class);
+        return warehouseMapper.findByUserId(userId);
     }
     
     /**
@@ -64,8 +59,7 @@ public class WarehouseRepository {
             .updateTime(System.currentTimeMillis())
             .build();
         
-        warehouseMapper.upsert(warehouseId, userId, JSON.toJSONString(warehouse),
-                warehouse.getCreateTime(), warehouse.getUpdateTime());
+        warehouseMapper.upsertWarehouse(warehouse);
         return warehouse;
     }
     
@@ -74,32 +68,21 @@ public class WarehouseRepository {
      */
     public Warehouse save(Warehouse warehouse) {
         warehouse.setUpdateTime(System.currentTimeMillis());
-        warehouseMapper.upsert(warehouse.getId(), warehouse.getUserId(), JSON.toJSONString(warehouse),
-                warehouse.getCreateTime(), warehouse.getUpdateTime());
+        warehouseMapper.upsertWarehouse(warehouse);
+        warehouseMapper.deleteItemsByWarehouseId(warehouse.getId());
+        if (warehouse.getItemStorage() != null && warehouse.getItemStorage().getItems() != null
+                && !warehouse.getItemStorage().getItems().isEmpty()) {
+            warehouseMapper.insertItems(warehouse.getId(), warehouse.getItemStorage().getItems());
+        }
         return warehouse;
     }
     
-    /**
-     * 获取扩充费用
-     */
     public int getExpandCost(int expandTimes) {
-        if (expandTimes >= MAX_EXPAND_TIMES) {
-            return -1;
-        }
+        if (expandTimes >= MAX_EXPAND_TIMES) { return -1; }
         return 100 * (int) Math.pow(2, expandTimes);
     }
     
-    /**
-     * 获取扩充容量
-     */
-    public int getExpandAmount() {
-        return EXPAND_AMOUNT;
-    }
+    public int getExpandAmount() { return EXPAND_AMOUNT; }
     
-    /**
-     * 获取最大扩充次数
-     */
-    public int getMaxExpandTimes() {
-        return MAX_EXPAND_TIMES;
-    }
+    public int getMaxExpandTimes() { return MAX_EXPAND_TIMES; }
 }

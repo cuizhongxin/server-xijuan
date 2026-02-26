@@ -1,13 +1,19 @@
 package com.tencent.wxcloudrun.dao;
 
+import com.tencent.wxcloudrun.model.Warehouse;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+
+import java.util.List;
 
 @Mapper
 public interface WarehouseMapper {
     
-    String findByUserId(@Param("userId") String userId);
+    Warehouse findByUserId(@Param("userId") String userId);
     
-    void upsert(@Param("id") String id, @Param("userId") String userId, @Param("data") String data,
-                @Param("createTime") Long createTime, @Param("updateTime") Long updateTime);
+    void upsertWarehouse(Warehouse warehouse);
+    
+    void deleteItemsByWarehouseId(@Param("warehouseId") String warehouseId);
+    
+    void insertItems(@Param("warehouseId") String warehouseId, @Param("items") List<Warehouse.WarehouseItem> items);
 }

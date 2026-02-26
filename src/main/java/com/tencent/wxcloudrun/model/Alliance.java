@@ -19,22 +19,20 @@ public class Alliance {
     
     private String id;
     private String name;                    // 联盟名称
-    private String faction;                 // 国家（魏、蜀、吴）
     private String leaderId;                // 盟主用户ID
     private String leaderName;              // 盟主名称
-    private String announcement;            // 联盟公告
     private Integer level;                  // 联盟等级
-    private Long exp;                       // 联盟经验
-    private Integer maxMembers;             // 最大成员数
-    private Integer memberCount;            // 当前成员数
-    private Long totalPower;                // 联盟总战力
+    private String notice;                  // 联盟公告
+    private Integer maxMembers;             // 成员上限
+    private Boolean autoApprove;            // 是否自动审批
+    private Integer minLevel;               // 加入最低等级
     private Long createTime;
     private Long updateTime;
     
-    // 成员列表
+    // 成员列表（关联查询）
     private List<AllianceMember> members;
     
-    // 申请列表
+    // 申请列表（关联查询）
     private List<AllianceApplication> applications;
     
     /**
@@ -45,14 +43,12 @@ public class Alliance {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class AllianceMember {
-        private String odUserId;
+        private String userId;
         private String name;                // 成员名称
-        private String position;            // 职位：盟主、副盟主、精英、成员
+        private String role;                // 角色：leader/officer/member
         private Integer level;              // 等级
         private Long contribution;          // 累计贡献
-        private Long power;                 // 战力
         private Long joinTime;              // 加入时间
-        private Long lastOnlineTime;        // 最后在线时间
     }
     
     /**
@@ -63,56 +59,49 @@ public class Alliance {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class AllianceApplication {
-        private String odUserId;
-        private String name;
-        private Integer level;
-        private Long power;
+        private String userId;
+        private String userName;
+        private Integer userLevel;
+        private String status;              // pending/approved/rejected
         private Long applyTime;
-        private String status;              // pending、approved、rejected
     }
     
     /**
-     * 职位枚举
+     * 角色常量
      */
-    public static class Position {
-        public static final String LEADER = "盟主";
-        public static final String VICE_LEADER = "副盟主";
-        public static final String ELITE = "精英";
-        public static final String MEMBER = "成员";
+    public static class Role {
+        public static final String LEADER = "leader";
+        public static final String OFFICER = "officer";
+        public static final String MEMBER = "member";
     }
     
     /**
      * 创建新联盟
      */
-    public static Alliance create(String name, String faction, String leaderId, String leaderName, Integer leaderLevel, Long leaderPower) {
+    public static Alliance create(String name, String leaderId, String leaderName, Integer leaderLevel) {
         Alliance alliance = Alliance.builder()
                 .id("alliance_" + System.currentTimeMillis())
                 .name(name)
-                .faction(faction)
                 .leaderId(leaderId)
                 .leaderName(leaderName)
-                .announcement("欢迎加入" + name + "！")
+                .notice("欢迎加入" + name + "！")
                 .level(1)
-                .exp(0L)
-                .maxMembers(30)             // 初始最大30人
-                .memberCount(1)
-                .totalPower(leaderPower != null ? leaderPower : 0L)
+                .maxMembers(30)
+                .autoApprove(false)
+                .minLevel(1)
                 .createTime(System.currentTimeMillis())
                 .updateTime(System.currentTimeMillis())
                 .members(new ArrayList<>())
                 .applications(new ArrayList<>())
                 .build();
         
-        // 添加盟主作为第一个成员
         AllianceMember leader = AllianceMember.builder()
-                .odUserId(leaderId)
+                .userId(leaderId)
                 .name(leaderName)
-                .position(Position.LEADER)
+                .role(Role.LEADER)
                 .level(leaderLevel != null ? leaderLevel : 1)
                 .contribution(0L)
-                .power(leaderPower != null ? leaderPower : 0L)
                 .joinTime(System.currentTimeMillis())
-                .lastOnlineTime(System.currentTimeMillis())
                 .build();
         alliance.getMembers().add(leader);
         

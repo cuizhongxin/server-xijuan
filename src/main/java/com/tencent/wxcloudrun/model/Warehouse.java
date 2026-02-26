@@ -5,7 +5,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 仓库实体类
@@ -27,6 +29,20 @@ public class Warehouse {
     
     private Long createTime;
     private Long updateTime;
+    
+    // ====== equipmentIds 辅助：逗号分隔存储 ======
+    public String getEquipmentIdsStr() {
+        if (equipmentStorage != null && equipmentStorage.getEquipmentIds() != null) {
+            return String.join(",", equipmentStorage.getEquipmentIds());
+        }
+        return null;
+    }
+    
+    public void setEquipmentIdsStr(String str) {
+        if (str != null && !str.isEmpty() && equipmentStorage != null) {
+            equipmentStorage.setEquipmentIds(Arrays.stream(str.split(",")).collect(Collectors.toList()));
+        }
+    }
     
     /**
      * 装备仓库

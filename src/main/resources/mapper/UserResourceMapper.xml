@@ -2,14 +2,110 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.tencent.wxcloudrun.dao.UserResourceMapper">
 
-    <select id="findByUserId" resultType="java.lang.String">
-        SELECT data FROM user_resource WHERE od_user_id = #{odUserId}
+    <resultMap id="userResourceMap" type="com.tencent.wxcloudrun.model.UserResource">
+        <id property="odUserId" column="od_user_id"/>
+        <result property="id" column="id"/>
+        <result property="gold" column="gold"/>
+        <result property="silver" column="silver"/>
+        <result property="diamond" column="diamond"/>
+        <result property="level" column="level"/>
+        <result property="stamina" column="stamina"/>
+        <result property="maxStamina" column="max_stamina"/>
+        <result property="generalOrder" column="general_order"/>
+        <result property="maxGeneralOrder" column="max_general_order"/>
+        <result property="tigerTally" column="tiger_tally"/>
+        <result property="wood" column="wood"/>
+        <result property="metal" column="metal"/>
+        <result property="food" column="food"/>
+        <result property="paper" column="paper"/>
+        <result property="enhanceStone1" column="enhance_stone1"/>
+        <result property="enhanceStone2" column="enhance_stone2"/>
+        <result property="enhanceStone3" column="enhance_stone3"/>
+        <result property="enhanceStone4" column="enhance_stone4"/>
+        <result property="enhanceStone5" column="enhance_stone5"/>
+        <result property="enhanceStone6" column="enhance_stone6"/>
+        <result property="enhanceScrollBasic" column="enhance_scroll_basic"/>
+        <result property="enhanceScrollMedium" column="enhance_scroll_medium"/>
+        <result property="enhanceScrollAdvanced" column="enhance_scroll_advanced"/>
+        <result property="mergeScroll" column="merge_scroll"/>
+        <result property="qualityStone" column="quality_stone"/>
+        <result property="basicFood" column="basic_food"/>
+        <result property="advancedFood" column="advanced_food"/>
+        <result property="premiumFood" column="premium_food"/>
+        <result property="normalRecruitToken" column="normal_recruit_token"/>
+        <result property="advancedRecruitToken" column="advanced_recruit_token"/>
+        <result property="juniorToken" column="junior_token"/>
+        <result property="intermediateToken" column="intermediate_token"/>
+        <result property="seniorToken" column="senior_token"/>
+        <result property="lastClaimDate" column="last_claim_date"/>
+        <result property="dailyTokenClaimed" column="daily_token_claimed"/>
+        <result property="rank" column="rank"/>
+        <result property="fame" column="fame"/>
+        <result property="generalCount" column="general_count"/>
+        <result property="baseGeneralSlots" column="base_general_slots"/>
+        <result property="purchasedSlots" column="purchased_slots"/>
+        <result property="vipBonusSlots" column="vip_bonus_slots"/>
+        <result property="maxGeneral" column="max_general"/>
+        <result property="vipLevel" column="vip_level"/>
+        <result property="vipExp" column="vip_exp"/>
+        <result property="totalRecharge" column="total_recharge"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="lastStaminaRecoverTime" column="last_stamina_recover_time"/>
+    </resultMap>
+
+    <select id="findByUserId" resultMap="userResourceMap">
+        SELECT * FROM user_resource WHERE od_user_id = #{odUserId}
     </select>
 
     <insert id="upsert">
-        INSERT INTO user_resource (od_user_id, data, create_time, update_time)
-        VALUES (#{odUserId}, #{data}, #{createTime}, #{updateTime})
-        ON DUPLICATE KEY UPDATE data = #{data}, update_time = #{updateTime}
+        INSERT INTO user_resource (
+            od_user_id, id, gold, silver, diamond, level,
+            stamina, max_stamina, general_order, max_general_order, tiger_tally,
+            wood, metal, food, paper,
+            enhance_stone1, enhance_stone2, enhance_stone3, enhance_stone4, enhance_stone5, enhance_stone6,
+            enhance_scroll_basic, enhance_scroll_medium, enhance_scroll_advanced,
+            merge_scroll, quality_stone,
+            basic_food, advanced_food, premium_food,
+            normal_recruit_token, advanced_recruit_token, junior_token, intermediate_token, senior_token,
+            last_claim_date, daily_token_claimed,
+            rank, fame,
+            general_count, base_general_slots, purchased_slots, vip_bonus_slots, max_general,
+            vip_level, vip_exp, total_recharge,
+            create_time, update_time, last_stamina_recover_time
+        ) VALUES (
+            #{odUserId}, #{id}, #{gold}, #{silver}, #{diamond}, #{level},
+            #{stamina}, #{maxStamina}, #{generalOrder}, #{maxGeneralOrder}, #{tigerTally},
+            #{wood}, #{metal}, #{food}, #{paper},
+            #{enhanceStone1}, #{enhanceStone2}, #{enhanceStone3}, #{enhanceStone4}, #{enhanceStone5}, #{enhanceStone6},
+            #{enhanceScrollBasic}, #{enhanceScrollMedium}, #{enhanceScrollAdvanced},
+            #{mergeScroll}, #{qualityStone},
+            #{basicFood}, #{advancedFood}, #{premiumFood},
+            #{normalRecruitToken}, #{advancedRecruitToken}, #{juniorToken}, #{intermediateToken}, #{seniorToken},
+            #{lastClaimDate}, #{dailyTokenClaimed},
+            #{rank}, #{fame},
+            #{generalCount}, #{baseGeneralSlots}, #{purchasedSlots}, #{vipBonusSlots}, #{maxGeneral},
+            #{vipLevel}, #{vipExp}, #{totalRecharge},
+            #{createTime}, #{updateTime}, #{lastStaminaRecoverTime}
+        ) ON DUPLICATE KEY UPDATE
+            id = #{id}, gold = #{gold}, silver = #{silver}, diamond = #{diamond}, level = #{level},
+            stamina = #{stamina}, max_stamina = #{maxStamina},
+            general_order = #{generalOrder}, max_general_order = #{maxGeneralOrder}, tiger_tally = #{tigerTally},
+            wood = #{wood}, metal = #{metal}, food = #{food}, paper = #{paper},
+            enhance_stone1 = #{enhanceStone1}, enhance_stone2 = #{enhanceStone2}, enhance_stone3 = #{enhanceStone3},
+            enhance_stone4 = #{enhanceStone4}, enhance_stone5 = #{enhanceStone5}, enhance_stone6 = #{enhanceStone6},
+            enhance_scroll_basic = #{enhanceScrollBasic}, enhance_scroll_medium = #{enhanceScrollMedium},
+            enhance_scroll_advanced = #{enhanceScrollAdvanced},
+            merge_scroll = #{mergeScroll}, quality_stone = #{qualityStone},
+            basic_food = #{basicFood}, advanced_food = #{advancedFood}, premium_food = #{premiumFood},
+            normal_recruit_token = #{normalRecruitToken}, advanced_recruit_token = #{advancedRecruitToken},
+            junior_token = #{juniorToken}, intermediate_token = #{intermediateToken}, senior_token = #{seniorToken},
+            last_claim_date = #{lastClaimDate}, daily_token_claimed = #{dailyTokenClaimed},
+            rank = #{rank}, fame = #{fame},
+            general_count = #{generalCount}, base_general_slots = #{baseGeneralSlots},
+            purchased_slots = #{purchasedSlots}, vip_bonus_slots = #{vipBonusSlots}, max_general = #{maxGeneral},
+            vip_level = #{vipLevel}, vip_exp = #{vipExp}, total_recharge = #{totalRecharge},
+            update_time = #{updateTime}, last_stamina_recover_time = #{lastStaminaRecoverTime}
     </insert>
 
     <select id="existsByUserId" resultType="int">

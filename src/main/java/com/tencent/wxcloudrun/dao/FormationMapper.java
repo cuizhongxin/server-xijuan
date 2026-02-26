@@ -1,15 +1,21 @@
 package com.tencent.wxcloudrun.dao;
 
+import com.tencent.wxcloudrun.model.Formation;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+
+import java.util.List;
 
 @Mapper
 public interface FormationMapper {
     
-    String findById(@Param("id") String id);
+    Formation findById(@Param("id") String id);
     
-    String findByUserId(@Param("odUserId") String odUserId);
+    Formation findByUserId(@Param("odUserId") String odUserId);
     
-    void upsert(@Param("id") String id, @Param("odUserId") String odUserId, @Param("data") String data,
-                @Param("createTime") Long createTime, @Param("updateTime") Long updateTime);
+    void upsertFormation(Formation formation);
+    
+    void deleteSlotsByFormationId(@Param("formationId") String formationId);
+    
+    void insertSlots(@Param("formationId") String formationId, @Param("slots") List<Formation.FormationSlot> slots);
 }

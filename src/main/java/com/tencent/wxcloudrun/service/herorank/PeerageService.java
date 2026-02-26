@@ -106,7 +106,7 @@ public class PeerageService {
             throw new BusinessException(400, "白银不足，需要" + cost + "白银");
         }
 
-        // 更新武将的士兵信息
+        // 更新武将的士兵信息（打平字段）
         General general = generalRepository.findById(generalId);
         if (general == null) {
             throw new BusinessException(400, "武将不存在");
@@ -115,33 +115,8 @@ public class PeerageService {
             throw new BusinessException(400, "只能升级自己的武将");
         }
 
-        General.SoldierRankInfo newRankInfo = General.SoldierRankInfo.builder()
-                .level(targetTier)
-                .name((String) tierConfig.get("name"))
-                .icon((String) tierConfig.get("icon"))
-                .powerMultiplier(getDouble(tierConfig, "powerMultiplier", 1.0))
-                .build();
-
-        if (general.getSoldiers() == null) {
-            general.setSoldiers(General.Soldiers.builder()
-                    .rank(targetTier)
-                    .rankInfo(newRankInfo)
-                    .count(100)
-                    .maxCount(100)
-                    .build());
-        } else {
-            general.getSoldiers().setRank(targetTier);
-            general.getSoldiers().setRankInfo(newRankInfo);
-        }
-
-        // 更新兵种类型
-        General.TroopType newTroopType = General.TroopType.builder()
-                .id(targetTier)
-                .name((String) tierConfig.get("name"))
-                .icon((String) tierConfig.get("icon"))
-                .description((String) tierConfig.get("description"))
-                .build();
-        general.setTroopType(newTroopType);
+        general.setSoldierRank(targetTier);
+        general.setUpdateTime(System.currentTimeMillis());
 
         generalRepository.save(general);
 

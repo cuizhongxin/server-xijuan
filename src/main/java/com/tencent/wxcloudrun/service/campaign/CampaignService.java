@@ -456,11 +456,8 @@ public class CampaignService {
             throw new BusinessException("武将不存在");
         }
         
-        // 获取兵力 - 统一使用1000
-        int troops = 1000;
-        if (general.getSoldiers() != null && general.getSoldiers().getCount() != null) {
-            troops = general.getSoldiers().getCount();
-        }
+        // 获取兵力
+        int troops = general.getSoldierCount() != null ? general.getSoldierCount() : 1000;
         
         // 扣除精力
         resource.setStamina(resource.getStamina() - campaign.getStaminaCost());
@@ -515,12 +512,11 @@ public class CampaignService {
             throw new BusinessException("武将不存在");
         }
         
-        // 获取武将属性
-        General.Attributes attrs = general.getAttributes();
-        int genAttack = attrs != null && attrs.getAttack() != null ? attrs.getAttack() : 100;
-        int genDefense = attrs != null && attrs.getDefense() != null ? attrs.getDefense() : 50;
-        int genValor = attrs != null && attrs.getValor() != null ? attrs.getValor() : 50;
-        int genCommand = attrs != null && attrs.getCommand() != null ? attrs.getCommand() : 50;
+        // 获取武将属性（打平字段）
+        int genAttack = general.getAttrAttack() != null ? general.getAttrAttack() : 100;
+        int genDefense = general.getAttrDefense() != null ? general.getAttrDefense() : 50;
+        int genValor = general.getAttrValor() != null ? general.getAttrValor() : 50;
+        int genCommand = general.getAttrCommand() != null ? general.getAttrCommand() : 50;
         
         // 计算战斗
         Random random = new Random();

@@ -120,8 +120,7 @@ public class HeroRankService {
         // 获取我方战力
         List<General> myGenerals = formationService.getBattleOrder(userId);
         int myPower = myGenerals.stream()
-                .mapToInt(g -> g.getAttributes() != null && g.getAttributes().getPower() != null
-                        ? g.getAttributes().getPower() : myLevel * 400)
+                .mapToInt(g -> g.getAttrValor() != null ? g.getAttrValor() : myLevel * 400)
                 .sum();
         if (myPower == 0) myPower = myLevel * 500;
 
@@ -135,8 +134,7 @@ public class HeroRankService {
         } else {
             List<General> targetGenerals = formationService.getBattleOrder(targetId);
             targetPower = targetGenerals.stream()
-                    .mapToInt(g -> g.getAttributes() != null && g.getAttributes().getPower() != null
-                            ? g.getAttributes().getPower() : 0)
+                    .mapToInt(g -> g.getAttrValor() != null ? g.getAttrValor() : 0)
                     .sum();
             UserResource targetRes = resourceService.getUserResource(targetId);
             targetLevel = targetRes != null && targetRes.getLevel() != null ? targetRes.getLevel() : 1;
@@ -281,8 +279,7 @@ public class HeroRankService {
 
             List<General> generals = formationService.getBattleOrder(userId);
             int totalPower = generals.stream()
-                    .mapToInt(g -> g.getAttributes() != null && g.getAttributes().getPower() != null
-                            ? g.getAttributes().getPower() : level * 400)
+                    .mapToInt(g -> g.getAttrValor() != null ? g.getAttrValor() : level * 400)
                     .sum();
             if (totalPower == 0) totalPower = level * 500;
 
@@ -352,8 +349,7 @@ public class HeroRankService {
             int level = res != null && res.getLevel() != null ? res.getLevel() : 1;
             List<General> generals = formationService.getBattleOrder(userId);
             int power = generals.stream()
-                    .mapToInt(g -> g.getAttributes() != null && g.getAttributes().getPower() != null
-                            ? g.getAttributes().getPower() : level * 400)
+                    .mapToInt(g -> g.getAttrValor() != null ? g.getAttrValor() : level * 400)
                     .sum();
             if (power == 0) power = level * 500;
 

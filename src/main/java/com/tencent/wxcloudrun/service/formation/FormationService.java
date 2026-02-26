@@ -60,36 +60,22 @@ public class FormationService {
                 if (general != null) {
                     slotInfo.put("generalId", general.getId());
                     slotInfo.put("generalName", general.getName());
-                    slotInfo.put("quality", general.getQuality());
+                    slotInfo.put("quality", general.getQualityName());
                     slotInfo.put("level", general.getLevel());
                     slotInfo.put("avatar", general.getAvatar());
-                    slotInfo.put("mobility", general.getAttributes() != null ? general.getAttributes().getMobility() : 0);
-                    slotInfo.put("attack", general.getAttributes() != null ? general.getAttributes().getAttack() : 0);
-                    slotInfo.put("defense", general.getAttributes() != null ? general.getAttributes().getDefense() : 0);
-                    slotInfo.put("power", general.getAttributes() != null ? general.getAttributes().getPower() : 0);
-                    slotInfo.put("type", general.getType());
+                    slotInfo.put("mobility", general.getAttrMobility() != null ? general.getAttrMobility() : 0);
+                    slotInfo.put("attack", general.getAttrAttack() != null ? general.getAttrAttack() : 0);
+                    slotInfo.put("defense", general.getAttrDefense() != null ? general.getAttrDefense() : 0);
+                    slotInfo.put("power", general.getAttrValor() != null ? general.getAttrValor() : 0);
                     slotInfo.put("troopType", general.getTroopType());
                     
                     // 士兵信息
-                    if (general.getSoldiers() != null) {
-                        General.Soldiers soldiers = general.getSoldiers();
-                        slotInfo.put("soldierCount", soldiers.getCount() != null ? soldiers.getCount() : 0);
-                        slotInfo.put("maxSoldierCount", soldiers.getMaxCount() != null ? soldiers.getMaxCount() : 0);
-                        if (soldiers.getType() != null) {
-                            slotInfo.put("soldierTypeName", soldiers.getType().getName());
-                            slotInfo.put("soldierTypeId", soldiers.getType().getId());
-                        }
-                        slotInfo.put("soldierRank", soldiers.getRank() != null ? soldiers.getRank() : 1);
-                        int soldierHp = 100;
-                        if (soldiers.getRankInfo() != null && soldiers.getRankInfo().getPowerMultiplier() != null) {
-                            soldierHp = (int)(100 * soldiers.getRankInfo().getPowerMultiplier());
-                        }
-                        slotInfo.put("soldierHp", soldierHp);
-                    } else {
-                        slotInfo.put("soldierCount", 0);
-                        slotInfo.put("maxSoldierCount", 0);
-                        slotInfo.put("soldierHp", 100);
-                    }
+                    slotInfo.put("soldierCount", general.getSoldierCount() != null ? general.getSoldierCount() : 0);
+                    slotInfo.put("maxSoldierCount", general.getSoldierMaxCount() != null ? general.getSoldierMaxCount() : 0);
+                    slotInfo.put("soldierTypeName", general.getTroopType());
+                    slotInfo.put("soldierRank", general.getSoldierRank() != null ? general.getSoldierRank() : 1);
+                    int soldierHp = 100;
+                    slotInfo.put("soldierHp", soldierHp);
                     
                     // 装备加成
                     Map<String, Integer> equipBonus = calculateEquipmentBonus(general.getId());
@@ -98,13 +84,11 @@ public class FormationService {
                     slotInfo.put("equipHp", equipBonus.getOrDefault("hp", 0));
                     slotInfo.put("equipMobility", equipBonus.getOrDefault("mobility", 0));
                     
-                    // 计算综合HP: 基础power×10 + 士兵数×士兵HP/10
-                    int basePower = general.getAttributes() != null && general.getAttributes().getPower() != null
-                        ? general.getAttributes().getPower() : 500;
-                    int soldierCount = general.getSoldiers() != null && general.getSoldiers().getCount() != null
-                        ? general.getSoldiers().getCount() : 0;
-                    int soldierHp = (Integer) slotInfo.get("soldierHp");
-                    int totalHp = basePower * 10 + (soldierCount * soldierHp) / 10;
+                    // 计算综合HP
+                    int basePower = general.getAttrValor() != null ? general.getAttrValor() : 500;
+                    int soldierCount = general.getSoldierCount() != null ? general.getSoldierCount() : 0;
+                    int soldierHpVal = (Integer) slotInfo.get("soldierHp");
+                    int totalHp = basePower * 10 + (soldierCount * soldierHpVal) / 10;
                     slotInfo.put("hp", totalHp);
                     slotInfo.put("maxHp", totalHp);
                     
@@ -171,9 +155,9 @@ public class FormationService {
         Formation.FormationSlot targetSlot = formation.getSlots().get(slotIndex);
         targetSlot.setGeneralId(generalId);
         targetSlot.setGeneralName(general.getName());
-        targetSlot.setQuality(general.getQuality() != null ? general.getQuality().getName() : null);
+        targetSlot.setQuality(general.getQualityName());
         targetSlot.setAvatar(general.getAvatar());
-        targetSlot.setMobility(general.getAttributes() != null ? general.getAttributes().getMobility() : 0);
+        targetSlot.setMobility(general.getAttrMobility() != null ? general.getAttrMobility() : 0);
         
         logger.info("用户 {} 设置阵型槽位 {}: {}", odUserId, slotIndex, general.getName());
         
@@ -212,9 +196,9 @@ public class FormationService {
                 Formation.FormationSlot slot = formation.getSlots().get(i);
                 slot.setGeneralId(generalId);
                 slot.setGeneralName(general.getName());
-                slot.setQuality(general.getQuality() != null ? general.getQuality().getName() : null);
+                slot.setQuality(general.getQualityName());
                 slot.setAvatar(general.getAvatar());
-                slot.setMobility(general.getAttributes() != null ? general.getAttributes().getMobility() : 0);
+                slot.setMobility(general.getAttrMobility() != null ? general.getAttrMobility() : 0);
                 usedIds.add(generalId);
             }
         }
@@ -290,8 +274,8 @@ public class FormationService {
         
         // 按机动性降序，机动性相同时按槽位索引升序
         generals.sort((a, b) -> {
-            int mobA = a.getAttributes() != null ? a.getAttributes().getMobility() : 0;
-            int mobB = b.getAttributes() != null ? b.getAttributes().getMobility() : 0;
+            int mobA = a.getAttrMobility() != null ? a.getAttrMobility() : 0;
+            int mobB = b.getAttrMobility() != null ? b.getAttrMobility() : 0;
             // 加上装备机动性加成
             mobA += a.getEquipmentBonus() != null ? a.getEquipmentBonus().getOrDefault("mobility", 0) : 0;
             mobB += b.getEquipmentBonus() != null ? b.getEquipmentBonus().getOrDefault("mobility", 0) : 0;
