@@ -123,7 +123,18 @@ public class UserResourceService {
         resource.setPaper((resource.getPaper() != null ? resource.getPaper() : 0L) + amount);
         resourceRepository.save(resource);
     }
-    
+
+    /** 消耗粮食 */
+    public boolean consumeFood(String odUserId, long amount) {
+        UserResource resource = getUserResource(odUserId);
+        long current = resource.getFood() != null ? resource.getFood() : 0L;
+        if (current < amount) { return false; }
+        resource.setFood(current - amount);
+        resourceRepository.save(resource);
+        logger.info("用户 {} 消耗粮食 {}, 剩余 {}", odUserId, amount, resource.getFood());
+        return true;
+    }
+
     /**
      * 消耗钻石
      */

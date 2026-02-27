@@ -56,6 +56,12 @@ public class HeroRankController {
         return ApiResponse.success("ok");
     }
 
+    @PostMapping("/resetCooldown")
+    public ApiResponse<Map<String, Object>> resetCooldown(HttpServletRequest request) {
+        String userId = getUserId(request);
+        return ApiResponse.success(heroRankService.resetCooldown(userId));
+    }
+
     private String getUserId(HttpServletRequest request) {
         return String.valueOf(request.getAttribute("userId"));
     }

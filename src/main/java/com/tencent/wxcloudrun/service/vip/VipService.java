@@ -87,9 +87,9 @@ public class VipService {
         String setName;
         int setLevel;
         switch (chestItemId) {
-            case "7001": parts = YINGYANG_PARTS; setName = "鹰扬"; setLevel = 40; break;
-            case "7002": parts = HUXIAO_PARTS; setName = "虎啸"; setLevel = 60; break;
-            case "7003": parts = FENGMING_PARTS; setName = "凤鸣"; setLevel = 80; break;
+            case "101": parts = YINGYANG_PARTS; setName = "鹰扬"; setLevel = 40; break;
+            case "102": parts = HUXIAO_PARTS; setName = "虎啸"; setLevel = 60; break;
+            case "103": parts = FENGMING_PARTS; setName = "凤鸣"; setLevel = 80; break;
             default: throw new BusinessException("无效的宝箱");
         }
 
@@ -116,9 +116,9 @@ public class VipService {
         int setLevel;
         String selectItemId;
         switch (setName) {
-            case "鹰扬": parts = YINGYANG_PARTS; setLevel = 40; selectItemId = "鹰扬自选券"; break;
-            case "虎啸": parts = HUXIAO_PARTS; setLevel = 60; selectItemId = "虎啸自选券"; break;
-            case "凤鸣": parts = FENGMING_PARTS; setLevel = 80; selectItemId = "凤鸣自选券"; break;
+            case "鹰扬": parts = YINGYANG_PARTS; setLevel = 40; selectItemId = "104"; break;
+            case "虎啸": parts = HUXIAO_PARTS; setLevel = 60; selectItemId = "105"; break;
+            case "凤鸣": parts = FENGMING_PARTS; setLevel = 80; selectItemId = "106"; break;
             default: throw new BusinessException("无效的套装");
         }
 
@@ -146,83 +146,83 @@ public class VipService {
     private void grantRewards(String userId, int level, List<String> rewards) {
         switch (level) {
             case 1:
-                addItems(userId, rewards, "6001", "银锭", 1);
-                addItems(userId, rewards, "6101", "初级粮食包", 1);
-                addItems(userId, rewards, "6201", "初级木材包", 1);
-                addItems(userId, rewards, "6301", "初级纸张包", 1);
+                addItems(userId, rewards, "12", "银锭", 1);
+                addItems(userId, rewards, "14", "初级粮食包", 1);
+                addItems(userId, rewards, "17", "初级木材包", 1);
+                addItems(userId, rewards, "20", "初级纸张包", 1);
                 break;
             case 2:
-                addItems(userId, rewards, "6001", "银锭", 3);
-                addItems(userId, rewards, "6101", "初级粮食包", 3);
-                addItems(userId, rewards, "6201", "初级木材包", 3);
-                addItems(userId, rewards, "6301", "初级纸张包", 3);
+                addItems(userId, rewards, "12", "银锭", 3);
+                addItems(userId, rewards, "14", "初级粮食包", 3);
+                addItems(userId, rewards, "17", "初级木材包", 3);
+                addItems(userId, rewards, "20", "初级纸张包", 3);
                 break;
             case 3:
-                addItems(userId, rewards, "6001", "银锭", 5);
-                addItems(userId, rewards, "6101", "初级粮食包", 5);
-                addItems(userId, rewards, "6201", "初级木材包", 5);
-                addItems(userId, rewards, "6301", "初级纸张包", 5);
+                addItems(userId, rewards, "12", "银锭", 5);
+                addItems(userId, rewards, "14", "初级粮食包", 5);
+                addItems(userId, rewards, "17", "初级木材包", 5);
+                addItems(userId, rewards, "20", "初级纸张包", 5);
                 break;
             case 4:
-                addItems(userId, rewards, "6001", "银锭", 10);
-                addItems(userId, rewards, "6101", "初级粮食包", 10);
-                addItems(userId, rewards, "6201", "初级木材包", 10);
-                addItems(userId, rewards, "6301", "初级纸张包", 10);
-                addItems(userId, rewards, "6401", "初级声望符", 10);
-                addItems(userId, rewards, "7001", "鹰扬宝箱", 1);
+                addItems(userId, rewards, "12", "银锭", 10);
+                addItems(userId, rewards, "14", "初级粮食包", 10);
+                addItems(userId, rewards, "17", "初级木材包", 10);
+                addItems(userId, rewards, "20", "初级纸张包", 10);
+                addItems(userId, rewards, "32", "初级声望符", 10);
+                addItems(userId, rewards, "101", "鹰扬宝箱", 1);
                 break;
             case 5:
-                addItems(userId, rewards, "6001", "银锭", 20);
-                addItems(userId, rewards, "6102", "中级粮食包", 5);
-                addItems(userId, rewards, "6202", "中级木材包", 5);
-                addItems(userId, rewards, "6302", "中级纸张包", 5);
-                addItems(userId, rewards, "6402", "中级声望符", 5);
-                addItems(userId, rewards, "7001", "鹰扬宝箱", 3);
+                addItems(userId, rewards, "12", "银锭", 20);
+                addItems(userId, rewards, "15", "中级粮食包", 5);
+                addItems(userId, rewards, "18", "中级木材包", 5);
+                addItems(userId, rewards, "21", "中级纸张包", 5);
+                addItems(userId, rewards, "33", "中级声望符", 5);
+                addItems(userId, rewards, "101", "鹰扬宝箱", 3);
                 break;
             case 6:
-                addItems(userId, rewards, "6002", "银砖", 5);
-                addItems(userId, rewards, "6102", "中级粮食包", 10);
-                addItems(userId, rewards, "6202", "中级木材包", 10);
-                addItems(userId, rewards, "6302", "中级纸张包", 10);
-                addItems(userId, rewards, "6402", "中级声望符", 10);
-                addSelectTicket(userId, rewards, "鹰扬自选券", 2);
+                addItems(userId, rewards, "13", "银砖", 5);
+                addItems(userId, rewards, "15", "中级粮食包", 10);
+                addItems(userId, rewards, "18", "中级木材包", 10);
+                addItems(userId, rewards, "21", "中级纸张包", 10);
+                addItems(userId, rewards, "33", "中级声望符", 10);
+                addItems(userId, rewards, "104", "鹰扬自选券", 2);
                 break;
             case 7:
-                addItems(userId, rewards, "6002", "银砖", 10);
-                addItems(userId, rewards, "6103", "高级粮食包", 5);
-                addItems(userId, rewards, "6203", "高级木材包", 5);
-                addItems(userId, rewards, "6303", "高级纸张包", 5);
-                addItems(userId, rewards, "6403", "高级声望符", 5);
-                addItems(userId, rewards, "7002", "虎啸宝箱", 3);
+                addItems(userId, rewards, "13", "银砖", 10);
+                addItems(userId, rewards, "16", "高级粮食包", 5);
+                addItems(userId, rewards, "19", "高级木材包", 5);
+                addItems(userId, rewards, "22", "高级纸张包", 5);
+                addItems(userId, rewards, "34", "高级声望符", 5);
+                addItems(userId, rewards, "102", "虎啸宝箱", 3);
                 break;
             case 8:
-                addItems(userId, rewards, "6002", "银砖", 20);
-                addItems(userId, rewards, "6103", "高级粮食包", 10);
-                addItems(userId, rewards, "6203", "高级木材包", 10);
-                addItems(userId, rewards, "6303", "高级纸张包", 10);
-                addItems(userId, rewards, "6403", "高级声望符", 10);
-                addItems(userId, rewards, "2002", "高级招贤令", 2);
-                addSelectTicket(userId, rewards, "虎啸自选券", 2);
+                addItems(userId, rewards, "13", "银砖", 20);
+                addItems(userId, rewards, "16", "高级粮食包", 10);
+                addItems(userId, rewards, "19", "高级木材包", 10);
+                addItems(userId, rewards, "22", "高级纸张包", 10);
+                addItems(userId, rewards, "34", "高级声望符", 10);
+                addItems(userId, rewards, "9", "高级招贤令", 2);
+                addItems(userId, rewards, "105", "虎啸自选券", 2);
                 break;
             case 9:
                 rewards.add("专属武将：貂蝉（弓兵）");
-                addItems(userId, rewards, "6002", "银砖", 50);
-                addItems(userId, rewards, "6103", "高级粮食包", 20);
-                addItems(userId, rewards, "6203", "高级木材包", 20);
-                addItems(userId, rewards, "6303", "高级纸张包", 20);
-                addItems(userId, rewards, "6403", "高级声望符", 20);
-                addItems(userId, rewards, "2002", "高级招贤令", 5);
-                addItems(userId, rewards, "7003", "凤鸣宝箱", 3);
+                addItems(userId, rewards, "13", "银砖", 50);
+                addItems(userId, rewards, "16", "高级粮食包", 20);
+                addItems(userId, rewards, "19", "高级木材包", 20);
+                addItems(userId, rewards, "22", "高级纸张包", 20);
+                addItems(userId, rewards, "34", "高级声望符", 20);
+                addItems(userId, rewards, "9", "高级招贤令", 5);
+                addItems(userId, rewards, "103", "凤鸣宝箱", 3);
                 break;
             case 10:
                 rewards.add("吕布专属兵法：辕门射戟");
-                addItems(userId, rewards, "6002", "银砖", 100);
-                addItems(userId, rewards, "6103", "高级粮食包", 50);
-                addItems(userId, rewards, "6203", "高级木材包", 50);
-                addItems(userId, rewards, "6303", "高级纸张包", 50);
-                addItems(userId, rewards, "6403", "高级声望符", 50);
-                addItems(userId, rewards, "2002", "高级招贤令", 10);
-                addSelectTicket(userId, rewards, "凤鸣自选券", 2);
+                addItems(userId, rewards, "13", "银砖", 100);
+                addItems(userId, rewards, "16", "高级粮食包", 50);
+                addItems(userId, rewards, "19", "高级木材包", 50);
+                addItems(userId, rewards, "22", "高级纸张包", 50);
+                addItems(userId, rewards, "34", "高级声望符", 50);
+                addItems(userId, rewards, "9", "高级招贤令", 10);
+                addItems(userId, rewards, "106", "凤鸣自选券", 2);
                 break;
         }
     }
@@ -231,15 +231,6 @@ public class VipService {
         Warehouse.WarehouseItem item = Warehouse.WarehouseItem.builder()
                 .itemId(itemId).itemType("item").name(name)
                 .quality(getQuality(itemId)).count(count).maxStack(9999)
-                .usable(true).build();
-        warehouseService.addItem(userId, item);
-        rewards.add(name + " x" + count);
-    }
-
-    private void addSelectTicket(String userId, List<String> rewards, String name, int count) {
-        Warehouse.WarehouseItem item = Warehouse.WarehouseItem.builder()
-                .itemId(name).itemType("item").name(name)
-                .quality("5").count(count).maxStack(99)
                 .usable(true).build();
         warehouseService.addItem(userId, item);
         rewards.add(name + " x" + count);
@@ -264,12 +255,21 @@ public class VipService {
     }
 
     private String getQuality(String itemId) {
-        if (itemId.startsWith("70")) return "5";
-        if (itemId.equals("6002")) return "4";
-        if (itemId.equals("6001")) return "2";
-        if (itemId.endsWith("03") || itemId.equals("2002")) return "5";
-        if (itemId.endsWith("02")) return "3";
-        return "1";
+        // 根据数据库item表的quality字段
+        switch (itemId) {
+            case "12": return "3";  // 银锭
+            case "13": return "5";  // 银砖
+            case "14": case "17": case "20": return "2";  // 初级粮食/木材/纸张包
+            case "15": case "18": case "21": return "3";  // 中级粮食/木材/纸张包
+            case "16": case "19": case "22": return "5";  // 高级粮食/木材/纸张包
+            case "32": return "2";  // 初级声望符
+            case "33": return "3";  // 中级声望符
+            case "34": return "4";  // 高级声望符
+            case "9":  return "5";  // 高级招贤令
+            case "101": case "102": case "103": return "5"; // 宝箱
+            case "104": case "105": case "106": return "5"; // 自选券
+            default: return "1";
+        }
     }
 
     private List<Map<String, Object>> getRewardDesc(int level) {

@@ -21,6 +21,7 @@ public interface HeroRankMapper {
                 @Param("todayWins") int todayWins,
                 @Param("todayPurchased") int todayPurchased,
                 @Param("lastResetDate") String lastResetDate,
+                @Param("lastChallengeTime") long lastChallengeTime,
                 @Param("updateTime") long updateTime);
 
     List<Map<String, Object>> findTopN(@Param("limit") int limit);

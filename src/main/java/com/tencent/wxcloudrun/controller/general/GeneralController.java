@@ -142,6 +142,32 @@ public class GeneralController {
             return ApiResponse.error(400, e.getMessage());
         }
     }
+
+    /**
+     * 使用经验药
+     */
+    @PostMapping("/use-exp-item")
+    public ApiResponse<?> useExpItem(@RequestBody java.util.Map<String, Object> params,
+                                     HttpServletRequest request) {
+        String userId = String.valueOf(request.getAttribute("userId"));
+        String generalId = (String) params.get("generalId");
+        Number itemIdNum = (Number) params.get("itemId");
+        Number countNum = (Number) params.get("count");
+
+        int itemId = itemIdNum != null ? itemIdNum.intValue() : 0;
+        int count = countNum != null ? countNum.intValue() : 1;
+
+        logger.info("使用经验药, userId: {}, generalId: {}, itemId: {}, count: {}",
+                   userId, generalId, itemId, count);
+
+        try {
+            java.util.Map<String, Object> result = generalService.useExpItem(
+                userId, generalId, itemId, count);
+            return ApiResponse.success(result);
+        } catch (Exception e) {
+            return ApiResponse.error(400, e.getMessage());
+        }
+    }
 }
 
 

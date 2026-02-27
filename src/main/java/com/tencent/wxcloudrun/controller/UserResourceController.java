@@ -3,6 +3,9 @@ package com.tencent.wxcloudrun.controller;
 import com.tencent.wxcloudrun.dto.ApiResponse;
 import com.tencent.wxcloudrun.model.UserResource;
 import com.tencent.wxcloudrun.service.UserResourceService;
+import com.tencent.wxcloudrun.service.plunder.PlunderService;
+import com.tencent.wxcloudrun.service.herorank.HeroRankService;
+import com.tencent.wxcloudrun.service.nationwar.NationWarService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,6 +23,15 @@ public class UserResourceController {
     @Autowired
     private UserResourceService resourceService;
     
+    @Autowired
+    private PlunderService plunderService;
+
+    @Autowired
+    private HeroRankService heroRankService;
+
+    @Autowired
+    private NationWarService nationWarService;
+
     /**
      * 获取用户资源
      */
@@ -53,6 +65,39 @@ public class UserResourceController {
         summary.put("maxGeneral", resource.getMaxGeneral());
         summary.put("vipLevel", resource.getVipLevel());
         
+        // 挑战剩余次数
+        try {
+            Map<String, Object> heroInfo = heroRankService.getHeroRankInfo(userId, 0);
+            Map<String, Object> myRank = (Map<String, Object>) heroInfo.get("myRank");
+            int maxChallenge = heroInfo.get("maxChallenge") != null ? ((Number) heroInfo.get("maxChallenge")).intValue() : 5;
+            if (myRank != null) {
+                int todayChal = myRank.get("todayChallenge") != null ? ((Number) myRank.get("todayChallenge")).intValue() : 0;
+                int todayPur = myRank.get("todayPurchased") != null ? ((Number) myRank.get("todayPurchased")).intValue() : 0;
+                int totalAllowed = maxChallenge + todayPur;
+                summary.put("challengeRemain", totalAllowed - todayChal);
+            } else {
+                summary.put("challengeRemain", maxChallenge);
+            }
+        } catch (Exception e) {
+            summary.put("challengeRemain", 10);
+        }
+
+        // 掠夺剩余次数
+        try {
+            Map<String, Object> plunderInfo = plunderService.getPlunderInfo(userId);
+            summary.put("plunderAvailable", plunderInfo.get("availableCount"));
+        } catch (Exception e) {
+            summary.put("plunderAvailable", 0);
+        }
+
+        // 国籍
+        try {
+            String nation = nationWarService.getPlayerNation(userId);
+            summary.put("nationality", nation);
+        } catch (Exception e) {
+            summary.put("nationality", null);
+        }
+
         return ApiResponse.success(summary);
     }
     

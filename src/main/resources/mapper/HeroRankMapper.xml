@@ -8,20 +8,22 @@
                rank_name AS rankName, ranking,
                today_challenge AS todayChallenge, today_wins AS todayWins,
                today_purchased AS todayPurchased, last_reset_date AS lastResetDate,
+               last_challenge_time AS lastChallengeTime,
                update_time AS updateTime
         FROM hero_rank WHERE user_id = #{userId}
     </select>
 
     <insert id="upsert">
         INSERT INTO hero_rank (user_id, user_name, level, power, fame, rank_name, ranking,
-                               today_challenge, today_wins, today_purchased, last_reset_date, update_time)
+                               today_challenge, today_wins, today_purchased, last_reset_date, last_challenge_time, update_time)
         VALUES (#{userId}, #{userName}, #{level}, #{power}, #{fame}, #{rankName}, #{ranking},
-                #{todayChallenge}, #{todayWins}, #{todayPurchased}, #{lastResetDate}, #{updateTime})
+                #{todayChallenge}, #{todayWins}, #{todayPurchased}, #{lastResetDate}, #{lastChallengeTime}, #{updateTime})
         ON DUPLICATE KEY UPDATE
             user_name = #{userName}, level = #{level}, power = #{power}, fame = #{fame},
             rank_name = #{rankName}, ranking = #{ranking},
             today_challenge = #{todayChallenge}, today_wins = #{todayWins},
             today_purchased = #{todayPurchased}, last_reset_date = #{lastResetDate},
+            last_challenge_time = #{lastChallengeTime},
             update_time = #{updateTime}
     </insert>
 

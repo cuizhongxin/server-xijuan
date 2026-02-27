@@ -339,8 +339,15 @@ CREATE TABLE IF NOT EXISTS `formation_slot` (
 CREATE TABLE IF NOT EXISTS `warehouse` (
   `id` VARCHAR(64) NOT NULL COMMENT '仓库ID',
   `user_id` VARCHAR(64) NOT NULL COMMENT '所属用户ID',
-  `capacity` INT DEFAULT 100 COMMENT '仓库容量',
+  `equip_capacity` INT DEFAULT 50 COMMENT '装备仓库容量',
+  `equip_base_capacity` INT DEFAULT 50 COMMENT '装备基础容量',
+  `equip_expand_times` INT DEFAULT 0 COMMENT '装备扩容次数',
+  `equip_used_slots` INT DEFAULT 0 COMMENT '装备已用槽位',
   `equipment_ids` TEXT COMMENT '装备ID列表逗号分隔',
+  `item_capacity` INT DEFAULT 100 COMMENT '物品仓库容量',
+  `item_base_capacity` INT DEFAULT 100 COMMENT '物品基础容量',
+  `item_expand_times` INT DEFAULT 0 COMMENT '物品扩容次数',
+  `item_used_slots` INT DEFAULT 0 COMMENT '物品已用槽位',
   `create_time` BIGINT COMMENT '创建时间戳',
   `update_time` BIGINT COMMENT '更新时间戳',
   PRIMARY KEY (`id`),
@@ -363,6 +370,7 @@ CREATE TABLE IF NOT EXISTS `warehouse_item` (
   `description` VARCHAR(512) COMMENT '物品描述',
   `usable` TINYINT(1) DEFAULT 0 COMMENT '是否可使用',
   `bound` TINYINT(1) DEFAULT 0 COMMENT '是否绑定',
+  `max_stack` INT DEFAULT 9999 COMMENT '最大堆叠数',
   PRIMARY KEY (`id`),
   KEY `idx_whi_warehouse` (`warehouse_id`),
   KEY `idx_whi_user` (`user_id`)
@@ -668,6 +676,7 @@ CREATE TABLE IF NOT EXISTS `hero_rank_challenge` (
   `today_challenge_count` INT DEFAULT 0 COMMENT '今日挑战次数',
   `today_purchased_count` INT DEFAULT 0 COMMENT '今日已购买次数',
   `last_challenge_date` VARCHAR(8) COMMENT '上次挑战日期(yyyyMMdd)',
+  `last_challenge_time` BIGINT DEFAULT 0 COMMENT '上次挑战时间戳(ms)',
   `server_id` INT DEFAULT 1 COMMENT '区服ID',
   PRIMARY KEY (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='英雄榜挑战数据表';
@@ -786,12 +795,16 @@ CREATE TABLE IF NOT EXISTS `announcement` (
   `title` VARCHAR(128) NOT NULL COMMENT '公告标题',
   `content` TEXT COMMENT '公告内容',
   `type` VARCHAR(16) DEFAULT 'normal' COMMENT '类型：normal/urgent/maintenance',
+  `priority` INT DEFAULT 0 COMMENT '优先级，数值越大越靠前',
   `enabled` TINYINT(1) DEFAULT 1 COMMENT '是否启用',
   `start_time` BIGINT COMMENT '生效时间戳',
   `end_time` BIGINT COMMENT '失效时间戳',
   `create_time` BIGINT COMMENT '创建时间戳',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='公告表';
+
+-- 兼容旧表: 补充 priority 字段
+ALTER TABLE `announcement` ADD COLUMN IF NOT EXISTS `priority` INT DEFAULT 0 COMMENT '优先级';
 
 -- =============================================
 -- 27. 聊天消息表
@@ -811,8 +824,30 @@ CREATE TABLE IF NOT EXISTS `chat_message` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='聊天消息表';
 
 -- =============================================
+-- VIP礼包领取记录
+-- =============================================
+CREATE TABLE IF NOT EXISTS `vip_gift_claim` (
+  `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` VARCHAR(64) NOT NULL COMMENT '用户ID',
+  `vip_level` INT NOT NULL COMMENT 'VIP等级',
+  `claim_time` BIGINT NOT NULL COMMENT '领取时间',
+  UNIQUE KEY `uk_user_level` (`user_id`, `vip_level`),
+  KEY `idx_user` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='VIP礼包领取记录';
+
+-- =============================================
 -- 初始数据：区服
 -- =============================================
 INSERT INTO `game_server` (`name`, `status`, `open_time`, `max_players`, `current_players`)
 VALUES ('风云第1服', 'normal', UNIX_TIMESTAMP() * 1000, 10000, 0)
 ON DUPLICATE KEY UPDATE `name` = VALUES(`name`);
+
+-- =============================================
+-- VIP专用道具
+-- =============================================
+INSERT INTO `item` (`item_id`,`item_name`,`quality`) VALUES (101,'鹰扬宝箱',5) ON DUPLICATE KEY UPDATE `item_name`=VALUES(`item_name`);
+INSERT INTO `item` (`item_id`,`item_name`,`quality`) VALUES (102,'虎啸宝箱',5) ON DUPLICATE KEY UPDATE `item_name`=VALUES(`item_name`);
+INSERT INTO `item` (`item_id`,`item_name`,`quality`) VALUES (103,'凤鸣宝箱',5) ON DUPLICATE KEY UPDATE `item_name`=VALUES(`item_name`);
+INSERT INTO `item` (`item_id`,`item_name`,`quality`) VALUES (104,'鹰扬自选券',5) ON DUPLICATE KEY UPDATE `item_name`=VALUES(`item_name`);
+INSERT INTO `item` (`item_id`,`item_name`,`quality`) VALUES (105,'虎啸自选券',5) ON DUPLICATE KEY UPDATE `item_name`=VALUES(`item_name`);
+INSERT INTO `item` (`item_id`,`item_name`,`quality`) VALUES (106,'凤鸣自选券',5) ON DUPLICATE KEY UPDATE `item_name`=VALUES(`item_name`);

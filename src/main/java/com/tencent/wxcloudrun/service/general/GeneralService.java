@@ -24,6 +24,12 @@ public class GeneralService {
     @Autowired
     private GeneralRepository generalRepository;
     
+    @Autowired
+    private com.tencent.wxcloudrun.service.warehouse.WarehouseService warehouseService;
+
+    @Autowired
+    private com.tencent.wxcloudrun.service.UserResourceService userResourceService;
+
     public List<General> getUserGenerals(String userId) {
         return generalRepository.findByUserId(userId);
     }
@@ -38,12 +44,15 @@ public class GeneralService {
         if (!existing.isEmpty()) { return existing; }
         
         List<General> initials = new ArrayList<>();
+        // 步兵将领：擅长防御，皮糙血厚
         initials.add(buildGeneral(userId, "赵云", "蜀", 6, "橙色", "#FF8C00", 1.5, 5, "步", 50));
-        initials.add(buildGeneral(userId, "关羽", "蜀", 5, "紫色", "#9370DB", 1.3, 4, "骑", 48));
         initials.add(buildGeneral(userId, "张飞", "蜀", 5, "紫色", "#9370DB", 1.3, 4, "步", 46));
+        // 骑兵将领：机动高，攻击力强
+        initials.add(buildGeneral(userId, "关羽", "蜀", 5, "紫色", "#9370DB", 1.3, 4, "骑", 48));
+        initials.add(buildGeneral(userId, "吕布", "群", 6, "橙色", "#FF8C00", 1.5, 5, "骑", 42));
+        // 弓兵将领：最强杀伤力，可靠的伤害输出者
         initials.add(buildGeneral(userId, "诸葛亮", "蜀", 6, "橙色", "#FF8C00", 1.5, 5, "弓", 45));
         initials.add(buildGeneral(userId, "貂蝉", "群", 4, "红色", "#DC143C", 1.1, 4, "弓", 43));
-        initials.add(buildGeneral(userId, "吕布", "群", 6, "橙色", "#FF8C00", 1.5, 5, "骑", 42));
         
         List<General> saved = generalRepository.saveAll(initials);
         logger.info("初始化完成，创建了{}个武将", saved.size());
@@ -74,22 +83,54 @@ public class GeneralService {
     
     /**
      * 计算六维属性 [attack, defense, valor, command, dodge, mobility]
+     *
+     * 核心四维（设计文档）：
+     *   武勇：增加军队攻击伤害输出，提升升级时攻击成长
+     *   统御：提升军队防守伤害减免，提升升级时防御成长
+     *   攻击：直接提升军队攻击力
+     *   防御：直接提升军队防御力
+     *
+     * 兵种特性：
+     *   步兵：擅长防御，皮糙血厚 → 防御/统御高，攻击略低
+     *   骑兵：机动高，攻击力强 → 攻击/武勇高，机动高
+     *   弓兵：最强杀伤力 → 攻击/武勇最高，防御最低
      */
     public int[] calcAttributes(double qualityMultiplier, String troopType, int level) {
-        int baseAtk = 100, baseDef = 100, baseVal = 50, baseCmd = 50, baseMob = 50;
-        double baseDodge = 10.0;
-        
-        double troopAtk = 1.0, troopDef = 1.0, troopDodge = 1.0;
-        if ("步".equals(troopType)) { troopAtk = 0.8; troopDef = 1.3; troopDodge = 1.5; }
-        else if ("弓".equals(troopType)) { troopAtk = 1.3; troopDef = 0.7; }
-        
-        int attack = (int)(baseAtk * qualityMultiplier * troopAtk + 5 * (level - 1));
-        int defense = (int)(baseDef * qualityMultiplier * troopDef + 5 * (level - 1));
-        int valor = (int)(baseVal * qualityMultiplier + 2 * (level - 1));
-        int command = (int)(baseCmd * qualityMultiplier + 2 * (level - 1));
-        int dodge = (int) Math.min(baseDodge * qualityMultiplier * troopDodge + 0.5 * (level - 1), 100);
-        int mobility = (int)(baseMob * qualityMultiplier + 2 * (level - 1));
-        
+        // 基础属性
+        int baseVal = 60, baseCmd = 60, baseAtk = 80, baseDef = 80;
+        int baseMob = 50;
+        double baseDodge = 8.0;
+
+        // 武勇/统御影响攻防成长
+        double valorGrowth = 3.0, commandGrowth = 3.0;
+        double atkGrowth = 5.0, defGrowth = 5.0;
+
+        // 兵种修正
+        double troopValor = 1.0, troopCmd = 1.0, troopAtk = 1.0, troopDef = 1.0;
+        double troopMob = 1.0, troopDodge = 1.0;
+
+        if ("步".equals(troopType)) {
+            // 步兵：防御型，统御高，防御高，攻击略低
+            troopCmd = 1.3; troopDef = 1.4; troopValor = 0.9; troopAtk = 0.85;
+            troopMob = 0.8; troopDodge = 0.9;
+        } else if ("骑".equals(troopType)) {
+            // 骑兵：突击型，武勇高，攻击强，机动高
+            troopValor = 1.3; troopAtk = 1.2; troopMob = 1.5;
+            troopCmd = 0.9; troopDef = 0.9; troopDodge = 1.1;
+        } else if ("弓".equals(troopType)) {
+            // 弓兵：输出型，武勇最高，攻击最强，防御最低
+            troopValor = 1.4; troopAtk = 1.35;
+            troopCmd = 0.8; troopDef = 0.7; troopMob = 0.9; troopDodge = 1.2;
+        }
+
+        int valor = (int)(baseVal * qualityMultiplier * troopValor + valorGrowth * (level - 1));
+        int command = (int)(baseCmd * qualityMultiplier * troopCmd + commandGrowth * (level - 1));
+        // 武勇加成攻击成长，统御加成防御成长
+        int attack = (int)(baseAtk * qualityMultiplier * troopAtk + (atkGrowth + valor * 0.05) * (level - 1));
+        int defense = (int)(baseDef * qualityMultiplier * troopDef + (defGrowth + command * 0.05) * (level - 1));
+        int dodge = (int) Math.min(baseDodge * qualityMultiplier * troopDodge + 0.3 * (level - 1), 95);
+        int mobility = (int)(baseMob * qualityMultiplier * troopMob + 1.5 * (level - 1));
+
         return new int[]{attack, defense, valor, command, dodge, mobility};
     }
     
@@ -164,7 +205,17 @@ public class GeneralService {
     
     public Long getMaxExpForLevel(int level) { return calcMaxExp(level); }
     
-    private long calcMaxExp(int level) { return (long)(100 * Math.pow(1.2, level - 1)); }
+    /**
+     * 将领升级经验曲线：比主公(100+3*level²)慢约30%
+     * 公式: 150 + 4 * level²
+     *
+     * 示例：
+     * Lv1: 154   Lv5: 250   Lv10: 550   Lv20: 1750
+     * Lv30: 3750  Lv50: 10150  Lv100: 40150
+     *
+     * 经验来源：副本战斗、军事演习(消耗粮草)、经验药(道具28/29/30)、将领传承
+     */
+    private long calcMaxExp(int level) { return 150 + 4L * level * level; }
     
     public boolean dismissGeneral(String userId, String generalId) {
         General general = generalRepository.findById(generalId);
@@ -208,6 +259,13 @@ public class GeneralService {
         if (general == null) { throw new RuntimeException("武将不存在"); }
         if (!general.getUserId().equals(userId)) { throw new RuntimeException("无权操作"); }
         
+        // 消耗粮食: small=500, medium=1500, large=4000
+        int foodCost = "large".equals(drillType) ? 4000 : "medium".equals(drillType) ? 1500 : 500;
+        long totalFoodCost = (long) foodCost * count;
+        if (!userResourceService.consumeFood(userId, totalFoodCost)) {
+            throw new RuntimeException("粮食不足，需要" + totalFoodCost + "粮食");
+        }
+
         int expPer = "large".equals(drillType) ? 2000 : "medium".equals(drillType) ? 500 : 100;
         long totalExp = (long) expPer * count;
         Map<String, Object> expResult = addGeneralExp(generalId, totalExp);
@@ -215,7 +273,42 @@ public class GeneralService {
         Map<String, Object> result = new HashMap<>();
         result.put("success", true);
         result.put("expGained", totalExp);
+        result.put("foodCost", totalFoodCost);
         result.put("drillType", drillType);
+        result.put("count", count);
+        result.put("levelUp", expResult.get("levelUp"));
+        result.put("newLevel", expResult.get("newLevel"));
+        return result;
+    }
+
+    /**
+     * 使用经验药
+     * itemId: 28=初级经验丹(200exp), 29=中级经验丹(1000exp), 30=高级经验丹(5000exp)
+     */
+    public Map<String, Object> useExpItem(String userId, String generalId, int itemId, int count) {
+        General general = generalRepository.findById(generalId);
+        if (general == null) { throw new RuntimeException("武将不存在"); }
+        if (!general.getUserId().equals(userId)) { throw new RuntimeException("无权操作"); }
+
+        int expPer;
+        switch (itemId) {
+            case 28: expPer = 200; break;
+            case 29: expPer = 1000; break;
+            case 30: expPer = 5000; break;
+            default: throw new RuntimeException("无效的经验药道具");
+        }
+
+        // 扣除道具
+        boolean consumed = warehouseService.removeItem(userId, String.valueOf(itemId), count);
+        if (!consumed) { throw new RuntimeException("道具数量不足"); }
+
+        long totalExp = (long) expPer * count;
+        Map<String, Object> expResult = addGeneralExp(generalId, totalExp);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("success", true);
+        result.put("expGained", totalExp);
+        result.put("itemId", itemId);
         result.put("count", count);
         result.put("levelUp", expResult.get("levelUp"));
         result.put("newLevel", expResult.get("newLevel"));

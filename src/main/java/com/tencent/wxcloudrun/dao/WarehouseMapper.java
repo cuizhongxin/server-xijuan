@@ -15,5 +15,5 @@ public interface WarehouseMapper {
     
     void deleteItemsByWarehouseId(@Param("warehouseId") String warehouseId);
     
-    void insertItems(@Param("warehouseId") String warehouseId, @Param("items") List<Warehouse.WarehouseItem> items);
+    void insertItems(@Param("warehouseId") String warehouseId, @Param("userId") String userId, @Param("items") List<Warehouse.WarehouseItem> items);
 }

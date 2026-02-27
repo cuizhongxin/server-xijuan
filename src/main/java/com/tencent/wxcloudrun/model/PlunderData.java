@@ -31,7 +31,7 @@ public class PlunderData {
      * 获取今日可用掠夺次数
      */
     public int getAvailableCount() {
-        int total = 20 + (todayPurchased != null ? todayPurchased : 0);
+        int total = 24 + (todayPurchased != null ? todayPurchased : 0);
         int used = todayCount != null ? todayCount : 0;
         return Math.max(0, total - used);
     }

@@ -4,6 +4,7 @@ import com.tencent.wxcloudrun.dao.RechargeOrderMapper;
 import com.tencent.wxcloudrun.exception.BusinessException;
 import com.tencent.wxcloudrun.model.RechargeOrder;
 import com.tencent.wxcloudrun.model.RechargeProduct;
+import com.tencent.wxcloudrun.model.UserResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -116,6 +117,9 @@ public class RechargeService {
                 resourceService.addDiamond(order.getOdUserId(), order.getDiamondAmount().intValue());
             }
             
+            // 累计充值金额并更新VIP等级
+            updateVipLevel(order.getOdUserId(), order.getAmount());
+
             result.put("success", true);
             result.put("order", order);
             result.put("message", "充值成功");
@@ -157,5 +161,26 @@ public class RechargeService {
         Map<String, String> params = new HashMap<>();
         params.put("tn", "mock_unionpay_tn_" + order.getId());
         return params;
+    }
+
+    // VIP等级阈值（分）：0, 6元, 30元, 98元, 198元, 328元, 648元, 998元, 1998元, 6000元, 20000元
+    private static final long[] VIP_THRESHOLDS = {0, 600, 3000, 9800, 19800, 32800, 64800, 99800, 199800, 600000, 2000000};
+
+    private void updateVipLevel(String odUserId, long amountFen) {
+        UserResource resource = resourceService.getUserResource(odUserId);
+        long totalRecharge = (resource.getTotalRecharge() != null ? resource.getTotalRecharge() : 0) + amountFen;
+        resource.setTotalRecharge(totalRecharge);
+
+        int newVipLevel = 0;
+        for (int i = VIP_THRESHOLDS.length - 1; i >= 1; i--) {
+            if (totalRecharge >= VIP_THRESHOLDS[i]) {
+                newVipLevel = i;
+                break;
+            }
+        }
+        resource.setVipLevel(newVipLevel);
+        resource.setUpdateTime(System.currentTimeMillis());
+        resourceService.saveResource(resource);
+        logger.info("用户 {} 累计充值 {}分，VIP等级更新为 {}", odUserId, totalRecharge, newVipLevel);
     }
 }

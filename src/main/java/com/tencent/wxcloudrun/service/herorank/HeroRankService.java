@@ -22,8 +22,10 @@ public class HeroRankService {
 
     private static final Logger logger = LoggerFactory.getLogger(HeroRankService.class);
 
-    private static final int MAX_DAILY_CHALLENGE = 20;
+    private static final int MAX_DAILY_CHALLENGE = 10;
     private static final int MAX_PURCHASE = 999;
+    private static final long CHALLENGE_COOLDOWN_MS = 15 * 60 * 1000L; // 15分钟冷却
+    private static final long COOLDOWN_RESET_GOLD = 50; // 重置冷却消耗黄金
 
     // 挑战胜利声望奖励: 第1名500, 第2名450, ... 第10及以后100
     private static final int[] WIN_FAME_BY_RANK = {500, 450, 400, 350, 300, 250, 200, 180, 150, 100};
@@ -74,6 +76,11 @@ public class HeroRankService {
         int totalCount = heroRankMapper.countAll();
 
         Map<String, Object> result = new HashMap<>();
+        // 冷却信息
+        long lastChallengeTime = getLong(myRank, "lastChallengeTime", 0L);
+        long now = System.currentTimeMillis();
+        long cooldownRemainMs = Math.max(0, CHALLENGE_COOLDOWN_MS - (now - lastChallengeTime));
+
         result.put("myRank", myRank);
         result.put("topList", topList);
         result.put("totalCount", totalCount);
@@ -85,6 +92,8 @@ public class HeroRankService {
         result.put("fame", res.getFame());
         result.put("rank", res.getRank());
         result.put("level", level);
+        result.put("cooldownRemainMs", cooldownRemainMs);
+        result.put("cooldownResetGold", COOLDOWN_RESET_GOLD);
         return result;
     }
 
@@ -110,6 +119,14 @@ public class HeroRankService {
 
         if (todayChallenge >= totalAllowed) {
             throw new BusinessException(400, "今日挑战次数已用完，请购买额外次数");
+        }
+
+        // 冷却检查
+        long lastChallengeTime = getLong(myRank, "lastChallengeTime", 0L);
+        long now = System.currentTimeMillis();
+        if (todayChallenge > 0 && (now - lastChallengeTime) < CHALLENGE_COOLDOWN_MS) {
+            long remainSec = (CHALLENGE_COOLDOWN_MS - (now - lastChallengeTime)) / 1000;
+            throw new BusinessException(400, "挑战冷却中，还需等待" + (remainSec / 60) + "分" + (remainSec % 60) + "秒");
         }
 
         Map<String, Object> targetRank = heroRankMapper.findByUserId(targetId);
@@ -167,7 +184,8 @@ public class HeroRankService {
                     todayWins + 1,
                     todayPurchased,
                     today(),
-                    System.currentTimeMillis());
+                    now,
+                    now);
         } else {
             heroRankMapper.upsert(userId,
                     getString(myRank, "userName", "主公"),
@@ -178,7 +196,8 @@ public class HeroRankService {
                     getInt(myRank, "todayWins", 0),
                     todayPurchased,
                     today(),
-                    System.currentTimeMillis());
+                    now,
+                    now);
         }
 
         // 更新自己的战力
@@ -202,6 +221,7 @@ public class HeroRankService {
         result.put("targetPower", targetPower);
         result.put("todayChallenge", todayChallenge + 1);
         result.put("totalAllowed", totalAllowed);
+        result.put("cooldownRemainMs", CHALLENGE_COOLDOWN_MS);
         result.put("targetName", getString(targetRank, "userName", "对手"));
         result.put("targetLevel", getInt(targetRank, "level", 1));
         return result;
@@ -237,6 +257,7 @@ public class HeroRankService {
                 getInt(myRank, "todayWins", 0),
                 todayPurchased + 1,
                 today(),
+                getLong(myRank, "lastChallengeTime", 0L),
                 System.currentTimeMillis());
 
         Map<String, Object> result = new HashMap<>();
@@ -244,6 +265,45 @@ public class HeroRankService {
         result.put("todayPurchased", todayPurchased + 1);
         result.put("nextCost", (todayPurchased + 1) < 10 ? 10 : 100);
         result.put("totalAllowed", MAX_DAILY_CHALLENGE + todayPurchased + 1);
+        return result;
+    }
+
+    /**
+     * 黄金重置挑战冷却
+     */
+    public Map<String, Object> resetCooldown(String userId) {
+        Map<String, Object> myRank = heroRankMapper.findByUserId(userId);
+        if (myRank == null) {
+            throw new BusinessException(400, "未在排行榜中");
+        }
+
+        long lastChallengeTime = getLong(myRank, "lastChallengeTime", 0L);
+        long elapsed = System.currentTimeMillis() - lastChallengeTime;
+        if (elapsed >= CHALLENGE_COOLDOWN_MS) {
+            throw new BusinessException(400, "当前没有冷却，无需重置");
+        }
+
+        // 扣除黄金
+        resourceService.consumeGold(userId, COOLDOWN_RESET_GOLD);
+
+        // 将 lastChallengeTime 设为0，清除冷却
+        heroRankMapper.upsert(userId,
+                getString(myRank, "userName", "主公"),
+                getInt(myRank, "level", 1),
+                getInt(myRank, "power", 0),
+                getLong(myRank, "fame", 0L),
+                (String) myRank.get("rankName"),
+                getInt(myRank, "ranking", 0),
+                getInt(myRank, "todayChallenge", 0),
+                getInt(myRank, "todayWins", 0),
+                getInt(myRank, "todayPurchased", 0),
+                getString(myRank, "lastResetDate", today()),
+                0L,
+                System.currentTimeMillis());
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("cooldownRemainMs", 0);
+        result.put("goldCost", COOLDOWN_RESET_GOLD);
         return result;
     }
 
@@ -294,6 +354,7 @@ public class HeroRankService {
                         getInt(rank, "todayWins", 0),
                         getInt(rank, "todayPurchased", 0),
                         getString(rank, "lastResetDate", today()),
+                        getLong(rank, "lastChallengeTime", 0L),
                         System.currentTimeMillis());
             }
         } catch (Exception e) {
@@ -358,6 +419,7 @@ public class HeroRankService {
                     res.getFame() != null ? res.getFame() : 0,
                     res.getRank() != null ? res.getRank() : "白身",
                     0, 0, 0, 0, today(),
+                    0L,
                     System.currentTimeMillis());
         }
     }
@@ -373,10 +435,12 @@ public class HeroRankService {
                     (String) rank.get("rankName"),
                     getInt(rank, "ranking", 0),
                     0, 0, 0, today(),
+                    0L,
                     System.currentTimeMillis());
             rank.put("todayChallenge", 0);
             rank.put("todayWins", 0);
             rank.put("todayPurchased", 0);
+            rank.put("lastChallengeTime", 0L);
             rank.put("lastResetDate", today());
         }
     }

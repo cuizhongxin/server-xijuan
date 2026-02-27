@@ -66,7 +66,7 @@ public class NationWarService {
     private void initMapData() {
         // ========== 初始化四方势力 ==========
         nations.put("WEI", Nation.builder()
-            .id("WEI").name("魏").color("#0066cc")
+            .id("WEI").name("魏").color("#33cc66")
             .capitalId("YECHENG").capitalName("邺城")
             .cities(new ArrayList<>(Arrays.asList(
                 "YECHENG", "XUCHANG", "CHENLIU", "YINGCHUAN", "NANYANG_WEI",
@@ -75,7 +75,7 @@ public class NationWarService {
             .totalPlayers(0).meritExchangeRate(1.0).build());
         
         nations.put("SHU", Nation.builder()
-            .id("SHU").name("蜀").color("#00aa00")
+            .id("SHU").name("蜀").color("#3366cc")
             .capitalId("CHENGDU").capitalName("成都")
             .cities(new ArrayList<>(Arrays.asList(
                 "CHENGDU", "HANZHONG", "JIAMENG", "ZITONG", "BAZHONG",
@@ -84,7 +84,7 @@ public class NationWarService {
             .totalPlayers(0).meritExchangeRate(1.0).build());
         
         nations.put("WU", Nation.builder()
-            .id("WU").name("吴").color("#cc0000")
+            .id("WU").name("吴").color("#9933cc")
             .capitalId("JIANYE").capitalName("建业")
             .cities(new ArrayList<>(Arrays.asList(
                 "JIANYE", "WUCHANG", "CHANGSHA", "JIANGXIA", "LUJIANG",

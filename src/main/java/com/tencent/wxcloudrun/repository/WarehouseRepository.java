@@ -72,7 +72,7 @@ public class WarehouseRepository {
         warehouseMapper.deleteItemsByWarehouseId(warehouse.getId());
         if (warehouse.getItemStorage() != null && warehouse.getItemStorage().getItems() != null
                 && !warehouse.getItemStorage().getItems().isEmpty()) {
-            warehouseMapper.insertItems(warehouse.getId(), warehouse.getItemStorage().getItems());
+            warehouseMapper.insertItems(warehouse.getId(), warehouse.getUserId(), warehouse.getItemStorage().getItems());
         }
         return warehouse;
     }
