@@ -34,7 +34,7 @@ public class GeneralController {
         logger.info("获取武将列表, userId: {}", userId);
         
         List<General> generals = generalService.getUserGenerals(userId);
-        
+        generals.forEach(general -> general.setAvatar("步兵.png"));
         return ApiResponse.success(generals);
     }
     
@@ -91,6 +91,7 @@ public class GeneralController {
             boolean result = generalService.dismissGeneral(userId, generalId);
             return ApiResponse.success(java.util.Collections.singletonMap("success", result));
         } catch (Exception e) {
+            logger.error("解雇武将异常", e);
             return ApiResponse.error(400, e.getMessage());
         }
     }
@@ -114,6 +115,7 @@ public class GeneralController {
                 userId, sourceGeneralId, targetGeneralId, scrollType);
             return ApiResponse.success(result);
         } catch (Exception e) {
+            logger.error("将领传承异常", e);
             return ApiResponse.error(400, e.getMessage());
         }
     }
@@ -139,6 +141,7 @@ public class GeneralController {
                 userId, generalId, drillType, count);
             return ApiResponse.success(result);
         } catch (Exception e) {
+            logger.error("军事演习异常", e);
             return ApiResponse.error(400, e.getMessage());
         }
     }
@@ -165,6 +168,7 @@ public class GeneralController {
                 userId, generalId, itemId, count);
             return ApiResponse.success(result);
         } catch (Exception e) {
+            logger.error("使用经验药异常", e);
             return ApiResponse.error(400, e.getMessage());
         }
     }

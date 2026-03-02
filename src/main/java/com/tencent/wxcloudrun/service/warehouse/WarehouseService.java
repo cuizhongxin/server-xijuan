@@ -410,7 +410,7 @@ public class WarehouseService {
                 
             case "fame_token": // 声望符
                 int itemIdNum = 0;
-                try { itemIdNum = Integer.parseInt(item.getItemId()); } catch (Exception ignored) {}
+                try { itemIdNum = Integer.parseInt(item.getItemId()); } catch (Exception e) { logger.error("解析道具ID异常: {}", item.getItemId(), e); }
                 Map<String, Object> fameConfig = peerageConfigMapper.findFameTokenConfig(itemIdNum);
                 long fameGain = 500;
                 if (fameConfig != null) {

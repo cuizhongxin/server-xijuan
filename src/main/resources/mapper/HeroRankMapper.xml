@@ -14,13 +14,13 @@
     </select>
 
     <insert id="upsert">
-        INSERT INTO hero_rank (user_id, user_name, level, power, fame, rank_name, ranking,
+        INSERT INTO hero_rank (user_id, user_name, level, power, fame, rank_name, ranking, rank_position,
                                today_challenge, today_wins, today_purchased, last_reset_date, last_challenge_time, update_time)
-        VALUES (#{userId}, #{userName}, #{level}, #{power}, #{fame}, #{rankName}, #{ranking},
+        VALUES (#{userId}, #{userName}, #{level}, #{power}, #{fame}, #{rankName}, #{ranking}, #{ranking},
                 #{todayChallenge}, #{todayWins}, #{todayPurchased}, #{lastResetDate}, #{lastChallengeTime}, #{updateTime})
         ON DUPLICATE KEY UPDATE
             user_name = #{userName}, level = #{level}, power = #{power}, fame = #{fame},
-            rank_name = #{rankName}, ranking = #{ranking},
+            rank_name = #{rankName}, ranking = #{ranking}, rank_position = #{ranking},
             today_challenge = #{todayChallenge}, today_wins = #{todayWins},
             today_purchased = #{todayPurchased}, last_reset_date = #{lastResetDate},
             last_challenge_time = #{lastChallengeTime},

@@ -660,13 +660,31 @@ CREATE TABLE IF NOT EXISTS `hero_rank` (
   `rank_position` INT NOT NULL COMMENT '排名位置',
   `power` BIGINT DEFAULT 0 COMMENT '战力值',
   `level` INT DEFAULT 1 COMMENT '等级',
+  `fame` BIGINT DEFAULT 0 COMMENT '声望值',
+  `rank_name` VARCHAR(32) DEFAULT '白身' COMMENT '爵位名称',
+  `ranking` INT DEFAULT 0 COMMENT '当前排名',
+  `today_challenge` INT DEFAULT 0 COMMENT '今日挑战次数',
+  `today_wins` INT DEFAULT 0 COMMENT '今日胜利次数',
+  `today_purchased` INT DEFAULT 0 COMMENT '今日已购买挑战次数',
+  `last_reset_date` VARCHAR(8) COMMENT '上次重置日期(yyyyMMdd)',
+  `last_challenge_time` BIGINT DEFAULT 0 COMMENT '上次挑战时间戳(ms)',
   `avatar` VARCHAR(128) COMMENT '头像',
   `server_id` INT DEFAULT 1 COMMENT '区服ID',
   `update_time` BIGINT COMMENT '更新时间戳',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_hr_server_rank` (`server_id`, `rank_position`),
-  KEY `idx_hr_user` (`user_id`)
+  UNIQUE KEY `uk_hr_user` (`user_id`),
+  KEY `idx_hr_server_rank` (`server_id`, `rank_position`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='英雄榜排名表';
+
+-- 兼容旧表: 补充 hero_rank 缺失字段
+ALTER TABLE `hero_rank` ADD COLUMN IF NOT EXISTS `fame` BIGINT DEFAULT 0 COMMENT '声望值';
+ALTER TABLE `hero_rank` ADD COLUMN IF NOT EXISTS `rank_name` VARCHAR(32) DEFAULT '白身' COMMENT '爵位名称';
+ALTER TABLE `hero_rank` ADD COLUMN IF NOT EXISTS `ranking` INT DEFAULT 0 COMMENT '当前排名';
+ALTER TABLE `hero_rank` ADD COLUMN IF NOT EXISTS `today_challenge` INT DEFAULT 0 COMMENT '今日挑战次数';
+ALTER TABLE `hero_rank` ADD COLUMN IF NOT EXISTS `today_wins` INT DEFAULT 0 COMMENT '今日胜利次数';
+ALTER TABLE `hero_rank` ADD COLUMN IF NOT EXISTS `today_purchased` INT DEFAULT 0 COMMENT '今日已购买挑战次数';
+ALTER TABLE `hero_rank` ADD COLUMN IF NOT EXISTS `last_reset_date` VARCHAR(8) COMMENT '上次重置日期';
+ALTER TABLE `hero_rank` ADD COLUMN IF NOT EXISTS `last_challenge_time` BIGINT DEFAULT 0 COMMENT '上次挑战时间戳';
 
 -- =============================================
 -- 19.1 英雄榜挑战数据表
@@ -680,6 +698,41 @@ CREATE TABLE IF NOT EXISTS `hero_rank_challenge` (
   `server_id` INT DEFAULT 1 COMMENT '区服ID',
   PRIMARY KEY (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='英雄榜挑战数据表';
+
+-- =============================================
+-- 19.2 英雄榜战斗记录表
+-- =============================================
+CREATE TABLE IF NOT EXISTS `hero_rank_battle` (
+  `id` BIGINT AUTO_INCREMENT COMMENT '自增主键',
+  `attacker_id` VARCHAR(64) NOT NULL COMMENT '攻击者ID',
+  `attacker_name` VARCHAR(64) COMMENT '攻击者名称',
+  `attacker_level` INT DEFAULT 1 COMMENT '攻击者等级',
+  `defender_id` VARCHAR(64) NOT NULL COMMENT '防守者ID',
+  `defender_name` VARCHAR(64) COMMENT '防守者名称',
+  `defender_level` INT DEFAULT 1 COMMENT '防守者等级',
+  `victory` TINYINT(1) DEFAULT 0 COMMENT '是否胜利',
+  `fame_gain` INT DEFAULT 0 COMMENT '获得声望',
+  `create_time` BIGINT COMMENT '创建时间戳',
+  `create_date` VARCHAR(8) COMMENT '创建日期(yyyyMMdd)',
+  PRIMARY KEY (`id`),
+  KEY `idx_hrb_attacker` (`attacker_id`),
+  KEY `idx_hrb_defender` (`defender_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='英雄榜战斗记录表';
+
+-- =============================================
+-- 19.3 英雄榜每日奖励记录表
+-- =============================================
+CREATE TABLE IF NOT EXISTS `hero_rank_reward_log` (
+  `id` BIGINT AUTO_INCREMENT COMMENT '自增主键',
+  `user_id` VARCHAR(64) NOT NULL COMMENT '用户ID',
+  `ranking` INT DEFAULT 0 COMMENT '结算时排名',
+  `fame_reward` INT DEFAULT 0 COMMENT '声望奖励',
+  `silver_reward` BIGINT DEFAULT 0 COMMENT '白银奖励',
+  `settle_date` VARCHAR(8) COMMENT '结算日期(yyyyMMdd)',
+  `create_time` BIGINT COMMENT '创建时间戳',
+  PRIMARY KEY (`id`),
+  KEY `idx_hrrl_user` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='英雄榜每日奖励记录表';
 
 -- =============================================
 -- 20. 充值订单表

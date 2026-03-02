@@ -260,6 +260,7 @@ public class RecruitService {
             .attrCommand(attrs[3]).attrDodge((double) attrs[4]).attrMobility(attrs[5])
             .soldierRank(random.nextInt(3) + 1).soldierCount(1000).soldierMaxCount(1000)
             .traits(traitDescs)
+            .avatar(template.avatar)
             .statusLocked(false).statusInBattle(false).statusInjured(false).statusMorale(100)
             .statTotalBattles(0).statVictories(0).statDefeats(0).statKills(0).statMvpCount(0)
             .createTime(System.currentTimeMillis()).updateTime(System.currentTimeMillis())

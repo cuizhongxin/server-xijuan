@@ -32,6 +32,7 @@ public class AllianceWarController {
             result.put("success", true);
             result.putAll(status);
         } catch (Exception e) {
+            log.error("获取战争状态异常", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }
@@ -57,6 +58,7 @@ public class AllianceWarController {
             result.put("participant", participant);
             result.put("message", "报名成功，您的编号是: " + participant.getPlayerNumber());
         } catch (Exception e) {
+            log.error("报名联盟战异常", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }
@@ -74,6 +76,7 @@ public class AllianceWarController {
             result.put("success", true);
             result.put("message", "已取消报名");
         } catch (Exception e) {
+            log.error("取消报名异常", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }
@@ -90,6 +93,7 @@ public class AllianceWarController {
             result.put("success", true);
             result.put("participants", allianceWarService.getParticipants());
         } catch (Exception e) {
+            log.error("获取参战玩家列表异常", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }
@@ -107,6 +111,7 @@ public class AllianceWarController {
             result.put("myBattles", allianceWarService.getBattleHistory(odUserId));
             result.put("allBattles", allianceWarService.getAllBattles());
         } catch (Exception e) {
+            log.error("获取对战记录异常", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }
@@ -125,6 +130,7 @@ public class AllianceWarController {
             result.put("allianceRanks", war.getAllianceRanks());
             result.put("playerRanks", war.getPlayerRanks());
         } catch (Exception e) {
+            log.error("获取排名异常", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }
@@ -142,6 +148,7 @@ public class AllianceWarController {
             result.put("success", true);
             result.put("message", "已开启报名");
         } catch (Exception e) {
+            log.error("触发报名异常", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }
@@ -159,6 +166,7 @@ public class AllianceWarController {
             result.put("success", true);
             result.put("message", "战斗已开始");
         } catch (Exception e) {
+            log.error("触发战斗异常", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }
@@ -176,6 +184,7 @@ public class AllianceWarController {
             result.put("success", true);
             result.put("message", "盟战已重置");
         } catch (Exception e) {
+            log.error("重置盟战异常", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }

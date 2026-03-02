@@ -234,6 +234,7 @@ public class NationWarService {
             userResourceService.consumeGold(odUserId, TRANSFER_GOLD_COST);
             userResourceService.consumeSilver(odUserId, TRANSFER_SILVER_COST);
         } catch (Exception e) {
+            logger.error("转国异常", e);
             throw new BusinessException(400, "转国费用不足：需要" + TRANSFER_GOLD_COST + "黄金 + " + TRANSFER_SILVER_COST + "白银");
         }
         

@@ -45,6 +45,7 @@ public class AllianceController {
             result.put("myAlliance", myAlliance);
             result.put("hasAlliance", myAlliance != null);
         } catch (Exception e) {
+            log.error("获取联盟列表异常", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }
@@ -68,6 +69,7 @@ public class AllianceController {
                 result.put("alliance", alliance);
             }
         } catch (Exception e) {
+            log.error("获取我的联盟异常", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }
@@ -87,6 +89,7 @@ public class AllianceController {
             result.put("success", true);
             result.put("alliance", alliance);
         } catch (Exception e) {
+            log.error("获取联盟详情异常", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }
@@ -117,6 +120,7 @@ public class AllianceController {
             result.put("alliance", alliance);
             result.put("message", "联盟创建成功");
         } catch (Exception e) {
+            log.error("创建联盟异常", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }
@@ -144,6 +148,7 @@ public class AllianceController {
             result.put("success", true);
             result.put("message", "申请已提交，请等待审核");
         } catch (Exception e) {
+            log.error("申请加入联盟异常", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }
@@ -168,6 +173,7 @@ public class AllianceController {
             result.put("success", true);
             result.put("message", approve ? "已同意申请" : "已拒绝申请");
         } catch (Exception e) {
+            log.error("处理申请异常", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }
@@ -185,6 +191,7 @@ public class AllianceController {
             result.put("success", true);
             result.put("message", "已退出联盟");
         } catch (Exception e) {
+            log.error("退出联盟异常", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }
@@ -208,6 +215,7 @@ public class AllianceController {
             result.put("success", true);
             result.put("message", "已踢出成员");
         } catch (Exception e) {
+            log.error("踢出成员异常", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }
@@ -231,6 +239,7 @@ public class AllianceController {
             result.put("success", true);
             result.put("message", "盟主已转让");
         } catch (Exception e) {
+            log.error("转让盟主异常", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }
@@ -255,6 +264,7 @@ public class AllianceController {
             result.put("success", true);
             result.put("message", "职位设置成功");
         } catch (Exception e) {
+            log.error("设置成员职位异常", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }
@@ -277,6 +287,7 @@ public class AllianceController {
             result.put("success", true);
             result.put("message", "联盟已解散");
         } catch (Exception e) {
+            log.error("解散联盟异常", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }
@@ -300,6 +311,7 @@ public class AllianceController {
             result.put("success", true);
             result.put("message", "公告已更新");
         } catch (Exception e) {
+            log.error("修改公告异常", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }
@@ -319,6 +331,7 @@ public class AllianceController {
             result.put("success", true);
             result.put("applications", applications);
         } catch (Exception e) {
+            log.error("获取申请列表异常", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }

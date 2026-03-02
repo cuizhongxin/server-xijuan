@@ -3,6 +3,8 @@ package com.tencent.wxcloudrun.config;
 import com.tencent.wxcloudrun.dao.GeneralQualityMapper;
 import com.tencent.wxcloudrun.dao.GeneralSlotTraitMapper;
 import com.tencent.wxcloudrun.dao.GeneralTemplateMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -14,6 +16,8 @@ import java.util.*;
  */
 @Component
 public class GeneralConfig {
+
+    private static final Logger logger = LoggerFactory.getLogger(GeneralConfig.class);
 
     @Autowired
     private GeneralQualityMapper generalQualityMapper;
@@ -105,13 +109,14 @@ public class GeneralConfig {
             String name = (String) row.get("name");
             String faction = (String) row.get("faction");
             Object sid = row.get("slotId");
+            String avatar = (String) row.get("avatar");
             String qualityCode = (String) row.get("qualityCode");
             String type = (String) row.get("type");
             String troopType = (String) row.get("troopType");
             if (name == null || qualityCode == null || type == null) continue;
             int slotId = sid != null ? ((Number) sid).intValue() : 0;
             List<Trait> traits = traitsBySlotId.getOrDefault(slotId, Collections.emptyList());
-            result.add(new GeneralTemplate(name, qualityCode, faction != null ? faction : "群", type, troopType, traits));
+            result.add(new GeneralTemplate(name, qualityCode, faction != null ? faction : "群", type, troopType, traits, avatar));
         }
         return result;
     }
@@ -124,6 +129,7 @@ public class GeneralConfig {
         try {
             return new Trait(traitType, Integer.parseInt(traitValue.trim()));
         } catch (NumberFormatException e) {
+            logger.error("解析特性异常", e);
             return new Trait(traitType, traitValue);
         }
     }
@@ -149,6 +155,7 @@ public class GeneralConfig {
     public static class GeneralTemplate {
         public String name;
         public String quality;
+        public String avatar;
         public String faction;
         public String type;
         /** 兵种：步/骑/弓，来自槽位，招募时用此替代随机兵种 */
@@ -164,13 +171,14 @@ public class GeneralConfig {
             this.traits = traits;
         }
 
-        public GeneralTemplate(String name, String quality, String faction, String type, String troopType, List<Trait> traits) {
+        public GeneralTemplate(String name, String quality, String faction, String type, String troopType, List<Trait> traits, String avatar) {
             this.name = name;
             this.quality = quality;
             this.faction = faction;
             this.type = type;
             this.troopType = troopType;
             this.traits = traits;
+            this.avatar = avatar;
         }
     }
 

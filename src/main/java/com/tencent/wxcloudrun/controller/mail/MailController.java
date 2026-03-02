@@ -3,6 +3,8 @@ package com.tencent.wxcloudrun.controller.mail;
 import com.tencent.wxcloudrun.dao.GameServerMapper;
 import com.tencent.wxcloudrun.dto.ApiResponse;
 import com.tencent.wxcloudrun.service.mail.MailService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -13,6 +15,8 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/mail")
 public class MailController {
+
+    private static final Logger logger = LoggerFactory.getLogger(MailController.class);
 
     @Autowired
     private MailService mailService;
@@ -82,7 +86,9 @@ public class MailController {
                 if (ps != null && ps.get("lordName") != null) {
                     return (String) ps.get("lordName");
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                logger.error("获取主公名称异常", e);
+            }
         }
         List<Map<String, Object>> servers = gameServerMapper.findPlayerServers(userId);
         if (servers != null && !servers.isEmpty()) {

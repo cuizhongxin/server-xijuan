@@ -143,7 +143,9 @@ public class MarketService {
                     default: qualityVal = 1;
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            logger.error("解析品质异常", e);
+        }
 
         Map<String, Object> snapshot = new HashMap<>();
         snapshot.put("itemId", target.getItemId());

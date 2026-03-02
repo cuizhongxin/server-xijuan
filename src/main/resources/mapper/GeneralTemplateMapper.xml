@@ -4,6 +4,7 @@
 
     <select id="listByQualityCode" resultType="java.util.HashMap">
         SELECT t.id AS templateId, t.name, t.faction, t.slot_id AS slotId, t.sort_order AS sortOrder,
+               t.avatar,
                s.quality_code AS qualityCode, s.troop_type AS troopType, s.type,
                s.base_attack AS baseAttack, s.base_defense AS baseDefense, s.base_valor AS baseValor,
                s.base_command AS baseCommand, s.base_dodge AS baseDodge, s.base_mobility AS baseMobility,
@@ -16,6 +17,7 @@
 
     <select id="listRecruitableByQualityAndFaction" resultType="java.util.HashMap">
         SELECT t.id AS templateId, t.name, t.faction, t.slot_id AS slotId, t.sort_order AS sortOrder,
+               t.avatar,
                s.quality_code AS qualityCode, s.troop_type AS troopType, s.type,
                s.base_attack AS baseAttack, s.base_defense AS baseDefense, s.base_valor AS baseValor,
                s.base_command AS baseCommand, s.base_dodge AS baseDodge, s.base_mobility AS baseMobility,

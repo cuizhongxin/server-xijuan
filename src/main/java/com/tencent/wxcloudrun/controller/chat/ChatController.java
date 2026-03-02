@@ -3,6 +3,8 @@ package com.tencent.wxcloudrun.controller.chat;
 import com.tencent.wxcloudrun.dao.GameServerMapper;
 import com.tencent.wxcloudrun.dto.ApiResponse;
 import com.tencent.wxcloudrun.service.chat.ChatService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -13,6 +15,8 @@ import java.util.Map;
 @RestController
 @RequestMapping("/chat")
 public class ChatController {
+
+    private static final Logger logger = LoggerFactory.getLogger(ChatController.class);
 
     @Autowired
     private ChatService chatService;
@@ -63,7 +67,9 @@ public class ChatController {
                 if (ps != null && ps.get("lordName") != null) {
                     return (String) ps.get("lordName");
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                logger.error("获取主公名称异常", e);
+            }
         }
         // fallback: 查该用户最近的区服
         List<Map<String, Object>> servers = gameServerMapper.findPlayerServers(userId);

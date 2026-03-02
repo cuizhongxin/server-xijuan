@@ -39,6 +39,7 @@ public class ProductionController {
             result.put("production", production);
             result.put("resource", resource);
         } catch (Exception e) {
+            log.error("获取生产信息异常", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }
@@ -61,6 +62,7 @@ public class ProductionController {
             result.putAll(produceResult);
             result.put("message", "生产成功，获得 " + produceResult.get("output") + " 资源");
         } catch (Exception e) {
+            log.error("生产异常", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }
@@ -83,6 +85,7 @@ public class ProductionController {
             result.putAll(upgradeResult);
             result.put("message", "升级成功");
         } catch (Exception e) {
+            log.error("升级生产设施异常", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }
@@ -105,6 +108,7 @@ public class ProductionController {
             result.putAll(upgradeResult);
             result.put("message", "升级成功");
         } catch (Exception e) {
+            log.error("升级制造设施异常", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }
@@ -130,6 +134,7 @@ public class ProductionController {
             result.put("facilityLevel", facilityLevel);
             result.put("resource", resource);
         } catch (Exception e) {
+            log.error("获取配方列表异常", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }
@@ -152,6 +157,7 @@ public class ProductionController {
             result.putAll(manufactureResult);
             result.put("message", "制造成功");
         } catch (Exception e) {
+            log.error("制造物品异常", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }

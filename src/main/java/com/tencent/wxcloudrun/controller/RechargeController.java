@@ -4,6 +4,8 @@ import com.tencent.wxcloudrun.dto.ApiResponse;
 import com.tencent.wxcloudrun.model.RechargeOrder;
 import com.tencent.wxcloudrun.model.RechargeProduct;
 import com.tencent.wxcloudrun.service.RechargeService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -18,6 +20,8 @@ import java.util.Map;
 @RestController
 @RequestMapping("/recharge")
 public class RechargeController {
+    
+    private static final Logger logger = LoggerFactory.getLogger(RechargeController.class);
     
     @Autowired
     private RechargeService rechargeService;
@@ -100,6 +104,7 @@ public class RechargeController {
             rechargeService.handleWechatCallback(orderId, tradeNo, "SUCCESS".equals(resultCode));
             return "<xml><return_code><![CDATA[SUCCESS]]></return_code></xml>";
         } catch (Exception e) {
+            logger.error("微信支付回调异常", e);
             return "<xml><return_code><![CDATA[FAIL]]></return_code></xml>";
         }
     }
@@ -118,6 +123,7 @@ public class RechargeController {
             rechargeService.handleAlipayCallback(orderId, tradeNo, "TRADE_SUCCESS".equals(tradeStatus));
             return "success";
         } catch (Exception e) {
+            logger.error("支付宝回调异常", e);
             return "fail";
         }
     }
@@ -136,6 +142,7 @@ public class RechargeController {
             rechargeService.handleUnionpayCallback(orderId, queryId, "00".equals(respCode));
             return "ok";
         } catch (Exception e) {
+            logger.error("银联回调异常", e);
             return "fail";
         }
     }

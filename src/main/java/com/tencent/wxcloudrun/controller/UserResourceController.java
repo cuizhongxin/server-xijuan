@@ -6,6 +6,8 @@ import com.tencent.wxcloudrun.service.UserResourceService;
 import com.tencent.wxcloudrun.service.plunder.PlunderService;
 import com.tencent.wxcloudrun.service.herorank.HeroRankService;
 import com.tencent.wxcloudrun.service.nationwar.NationWarService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,6 +21,8 @@ import java.util.Map;
 @RestController
 @RequestMapping("/resource")
 public class UserResourceController {
+    
+    private static final Logger logger = LoggerFactory.getLogger(UserResourceController.class);
     
     @Autowired
     private UserResourceService resourceService;
@@ -69,7 +73,7 @@ public class UserResourceController {
         try {
             Map<String, Object> heroInfo = heroRankService.getHeroRankInfo(userId, 0);
             Map<String, Object> myRank = (Map<String, Object>) heroInfo.get("myRank");
-            int maxChallenge = heroInfo.get("maxChallenge") != null ? ((Number) heroInfo.get("maxChallenge")).intValue() : 5;
+            int maxChallenge = heroInfo.get("maxChallenge") != null ? ((Number) heroInfo.get("maxChallenge")).intValue() : 10;
             if (myRank != null) {
                 int todayChal = myRank.get("todayChallenge") != null ? ((Number) myRank.get("todayChallenge")).intValue() : 0;
                 int todayPur = myRank.get("todayPurchased") != null ? ((Number) myRank.get("todayPurchased")).intValue() : 0;
@@ -79,6 +83,7 @@ public class UserResourceController {
                 summary.put("challengeRemain", maxChallenge);
             }
         } catch (Exception e) {
+            logger.error("获取挑战剩余次数异常", e);
             summary.put("challengeRemain", 10);
         }
 
@@ -87,6 +92,7 @@ public class UserResourceController {
             Map<String, Object> plunderInfo = plunderService.getPlunderInfo(userId);
             summary.put("plunderAvailable", plunderInfo.get("availableCount"));
         } catch (Exception e) {
+            logger.error("获取掠夺次数异常", e);
             summary.put("plunderAvailable", 0);
         }
 
@@ -95,6 +101,7 @@ public class UserResourceController {
             String nation = nationWarService.getPlayerNation(userId);
             summary.put("nationality", nation);
         } catch (Exception e) {
+            logger.error("获取国籍异常", e);
             summary.put("nationality", null);
         }
 
