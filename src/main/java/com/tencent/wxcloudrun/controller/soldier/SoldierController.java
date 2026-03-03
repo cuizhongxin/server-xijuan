@@ -57,9 +57,7 @@ public class SoldierController {
     @PostMapping("/rank/upgrade")
     public ApiResponse<?> upgradeRank(HttpServletRequest request) {
         String userId = getUserId(request);
-        // 爵位升级逻辑委托给PeerageService
-        // 暂返回当前信息
-        return ApiResponse.success(peerageService.getPeerageInfo(userId));
+        return ApiResponse.success(peerageService.upgradeRank(userId));
     }
 
     /**

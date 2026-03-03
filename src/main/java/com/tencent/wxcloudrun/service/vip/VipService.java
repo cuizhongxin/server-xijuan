@@ -5,6 +5,7 @@ import com.tencent.wxcloudrun.exception.BusinessException;
 import com.tencent.wxcloudrun.model.Warehouse;
 import com.tencent.wxcloudrun.model.UserResource;
 import com.tencent.wxcloudrun.service.UserResourceService;
+import com.tencent.wxcloudrun.service.tactics.TacticsService;
 import com.tencent.wxcloudrun.service.warehouse.WarehouseService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -17,6 +18,7 @@ public class VipService {
     @Autowired private VipGiftClaimMapper claimMapper;
     @Autowired private WarehouseService warehouseService;
     @Autowired private UserResourceService userResourceService;
+    @Autowired private TacticsService tacticsService;
 
     // VIP等级阈值（元）
     private static final int[] VIP_THRESHOLDS = {0, 6, 30, 98, 198, 328, 648, 998, 1998, 6000, 20000};
@@ -215,6 +217,7 @@ public class VipService {
                 addItems(userId, rewards, "103", "凤鸣宝箱", 3);
                 break;
             case 10:
+                tacticsService.grantTactics(userId, "t_special_lvbu", 1);
                 rewards.add("吕布专属兵法：辕门射戟");
                 addItems(userId, rewards, "13", "银砖", 100);
                 addItems(userId, rewards, "16", "高级粮食包", 50);

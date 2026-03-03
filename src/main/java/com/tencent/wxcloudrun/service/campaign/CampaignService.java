@@ -10,6 +10,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import com.tencent.wxcloudrun.service.battle.BattleCalculator;
+import com.tencent.wxcloudrun.config.TacticsConfig;
+import com.tencent.wxcloudrun.config.TacticsConfig.TacticsTemplate;
+import com.tencent.wxcloudrun.dao.UserTacticsMapper;
+
 import javax.annotation.PostConstruct;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -24,6 +29,8 @@ public class CampaignService {
     private final UserResourceService userResourceService;
     private final GeneralService generalService;
     private final EquipmentRepository equipmentRepository;
+    private final TacticsConfig tacticsConfig;
+    private final UserTacticsMapper userTacticsMapper;
     
     // 战役配置
     private final Map<String, Campaign> campaignConfigs = new ConcurrentHashMap<>();
@@ -160,115 +167,86 @@ public class CampaignService {
     }
     
     private List<Campaign.Stage> createLuanshiStages() {
-        List<Campaign.Stage> stages = new ArrayList<>();
         String[] generals = {"张角", "张宝", "张梁", "波才", "彭脱", "韩忠", "赵弘"};
-        for (int i = 1; i <= 7; i++) {
-            stages.add(Campaign.Stage.builder()
-                    .id("luanshi_stage_" + i)
-                    .stageNum(i)
-                    .name("第" + i + "关")
-                    .enemyGeneralName(generals[i-1])
-                    .enemyGeneralIcon("/images/general/" + generals[i-1] + ".png")
-                    .enemyLevel(i * 3)
-                    .enemyTroops(500 + i * 200)
-                    .enemyAttack(50 + i * 20)
-                    .enemyDefense(30 + i * 15)
-                    .expReward(200 + i * 100)
-                    .silverReward(100L + i * 50)
-                    .isBoss(i == 7)
-                    .drops(createStageDrops(i, "优秀"))
-                    .build());
-        }
-        return stages;
+        String[] types = {"步", "弓", "步", "骑", "步", "弓", "骑"};
+        return createStagesWithFormula(generals, types, "luanshi", 1, 3, 200, 100, "优秀");
     }
     
     private List<Campaign.Stage> createSishiStages() {
-        List<Campaign.Stage> stages = new ArrayList<>();
         String[] generals = {"颜良", "文丑", "淳于琼", "高览", "张郃", "袁谭", "袁绍"};
-        for (int i = 1; i <= 7; i++) {
-            stages.add(Campaign.Stage.builder()
-                    .id("sishi_stage_" + i)
-                    .stageNum(i)
-                    .name("第" + i + "关")
-                    .enemyGeneralName(generals[i-1])
-                    .enemyGeneralIcon("/images/general/" + generals[i-1] + ".png")
-                    .enemyLevel(20 + i * 3)
-                    .enemyTroops(1000 + i * 300)
-                    .enemyAttack(100 + i * 30)
-                    .enemyDefense(80 + i * 25)
-                    .expReward(500 + i * 200)
-                    .silverReward(200L + i * 100)
-                    .isBoss(i == 7)
-                    .drops(createStageDrops(i, "精良"))
-                    .build());
-        }
-        return stages;
+        String[] types = {"骑", "骑", "弓", "步", "步", "弓", "骑"};
+        return createStagesWithFormula(generals, types, "sishi", 20, 3, 500, 200, "精良");
     }
     
     private List<Campaign.Stage> createLvbuStages() {
-        List<Campaign.Stage> stages = new ArrayList<>();
         String[] generals = {"宋宪", "魏续", "侯成", "曹性", "高顺", "陈宫", "吕布"};
-        for (int i = 1; i <= 7; i++) {
-            stages.add(Campaign.Stage.builder()
-                    .id("lvbu_stage_" + i)
-                    .stageNum(i)
-                    .name("第" + i + "关")
-                    .enemyGeneralName(generals[i-1])
-                    .enemyGeneralIcon("/images/general/" + generals[i-1] + ".png")
-                    .enemyLevel(60 + i * 3)
-                    .enemyTroops(2000 + i * 500)
-                    .enemyAttack(200 + i * 50)
-                    .enemyDefense(150 + i * 40)
-                    .expReward(2000 + i * 500)
-                    .silverReward(500L + i * 200)
-                    .isBoss(i == 7)
-                    .drops(createStageDrops(i, "史诗"))
-                    .build());
-        }
-        return stages;
+        String[] types = {"步", "步", "骑", "弓", "步", "弓", "骑"};
+        return createStagesWithFormula(generals, types, "lvbu", 60, 3, 2000, 500, "史诗");
     }
     
     private List<Campaign.Stage> createGuanduStages() {
-        List<Campaign.Stage> stages = new ArrayList<>();
         String[] generals = {"蒋奇", "韩猛", "吕旷", "吕翔", "审配", "逢纪", "袁绍"};
-        for (int i = 1; i <= 7; i++) {
-            stages.add(Campaign.Stage.builder()
-                    .id("guandu_stage_" + i)
-                    .stageNum(i)
-                    .name("第" + i + "关")
-                    .enemyGeneralName(generals[i-1])
-                    .enemyGeneralIcon("/images/general/" + generals[i-1] + ".png")
-                    .enemyLevel(40 + i * 3)
-                    .enemyTroops(1500 + i * 400)
-                    .enemyAttack(150 + i * 40)
-                    .enemyDefense(120 + i * 30)
-                    .expReward(1000 + i * 300)
-                    .silverReward(300L + i * 150)
-                    .isBoss(i == 7)
-                    .drops(createStageDrops(i, "精良"))
-                    .build());
-        }
-        return stages;
+        String[] types = {"弓", "骑", "步", "步", "弓", "步", "骑"};
+        return createStagesWithFormula(generals, types, "guandu", 40, 3, 1000, 300, "精良");
     }
     
     private List<Campaign.Stage> createChibiStages() {
-        List<Campaign.Stage> stages = new ArrayList<>();
         String[] generals = {"蔡瑁", "张允", "于禁", "李典", "夏侯惇", "张辽", "曹操"};
+        String[] types = {"弓", "弓", "步", "骑", "骑", "骑", "步"};
+        return createStagesWithFormula(generals, types, "chibi", 80, 3, 5000, 1000, "传说");
+    }
+
+    /**
+     * 统一关卡生成方法 - 使用新伤害体系的NPC属性公式
+     *
+     * NPC属性 = 模拟"穿戴本级副本装备的同等级武将"
+     * 确保全身本级装备的玩家可以无伤横扫，低一档装备强化满可以勉强通过
+     */
+    private List<Campaign.Stage> createStagesWithFormula(
+            String[] generals, String[] troopTypes, String prefix,
+            int baseLv, int lvStep, int baseExp, long baseSilver, String quality) {
+        List<Campaign.Stage> stages = new ArrayList<>();
         for (int i = 1; i <= 7; i++) {
+            int npcLevel = baseLv + i * lvStep;
+            // 关卡越后NPC品质越高: 1.0 ~ 1.9
+            double npcQuality = 1.0 + (i - 1) * 0.15;
+            String troopType = troopTypes[i - 1];
+
+            // 用 GeneralService 同款公式算NPC六维
+            int[] attrs = generalService.calcAttributes(npcQuality, troopType, npcLevel);
+            int npcAtk = attrs[0];
+            int npcDef = attrs[1];
+            // NPC也有装备加成，模拟穿戴本级副本装备（约等于武将裸属性的40%）
+            int equipBonus = (int)(npcAtk * 0.4);
+            npcAtk += equipBonus;
+            npcDef += (int)(npcDef * 0.4);
+
+            // 士兵数 = 基于兵阶推算
+            int npcTier = Math.min(9, 1 + npcLevel / 20);
+            int npcSoldiers = BattleCalculator.getTierMaxSoldiers(npcTier);
+            int npcSoldierHp = BattleCalculator.getTierSoldierHp(npcTier);
+
             stages.add(Campaign.Stage.builder()
-                    .id("chibi_stage_" + i)
+                    .id(prefix + "_stage_" + i)
                     .stageNum(i)
                     .name("第" + i + "关")
-                    .enemyGeneralName(generals[i-1])
-                    .enemyGeneralIcon("/images/general/" + generals[i-1] + ".png")
-                    .enemyLevel(80 + i * 3)
-                    .enemyTroops(3000 + i * 600)
-                    .enemyAttack(300 + i * 60)
-                    .enemyDefense(250 + i * 50)
-                    .expReward(5000 + i * 1000)
-                    .silverReward(1000L + i * 300)
+                    .enemyGeneralName(generals[i - 1])
+                    .enemyGeneralIcon("/images/general/" + generals[i - 1] + ".png")
+                    .enemyLevel(npcLevel)
+                    .enemyTroops(npcSoldiers)
+                    .enemyAttack(npcAtk)
+                    .enemyDefense(npcDef)
+                    .enemyValor(attrs[2])
+                    .enemyCommand(attrs[3])
+                    .enemyDodge(attrs[4])
+                    .enemyMobility(attrs[5])
+                    .enemySoldierHp(npcSoldierHp)
+                    .enemyTroopType(troopType)
+                    .enemyTierMultiplier(BattleCalculator.getTierMultiplier(npcTier))
+                    .expReward(baseExp + i * (baseExp / 2))
+                    .silverReward(baseSilver + i * (baseSilver / 2))
                     .isBoss(i == 7)
-                    .drops(createStageDrops(i, "传说"))
+                    .drops(createStageDrops(i, quality))
                     .build());
         }
         return stages;
@@ -486,7 +464,7 @@ public class CampaignService {
     }
     
     /**
-     * 进攻当前关卡
+     * 进攻当前关卡 - 使用新伤害计算体系
      */
     public CampaignProgress.BattleResult attack(String odUserId, String campaignId) {
         Campaign campaign = campaignConfigs.get(campaignId);
@@ -512,52 +490,129 @@ public class CampaignService {
             throw new BusinessException("武将不存在");
         }
         
-        // 获取武将属性（打平字段）
-        int genAttack = general.getAttrAttack() != null ? general.getAttrAttack() : 100;
-        int genDefense = general.getAttrDefense() != null ? general.getAttrDefense() : 50;
-        int genValor = general.getAttrValor() != null ? general.getAttrValor() : 50;
-        int genCommand = general.getAttrCommand() != null ? general.getAttrCommand() : 50;
-        
-        // 计算战斗
-        Random random = new Random();
-        List<String> battleLog = new ArrayList<>();
-        
-        int playerTroops = progress.getCurrentTroops();
-        int playerAttack = genAttack + (genValor / 2);
-        int playerDefense = genDefense + (genCommand / 2);
-        
-        int enemyTroops = stage.getEnemyTroops();
-        int enemyAttack = stage.getEnemyAttack();
-        int enemyDefense = stage.getEnemyDefense();
-        
-        battleLog.add(String.format("【战斗开始】%s vs %s", general.getName(), stage.getEnemyGeneralName()));
-        battleLog.add(String.format("我方兵力: %d, 攻击: %d, 防御: %d", playerTroops, playerAttack, playerDefense));
-        battleLog.add(String.format("敌方兵力: %d, 攻击: %d, 防御: %d", enemyTroops, enemyAttack, enemyDefense));
-        
-        int round = 0;
-        while (playerTroops > 0 && enemyTroops > 0 && round < 20) {
-            round++;
-            
-            // 玩家攻击
-            int playerDamage = Math.max(10, playerAttack - enemyDefense / 2 + random.nextInt(20));
-            enemyTroops = Math.max(0, enemyTroops - playerDamage);
-            battleLog.add(String.format("第%d回合: %s攻击造成%d点伤害，敌军剩余%d", round, general.getName(), playerDamage, enemyTroops));
-            
-            if (enemyTroops <= 0) break;
-            
-            // 敌人攻击
-            int enemyDamage = Math.max(10, enemyAttack - playerDefense / 2 + random.nextInt(20));
-            playerTroops = Math.max(0, playerTroops - enemyDamage);
-            battleLog.add(String.format("第%d回合: %s攻击造成%d点伤害，我军剩余%d", round, stage.getEnemyGeneralName(), enemyDamage, playerTroops));
+        // 构建玩家战斗单元
+        BattleCalculator.BattleUnit player = new BattleCalculator.BattleUnit();
+        player.name = general.getName();
+        player.level = general.getLevel() != null ? general.getLevel() : 1;
+        player.attack = (general.getAttrAttack() != null ? general.getAttrAttack() : 100);
+        player.defense = (general.getAttrDefense() != null ? general.getAttrDefense() : 50);
+        player.valor = general.getAttrValor() != null ? general.getAttrValor() : 10;
+        player.command = general.getAttrCommand() != null ? general.getAttrCommand() : 10;
+        player.dodge = general.getAttrDodge() != null ? (int) Math.round(general.getAttrDodge()) : 5;
+        player.mobility = general.getAttrMobility() != null ? general.getAttrMobility() : 15;
+        player.troopType = BattleCalculator.parseTroopType(general.getTroopType());
+        player.soldierCount = progress.getCurrentTroops();
+        // 兵阶
+        int playerTier = general.getSoldierTier() != null ? general.getSoldierTier() : 1;
+        player.soldierHp = BattleCalculator.getTierSoldierHp(playerTier);
+        player.tierMultiplier = BattleCalculator.getTierMultiplier(playerTier);
+
+        // 兵法属性填充
+        if (general.getTacticsId() != null) {
+            TacticsTemplate tt = tacticsConfig.getById(general.getTacticsId());
+            if (tt != null) {
+                Map<String, Object> owned = userTacticsMapper.findByUserIdAndTacticsId(
+                        general.getUserId(), general.getTacticsId());
+                int tLevel = owned != null ? ((Number) owned.get("level")).intValue() : 1;
+                player.tacticsId = tt.getId();
+                player.tacticsName = tt.getName();
+                player.tacticsLevel = tLevel;
+                player.tacticsEffectValue = TacticsConfig.calcEffect(tt, tLevel);
+                player.tacticsTriggerRate = TacticsConfig.calcTriggerRate(tt, tLevel);
+            }
         }
         
-        boolean victory = playerTroops > 0;
-        int troopsLost = progress.getCurrentTroops() - playerTroops;
+        // 构建NPC战斗单元
+        BattleCalculator.BattleUnit enemy = new BattleCalculator.BattleUnit();
+        enemy.name = stage.getEnemyGeneralName();
+        enemy.level = stage.getEnemyLevel();
+        enemy.attack = stage.getEnemyAttack();
+        enemy.defense = stage.getEnemyDefense();
+        enemy.valor = stage.getEnemyValor() != null ? stage.getEnemyValor() : 10;
+        enemy.command = stage.getEnemyCommand() != null ? stage.getEnemyCommand() : 10;
+        enemy.dodge = stage.getEnemyDodge() != null ? stage.getEnemyDodge() : 5;
+        enemy.mobility = stage.getEnemyMobility() != null ? stage.getEnemyMobility() : 15;
+        enemy.troopType = BattleCalculator.parseTroopType(
+                stage.getEnemyTroopType() != null ? stage.getEnemyTroopType() : "步");
+        enemy.soldierCount = stage.getEnemyTroops();
+        enemy.soldierHp = stage.getEnemySoldierHp() != null ? stage.getEnemySoldierHp() : 100;
+        enemy.tierMultiplier = stage.getEnemyTierMultiplier() != null ? stage.getEnemyTierMultiplier() : 1.0;
+        
+        // 战斗模拟
+        List<String> battleLog = new ArrayList<>();
+        battleLog.add(String.format("【战斗开始】%s(Lv%d) vs %s(Lv%d)",
+                player.name, player.level, enemy.name, enemy.level));
+        battleLog.add(String.format("我方 攻:%d 防:%d 兵:%d 兵阶:%d",
+                player.attack, player.defense, player.soldierCount, playerTier));
+        battleLog.add(String.format("敌方 攻:%d 防:%d 兵:%d",
+                enemy.attack, enemy.defense, enemy.soldierCount));
+        
+        // 先手判定：机动高的先攻
+        boolean playerFirst = player.mobility >= enemy.mobility;
+        
+        int round = 0;
+        while (player.soldierCount >= 0 && enemy.soldierCount >= 0 && round < 20) {
+            round++;
+            
+            BattleCalculator.BattleUnit first = playerFirst ? player : enemy;
+            BattleCalculator.BattleUnit second = playerFirst ? enemy : player;
+            String firstName = playerFirst ? "我方" : "敌方";
+            String secondName = playerFirst ? "敌方" : "我方";
+            
+            // 先手攻击（兵法版）
+            List<BattleCalculator.BattleUnit> secondList = Collections.singletonList(second);
+            BattleCalculator.TacticsResult tr1 = BattleCalculator.calcDamageWithTactics(first, second, secondList);
+            if (tr1.triggered && tr1.tacticsName != null) {
+                battleLog.add(String.format("第%d回合: %s发动【%s】！%s",
+                        round, firstName, tr1.tacticsName, tr1.effectDesc != null ? tr1.effectDesc : ""));
+            }
+            for (BattleCalculator.DamageResult r1 : tr1.damages) {
+                if (r1.isDodge) {
+                    battleLog.add(String.format("第%d回合: %s攻击，%s闪避！", round, firstName, secondName));
+                } else {
+                    second.soldierCount = Math.max(0, second.soldierCount - r1.soldierLoss);
+                    String critTag = r1.isCrit ? "【暴击】" : "";
+                    battleLog.add(String.format("第%d回合: %s攻击%s造成%d伤害%s，减员%d，剩余兵力%d",
+                            round, firstName, critTag, r1.damage, critTag.isEmpty() ? "" : "！",
+                            r1.soldierLoss, second.soldierCount));
+                }
+            }
+            
+            if (second.soldierCount <= 0) break;
+            
+            // 后手攻击（兵法版）
+            List<BattleCalculator.BattleUnit> firstList = Collections.singletonList(first);
+            BattleCalculator.TacticsResult tr2 = BattleCalculator.calcDamageWithTactics(second, first, firstList);
+            if (tr2.triggered && tr2.tacticsName != null) {
+                battleLog.add(String.format("第%d回合: %s发动【%s】！%s",
+                        round, secondName, tr2.tacticsName, tr2.effectDesc != null ? tr2.effectDesc : ""));
+            }
+            for (BattleCalculator.DamageResult r2 : tr2.damages) {
+                if (r2.isDodge) {
+                    battleLog.add(String.format("第%d回合: %s反击，%s闪避！", round, secondName, firstName));
+                } else {
+                    first.soldierCount = Math.max(0, first.soldierCount - r2.soldierLoss);
+                    String critTag = r2.isCrit ? "【暴击】" : "";
+                    battleLog.add(String.format("第%d回合: %s反击%s造成%d伤害%s，减员%d，剩余兵力%d",
+                            round, secondName, critTag, r2.damage, critTag.isEmpty() ? "" : "！",
+                            r2.soldierLoss, first.soldierCount));
+                }
+            }
+            
+            if (first.soldierCount <= 0) break;
+        }
+        
+        int playerRemaining = playerFirst ? player.soldierCount : player.soldierCount;
+        boolean victory = player.soldierCount > 0 && enemy.soldierCount <= 0;
+        // 20回合未分胜负算失败
+        if (round >= 20 && enemy.soldierCount > 0) victory = false;
+        
+        int troopsLost = progress.getCurrentTroops() - player.soldierCount;
         
         CampaignProgress.BattleResult result = CampaignProgress.BattleResult.builder()
                 .victory(victory)
                 .stageNum(progress.getCurrentStage())
-                .remainingTroops(playerTroops)
+                .remainingTroops(player.soldierCount)
                 .troopsLost(troopsLost)
                 .battleLog(battleLog)
                 .isLastStage(progress.getCurrentStage() >= campaign.getStages().size())
@@ -574,7 +629,8 @@ public class CampaignService {
             result.setSilverGained(silverGained);
             
             // 处理掉落
-            List<CampaignProgress.DropItem> drops = processDrops(stage.getDrops(), random);
+            Random dropRandom = new Random();
+            List<CampaignProgress.DropItem> drops = processDrops(stage.getDrops(), dropRandom);
             result.setDrops(drops);
             
             // 更新武将经验
@@ -600,7 +656,7 @@ public class CampaignService {
             result.setIsFirstClear(isFirstClear);
             
             // 更新进度
-            progress.setCurrentTroops(playerTroops);
+            progress.setCurrentTroops(player.soldierCount);
             progress.setTotalExpGained(progress.getTotalExpGained() + expGained);
             progress.setTotalSilverGained(progress.getTotalSilverGained() + silverGained);
             

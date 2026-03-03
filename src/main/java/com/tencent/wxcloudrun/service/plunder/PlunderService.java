@@ -10,6 +10,7 @@ import com.tencent.wxcloudrun.model.UserResource;
 import com.tencent.wxcloudrun.repository.GeneralRepository;
 import com.tencent.wxcloudrun.repository.PlunderRepository;
 import com.tencent.wxcloudrun.repository.UserResourceRepository;
+import com.tencent.wxcloudrun.service.formation.FormationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,6 +39,9 @@ public class PlunderService {
 
     @Autowired
     private GeneralRepository generalRepository;
+
+    @Autowired
+    private FormationService formationService;
 
     /**
      * 获取掠夺主页数据
@@ -149,9 +153,9 @@ public class PlunderService {
     }
 
     /**
-     * 执行掠夺
+     * 执行掠夺 - 使用阵型全部武将，回合制伤害计算（与战役一致）
      */
-    public Map<String, Object> doPlunder(String userId, String targetId, String generalId) {
+    public Map<String, Object> doPlunder(String userId, String targetId) {
         PlunderData pd = plunderRepository.getOrInit(userId);
 
         if (pd.getAvailableCount() <= 0) {
@@ -161,13 +165,13 @@ public class PlunderService {
         UserResource myResource = userResourceRepository.findByUserId(userId);
         int myLevel = myResource != null && myResource.getLevel() != null ? myResource.getLevel() : 1;
 
-        General general = generalRepository.findById(generalId);
-        if (general == null) {
-            throw new BusinessException(400, "武将不存在");
+        // 获取阵型武将（按机动性排序，含装备加成）
+        List<General> myGenerals = formationService.getBattleOrder(userId);
+        if (myGenerals.isEmpty()) {
+            throw new BusinessException(400, "请先配置阵型再进行掠夺");
         }
-        int playerPower = general.getAttrValor() != null ? general.getAttrValor() : myLevel * 500;
 
-        // 冷却检查（非NPC目标）- 直接查数据库
+        // 冷却检查（非NPC目标）
         boolean isNpcTarget = targetId.startsWith("npc_");
         if (!isNpcTarget) {
             long cooldownSince = System.currentTimeMillis() - PlunderConfig.PLUNDER_COOLDOWN_MS;
@@ -180,9 +184,11 @@ public class PlunderService {
         // 获取目标数据
         String targetName;
         int targetLevel;
-        int targetPower;
         long tSilver, tWood, tPaper, tFood;
         String faction = null;
+
+        // 构建敌方武将列表
+        List<int[]> enemyUnits; // 每个元素: [attack, defense, troops]
 
         if (isNpcTarget) {
             List<PlunderNpc> npcs = plunderConfig.generateNpcsForLevel(myLevel);
@@ -191,12 +197,22 @@ public class PlunderService {
 
             targetName = npc.getName();
             targetLevel = npc.getLevel();
-            targetPower = npc.getPower();
             tSilver = npc.getSilver();
             tWood = npc.getWood();
             tPaper = npc.getPaper();
             tFood = npc.getFood();
             faction = npc.getFaction();
+
+            // NPC生成虚拟武将（数量与玩家阵型一致）
+            int npcCount = Math.max(1, myGenerals.size());
+            int npcPower = npc.getPower();
+            enemyUnits = new ArrayList<>();
+            for (int i = 0; i < npcCount; i++) {
+                int eAttack = npcPower / npcCount / 2 + targetLevel * 5;
+                int eDefense = npcPower / npcCount / 3 + targetLevel * 3;
+                int eTroops = targetLevel * 80 + 500;
+                enemyUnits.add(new int[]{eAttack, eDefense, eTroops});
+            }
         } else {
             UserResource targetResource = userResourceRepository.findByUserId(targetId);
             if (targetResource == null) throw new BusinessException(400, "玩家不存在");
@@ -208,17 +224,108 @@ public class PlunderService {
             tPaper = targetResource.getPaper() != null ? targetResource.getPaper() : 0;
             tFood = targetResource.getFood() != null ? targetResource.getFood() : 0;
 
-            List<General> targetGenerals = generalRepository.findByUserId(targetId);
-            targetPower = targetGenerals.stream()
-                    .mapToInt(g -> g.getAttrValor() != null ? g.getAttrValor() : 0)
-                    .max().orElse(targetLevel * 400);
+            // 获取对手阵型武将
+            List<General> targetGenerals = formationService.getBattleOrder(targetId);
+            if (targetGenerals.isEmpty()) {
+                // 对手没配阵型，用其所有武将
+                targetGenerals = generalRepository.findByUserId(targetId);
+            }
+            enemyUnits = new ArrayList<>();
+            for (General tg : targetGenerals) {
+                int eAttack = (tg.getAttrAttack() != null ? tg.getAttrAttack() : 50) + (tg.getAttrValor() != null ? tg.getAttrValor() / 2 : 0);
+                int eDefense = (tg.getAttrDefense() != null ? tg.getAttrDefense() : 30) + (tg.getAttrCommand() != null ? tg.getAttrCommand() / 2 : 0);
+                int eTroops = tg.getSoldierCount() != null ? tg.getSoldierCount() : 500;
+                enemyUnits.add(new int[]{eAttack, eDefense, eTroops});
+            }
+            if (enemyUnits.isEmpty()) {
+                enemyUnits.add(new int[]{targetLevel * 10, targetLevel * 6, targetLevel * 80 + 500});
+            }
         }
 
-        // 战斗计算
-        double powerRatio = (double) playerPower / (playerPower + targetPower);
-        double winRate = Math.min(Math.max(powerRatio * 1.2, 0.1), 0.95);
-        boolean victory = ThreadLocalRandom.current().nextDouble() < winRate;
+        // ========== 回合制战斗（与战役伤害公式一致） ==========
+        Random random = ThreadLocalRandom.current();
+        List<String> battleLog = new ArrayList<>();
+        int totalPlayerPower = 0;
+        int totalEnemyPower = 0;
 
+        // 构建玩家战斗单位: [attack, defense, troops, maxTroops]
+        List<int[]> playerUnits = new ArrayList<>();
+        List<String> playerNames = new ArrayList<>();
+        for (General g : myGenerals) {
+            Map<String, Integer> eb = g.getEquipmentBonus() != null ? g.getEquipmentBonus() : Collections.emptyMap();
+            int gAttack = (g.getAttrAttack() != null ? g.getAttrAttack() : 100) + eb.getOrDefault("attack", 0);
+            int gDefense = (g.getAttrDefense() != null ? g.getAttrDefense() : 50) + eb.getOrDefault("defense", 0);
+            int gValor = (g.getAttrValor() != null ? g.getAttrValor() : 50) + eb.getOrDefault("valor", 0);
+            int gCommand = (g.getAttrCommand() != null ? g.getAttrCommand() : 50) + eb.getOrDefault("command", 0);
+
+            int pAttack = gAttack + gValor / 2;
+            int pDefense = gDefense + gCommand / 2;
+            int pTroops = g.getSoldierCount() != null ? g.getSoldierCount() : 1000;
+
+            playerUnits.add(new int[]{pAttack, pDefense, pTroops, pTroops});
+            playerNames.add(g.getName() != null ? g.getName() : "武将");
+            totalPlayerPower += pAttack + pDefense;
+        }
+        for (int[] eu : enemyUnits) {
+            totalEnemyPower += eu[0] + eu[1];
+        }
+
+        battleLog.add(String.format("【掠夺战斗开始】我方 %d 将 vs %s (Lv.%d)", playerUnits.size(), targetName, targetLevel));
+
+        int round = 0;
+        int maxRound = 20;
+        while (round < maxRound) {
+            round++;
+            // 检查双方是否还有存活单位
+            boolean playerAlive = playerUnits.stream().anyMatch(u -> u[2] > 0);
+            boolean enemyAlive = enemyUnits.stream().anyMatch(u -> u[2] > 0);
+            if (!playerAlive || !enemyAlive) break;
+
+            // 每个玩家武将攻击一个存活的敌方单位
+            for (int i = 0; i < playerUnits.size(); i++) {
+                int[] pu = playerUnits.get(i);
+                if (pu[2] <= 0) continue;
+
+                // 找一个存活的敌方单位
+                int[] target = null;
+                for (int[] eu : enemyUnits) {
+                    if (eu[2] > 0) { target = eu; break; }
+                }
+                if (target == null) break;
+
+                int damage = Math.max(10, pu[0] - target[1] / 2 + random.nextInt(20));
+                target[2] = Math.max(0, target[2] - damage);
+            }
+
+            // 每个敌方单位攻击一个存活的玩家单位
+            for (int[] eu : enemyUnits) {
+                if (eu[2] <= 0) continue;
+
+                int[] target = null;
+                for (int[] pu : playerUnits) {
+                    if (pu[2] > 0) { target = pu; break; }
+                }
+                if (target == null) break;
+
+                int damage = Math.max(10, eu[0] - target[1] / 2 + random.nextInt(20));
+                target[2] = Math.max(0, target[2] - damage);
+            }
+        }
+
+        boolean playerAlive = playerUnits.stream().anyMatch(u -> u[2] > 0);
+        boolean enemyAlive = enemyUnits.stream().anyMatch(u -> u[2] > 0);
+        boolean victory = playerAlive && !enemyAlive;
+
+        // 如果超过20回合双方都有存活，按剩余兵力比判定
+        if (playerAlive && enemyAlive) {
+            int playerRemain = playerUnits.stream().mapToInt(u -> u[2]).sum();
+            int enemyRemain = enemyUnits.stream().mapToInt(u -> u[2]).sum();
+            victory = playerRemain >= enemyRemain;
+        }
+
+        battleLog.add(String.format("【战斗%s】经过 %d 回合", victory ? "胜利" : "失败", round));
+
+        // ========== 奖励计算（不变） ==========
         long silverGain = 0, woodGain = 0, paperGain = 0, foodGain = 0;
 
         if (victory) {
@@ -281,10 +388,13 @@ public class PlunderService {
         result.put("foodGain", foodGain);
         result.put("availableCount", pd.getAvailableCount());
         result.put("todayCount", pd.getTodayCount());
-        result.put("playerPower", playerPower);
-        result.put("targetPower", targetPower);
+        result.put("playerPower", totalPlayerPower);
+        result.put("targetPower", totalEnemyPower);
+        result.put("battleLog", battleLog);
+        result.put("rounds", round);
+        result.put("generalCount", myGenerals.size());
 
-        logger.info("用户 {} {}掠夺 {} (Lv.{}), 结果: {}", userId, victory ? "成功" : "失败", targetName, targetLevel, victory);
+        logger.info("用户 {} {}掠夺 {} (Lv.{}), {}将参战, {}回合", userId, victory ? "成功" : "失败", targetName, targetLevel, myGenerals.size(), round);
         return result;
     }
 

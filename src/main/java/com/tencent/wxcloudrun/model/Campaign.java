@@ -151,6 +151,41 @@ public class Campaign {
          * 敌方防御力
          */
         private Integer enemyDefense;
+
+        /**
+         * 敌方武勇（暴击率）
+         */
+        private Integer enemyValor;
+
+        /**
+         * 敌方统御（伤害加成）
+         */
+        private Integer enemyCommand;
+
+        /**
+         * 敌方闪避率
+         */
+        private Integer enemyDodge;
+
+        /**
+         * 敌方机动
+         */
+        private Integer enemyMobility;
+
+        /**
+         * 敌方士兵HP
+         */
+        private Integer enemySoldierHp;
+
+        /**
+         * 敌方兵种类型
+         */
+        private String enemyTroopType;
+
+        /**
+         * 敌方兵阶倍率
+         */
+        private Double enemyTierMultiplier;
         
         /**
          * 通关经验奖励

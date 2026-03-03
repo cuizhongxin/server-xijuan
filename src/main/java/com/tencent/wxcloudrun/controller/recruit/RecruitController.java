@@ -1,9 +1,7 @@
 package com.tencent.wxcloudrun.controller.recruit;
 
 import com.tencent.wxcloudrun.dto.ApiResponse;
-import com.tencent.wxcloudrun.dto.RecruitRequest;
 import com.tencent.wxcloudrun.dto.RecruitResult;
-import com.tencent.wxcloudrun.model.General;
 import com.tencent.wxcloudrun.model.UserResource;
 import com.tencent.wxcloudrun.service.recruit.RecruitService;
 import org.slf4j.Logger;
@@ -12,11 +10,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
-import java.util.List;
 import java.util.Map;
 
 /**
  * 招募控制器
+ * 仅支持单抽：初级/中级/高级
+ * 高级招募额外产出将魂，200将魂可召唤橙色武将
  */
 @RestController
 @RequestMapping("/recruit")
@@ -28,16 +27,13 @@ public class RecruitController {
     private RecruitService recruitService;
     
     /**
-     * 获取用户资源信息
+     * 获取用户资源信息（包含将魂）
      */
     @GetMapping("/resource")
     public ApiResponse<UserResource> getResource(HttpServletRequest request) {
         String userId = String.valueOf(request.getAttribute("userId"));
-        
         logger.info("获取用户资源, userId: {}", userId);
-        
         UserResource resource = recruitService.getUserResource(userId);
-        
         return ApiResponse.success(resource);
     }
     
@@ -47,11 +43,8 @@ public class RecruitController {
     @PostMapping("/claim-daily")
     public ApiResponse<UserResource> claimDaily(HttpServletRequest request) {
         String userId = String.valueOf(request.getAttribute("userId"));
-        
         logger.info("领取每日招贤令, userId: {}", userId);
-        
         UserResource resource = recruitService.claimDailyTokens(userId);
-        
         return ApiResponse.success(resource);
     }
     
@@ -63,11 +56,8 @@ public class RecruitController {
                                               HttpServletRequest request) {
         String userId = request.getAttribute("userId").toString();
         String tokenType = body.get("tokenType").toString();
-        
         logger.info("购买招贤令, userId: {}, tokenType: {}", userId, tokenType);
-        
         UserResource resource = recruitService.buyToken(userId, tokenType);
-        
         return ApiResponse.success(resource);
     }
     
@@ -79,67 +69,39 @@ public class RecruitController {
                                                   HttpServletRequest request) {
         String userId = String.valueOf(request.getAttribute("userId"));
         String fromType = (String) body.get("fromType");
-        
         logger.info("合成招贤令, userId: {}, fromType: {}", userId, fromType);
-        
         UserResource resource = recruitService.composeToken(userId, fromType);
-        
         return ApiResponse.success(resource);
     }
     
     /**
-     * 招募武将
+     * 单抽招募武将（不再支持十连抽）
+     * 请求体: { "tokenType": "JUNIOR" | "INTERMEDIATE" | "SENIOR" }
      */
     @PostMapping("/recruit")
-    public ApiResponse<RecruitResult> recruit(@RequestBody RecruitRequest recruitRequest,
+    public ApiResponse<RecruitResult> recruit(@RequestBody Map<String, Object> body,
                                              HttpServletRequest request) {
         String userId = String.valueOf(request.getAttribute("userId"));
+        String tokenType = body.get("tokenType").toString();
         
-        logger.info("招募武将, userId: {}, tokenType: {}, count: {}", 
-                   userId, recruitRequest.getTokenType(), recruitRequest.getCount());
+        logger.info("单抽招募武将, userId: {}, tokenType: {}", userId, tokenType);
         
-        // 执行招募
-        List<General> generals = recruitService.recruit(userId, 
-                                                       recruitRequest.getTokenType(), 
-                                                       recruitRequest.getCount());
+        RecruitResult result = recruitService.recruit(userId, tokenType);
         
-        // 获取更新后的资源
-        UserResource resource = recruitService.getUserResource(userId);
+        return ApiResponse.success(result);
+    }
+    
+    /**
+     * 将魂召唤 - 消耗200将魂直接召唤一个橙色武将
+     */
+    @PostMapping("/soul-summon")
+    public ApiResponse<RecruitResult> soulSummon(HttpServletRequest request) {
+        String userId = String.valueOf(request.getAttribute("userId"));
         
-        // 构建结果
-        int remainingTokens = 0;
-        switch (recruitRequest.getTokenType().toUpperCase()) {
-            case "JUNIOR":
-                remainingTokens = resource.getJuniorToken();
-                break;
-            case "INTERMEDIATE":
-                remainingTokens = resource.getIntermediateToken();
-                break;
-            case "SENIOR":
-                remainingTokens = resource.getSeniorToken();
-                break;
-        }
+        logger.info("将魂召唤, userId: {}", userId);
         
-        // 检查是否有橙色或紫色武将
-        boolean hasOrange = false;
-        boolean hasPurple = false;
-        for (General general : generals) {
-            if (general.getQualityId() != null && general.getQualityId() == 6) {
-                hasOrange = true;
-            } else if (general.getQualityId() != null && general.getQualityId() == 5) {
-                hasPurple = true;
-            }
-        }
-        
-        RecruitResult result = RecruitResult.builder()
-            .generals(generals)
-            .remainingTokens(remainingTokens)
-            .hasOrange(hasOrange)
-            .hasPurple(hasPurple)
-            .build();
+        RecruitResult result = recruitService.soulSummon(userId);
         
         return ApiResponse.success(result);
     }
 }
-
-

@@ -1,11 +1,13 @@
 package com.tencent.wxcloudrun.service.tactics;
 
 import com.tencent.wxcloudrun.config.TacticsConfig;
-import com.tencent.wxcloudrun.dao.UserLearnedTacticsMapper;
+import com.tencent.wxcloudrun.config.TacticsConfig.TacticsTemplate;
+import com.tencent.wxcloudrun.dao.UserTacticsMapper;
 import com.tencent.wxcloudrun.exception.BusinessException;
 import com.tencent.wxcloudrun.model.General;
-import com.tencent.wxcloudrun.model.Tactics;
+import com.tencent.wxcloudrun.model.UserResource;
 import com.tencent.wxcloudrun.repository.GeneralRepository;
+import com.tencent.wxcloudrun.service.UserResourceService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,191 +15,274 @@ import org.springframework.stereotype.Service;
 
 import java.util.*;
 
-/**
- * 兵法服务
- * 兵法分为：步兵专属/骑兵专属/弓兵专属/通用
- * 每个武将只能装备一个兵法（单槽），存储在 general.tactics_id
- * 用户已学习兵法存储在 user_learned_tactics 表（逗号分隔）
- */
 @Service
 public class TacticsService {
-    
+
     private static final Logger logger = LoggerFactory.getLogger(TacticsService.class);
-    
+
     @Autowired
     private TacticsConfig tacticsConfig;
-    
+
+    @Autowired
+    private UserTacticsMapper userTacticsMapper;
+
     @Autowired
     private GeneralRepository generalRepository;
-    
+
     @Autowired
-    private UserLearnedTacticsMapper userLearnedTacticsMapper;
-    
-    // ==================== 用户已学习兵法 ====================
-    
-    public Set<String> loadUserLearnedTactics(String userId) {
-        String data = userLearnedTacticsMapper.findByUserId(userId);
-        if (data == null || data.isEmpty()) {
-            return new HashSet<>();
-        }
-        return new HashSet<>(Arrays.asList(data.split(",")));
-    }
-    
-    public void saveUserLearnedTactics(String userId, Set<String> learned) {
-        String tacticsIds = learned.isEmpty() ? "" : String.join(",", learned);
-        userLearnedTacticsMapper.upsert(userId, tacticsIds);
-    }
-    
-    // ==================== 兵法配置查询 ====================
-    
-    public List<Tactics> getAllTactics() {
-        return new ArrayList<>(tacticsConfig.getAllTactics().values());
-    }
-    
-    public Tactics getTacticsById(String tacticsId) {
-        return tacticsConfig.getTacticsById(tacticsId);
-    }
-    
+    private UserResourceService userResourceService;
+
     /**
-     * 获取适用于指定兵种的兵法列表
-     * @param troopType 兵种：步/骑/弓
+     * 获取用户拥有的所有兵法（含等级）
      */
-    public List<Tactics> getTacticsByTroopType(String troopType) {
-        List<Tactics> result = new ArrayList<>();
-        for (Tactics t : tacticsConfig.getAllTactics().values()) {
-            String type = t.getType() != null ? t.getType().getName() : "通用";
-            if ("通用".equals(type) || type.equals(troopType)) {
-                result.add(t);
-            }
+    public List<Map<String, Object>> getUserTactics(String userId) {
+        List<Map<String, Object>> owned = userTacticsMapper.findByUserId(userId);
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Map<String, Object> row : owned) {
+            String tacticsId = (String) row.get("tacticsId");
+            int level = ((Number) row.get("level")).intValue();
+            TacticsTemplate t = tacticsConfig.getById(tacticsId);
+            if (t == null) continue;
+            result.add(buildTacticsInfo(t, level, true));
         }
         return result;
     }
-    
-    // ==================== 武将兵法操作 ====================
-    
+
     /**
-     * 获取武将当前装备的兵法ID
+     * 获取所有兵法配置（含用户拥有状态/等级）
      */
-    public String getGeneralEquippedTacticsId(String generalId) {
-        General general = generalRepository.findById(generalId);
-        return general != null ? general.getTacticsId() : null;
+    public List<Map<String, Object>> getAllTacticsWithOwnership(String userId) {
+        Map<String, Integer> ownedMap = new HashMap<>();
+        for (Map<String, Object> row : userTacticsMapper.findByUserId(userId)) {
+            ownedMap.put((String) row.get("tacticsId"), ((Number) row.get("level")).intValue());
+        }
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (TacticsTemplate t : tacticsConfig.getAllTemplates().values()) {
+            boolean owned = ownedMap.containsKey(t.getId());
+            int level = owned ? ownedMap.get(t.getId()) : 0;
+            result.add(buildTacticsInfo(t, level, owned));
+        }
+        return result;
     }
-    
+
     /**
-     * 装备兵法（单槽，直接替换）
+     * 制造兵法（扣纸张+白银）
+     */
+    public Map<String, Object> craftTactics(String userId, String tacticsId) {
+        TacticsTemplate t = tacticsConfig.getById(tacticsId);
+        if (t == null) throw new BusinessException(400, "兵法不存在");
+        if (t.isVipExclusive()) throw new BusinessException(400, "此兵法为VIP专属，不可制造");
+
+        Map<String, Object> existing = userTacticsMapper.findByUserIdAndTacticsId(userId, tacticsId);
+        if (existing != null) throw new BusinessException(400, "已拥有此兵法");
+
+        Map<String, Integer> cost = TacticsConfig.calcCraftCost(t);
+        UserResource resource = userResourceService.getUserResource(userId);
+        checkAndDeductResources(resource, cost, userId);
+
+        userTacticsMapper.upsert(userId, tacticsId, 1, System.currentTimeMillis());
+        logger.info("用户 {} 制造兵法 {} ({})", userId, t.getName(), tacticsId);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("tacticsId", tacticsId);
+        result.put("name", t.getName());
+        result.put("level", 1);
+        result.put("cost", cost);
+        result.put("remainingPaper", resource.getPaper());
+        result.put("remainingSilver", resource.getSilver());
+        return result;
+    }
+
+    /**
+     * 升级兵法（扣资源，等级+1，上限10）
+     */
+    public Map<String, Object> upgradeTactics(String userId, String tacticsId) {
+        TacticsTemplate t = tacticsConfig.getById(tacticsId);
+        if (t == null) throw new BusinessException(400, "兵法不存在");
+
+        Map<String, Object> existing = userTacticsMapper.findByUserIdAndTacticsId(userId, tacticsId);
+        if (existing == null) throw new BusinessException(400, "未拥有此兵法");
+
+        int currentLevel = ((Number) existing.get("level")).intValue();
+        if (currentLevel >= 10) throw new BusinessException(400, "兵法已满级");
+
+        Map<String, Integer> cost = TacticsConfig.calcUpgradeCost(t, currentLevel);
+        UserResource resource = userResourceService.getUserResource(userId);
+        checkAndDeductResources(resource, cost, userId);
+
+        int newLevel = currentLevel + 1;
+        userTacticsMapper.updateLevel(userId, tacticsId, newLevel);
+        logger.info("用户 {} 升级兵法 {} ({}) 至 {} 级", userId, t.getName(), tacticsId, newLevel);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("tacticsId", tacticsId);
+        result.put("name", t.getName());
+        result.put("level", newLevel);
+        result.put("cost", cost);
+        result.put("effect", TacticsConfig.calcEffect(t, newLevel));
+        result.put("remainingPaper", resource.getPaper());
+        result.put("remainingSilver", resource.getSilver());
+        result.put("remainingGold", resource.getGold());
+        return result;
+    }
+
+    /**
+     * 装备兵法（兵种校验）
      */
     public Map<String, Object> equipTactics(String userId, String generalId, String tacticsId) {
         General general = generalRepository.findById(generalId);
-        if (general == null) { throw new BusinessException(400, "武将不存在"); }
-        if (!userId.equals(general.getUserId())) { throw new BusinessException(403, "无权操作此武将"); }
-        
-        // 检查用户是否已学习
-        Set<String> learned = loadUserLearnedTactics(userId);
-        if (!learned.contains(tacticsId)) { throw new BusinessException(400, "未学习该兵法"); }
-        
-        // 检查兵法是否适用于该武将兵种
-        Tactics tactics = tacticsConfig.getTacticsById(tacticsId);
-        if (tactics != null && tactics.getType() != null) {
-            String tacticsType = tactics.getType().getName();
-            String troopType = general.getTroopType();
-            if (!"通用".equals(tacticsType) && troopType != null && !tacticsType.equals(troopType)) {
-                throw new BusinessException(400, "该兵法不适用于" + troopType + "兵种");
-            }
+        if (general == null) throw new BusinessException(404, "武将不存在");
+        if (!userId.equals(general.getUserId())) throw new BusinessException(403, "武将不属于该用户");
+
+        TacticsTemplate t = tacticsConfig.getById(tacticsId);
+        if (t == null) throw new BusinessException(400, "兵法不存在");
+
+        Map<String, Object> existing = userTacticsMapper.findByUserIdAndTacticsId(userId, tacticsId);
+        if (existing == null) throw new BusinessException(400, "未拥有此兵法");
+
+        if (t.isVipExclusive() && t.getExclusiveGeneralName() != null
+                && !t.getExclusiveGeneralName().equals(general.getName())) {
+            throw new BusinessException(400, "此兵法仅限" + t.getExclusiveGeneralName() + "装备");
         }
-        
+
+        String troopType = general.getTroopType();
+        if (troopType != null && !troopType.equals(t.getTroopType()) && !t.isVipExclusive()) {
+            throw new BusinessException(400, "此兵法仅适用于" + t.getTroopType() + "兵");
+        }
+
         general.setTacticsId(tacticsId);
         general.setUpdateTime(System.currentTimeMillis());
         generalRepository.update(general);
-        
-        logger.info("武将 {} 装备兵法: {}", general.getName(), tacticsId);
-        
+        logger.info("武将 {} 装备兵法 {}", general.getName(), t.getName());
+
+        int level = ((Number) existing.get("level")).intValue();
         Map<String, Object> result = new HashMap<>();
         result.put("generalId", generalId);
         result.put("generalName", general.getName());
         result.put("tacticsId", tacticsId);
+        result.put("tacticsName", t.getName());
+        result.put("tacticsLevel", level);
         return result;
     }
-    
+
     /**
      * 卸下兵法
      */
     public Map<String, Object> unequipTactics(String userId, String generalId) {
         General general = generalRepository.findById(generalId);
-        if (general == null) { throw new BusinessException(400, "武将不存在"); }
-        if (!userId.equals(general.getUserId())) { throw new BusinessException(403, "无权操作此武将"); }
-        
+        if (general == null) throw new BusinessException(404, "武将不存在");
+        if (!userId.equals(general.getUserId())) throw new BusinessException(403, "武将不属于该用户");
+
         String oldTacticsId = general.getTacticsId();
         general.setTacticsId(null);
         general.setUpdateTime(System.currentTimeMillis());
         generalRepository.update(general);
-        
-        logger.info("武将 {} 卸下兵法: {}", general.getName(), oldTacticsId);
-        
+        logger.info("武将 {} 卸下兵法 {}", general.getName(), oldTacticsId);
+
         Map<String, Object> result = new HashMap<>();
         result.put("generalId", generalId);
         result.put("generalName", general.getName());
         result.put("removedTacticsId", oldTacticsId);
         return result;
     }
-    
+
     /**
-     * 初始化武将兵法（招募时随机分配一个适用兵法）
+     * 获取武将已装备兵法详情
      */
-    public void initGeneralTactics(General general) {
-        String troopType = general.getTroopType();
-        int qualityId = general.getQualityId() != null ? general.getQualityId() : 1;
-        
-        List<Tactics> available = new ArrayList<>();
-        for (Tactics t : tacticsConfig.getAllTactics().values()) {
-            String type = t.getType() != null ? t.getType().getName() : "通用";
-            int tQuality = t.getQuality() != null ? t.getQuality().getId() : 1;
-            if (("通用".equals(type) || type.equals(troopType)) && tQuality <= qualityId && tQuality >= qualityId - 1) {
-                available.add(t);
-            }
-        }
-        
-        if (available.isEmpty()) return;
-        
-        Collections.shuffle(available);
-        Tactics chosen = available.get(0);
-        general.setTacticsId(chosen.getId());
-        
-        // 同时加入用户已学习列表
-        Set<String> learned = loadUserLearnedTactics(general.getUserId());
-        learned.add(chosen.getId());
-        saveUserLearnedTactics(general.getUserId(), learned);
-        
-        logger.info("武将 {} 初始化兵法: {}", general.getName(), chosen.getName());
-    }
-    
-    /**
-     * 计算武将兵法加成
-     */
-    public Map<String, Object> calculateTacticsBonus(String generalId) {
-        Map<String, Object> result = new HashMap<>();
-        Map<String, Integer> attributeBonus = new HashMap<>();
-        
+    public Map<String, Object> getEquippedTactics(String userId, String generalId) {
         General general = generalRepository.findById(generalId);
-        if (general == null || general.getTacticsId() == null) {
-            result.put("attributeBonus", attributeBonus);
-            result.put("tacticsId", null);
+        if (general == null) throw new BusinessException(404, "武将不存在");
+        if (!userId.equals(general.getUserId())) throw new BusinessException(403, "武将不属于该用户");
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("generalId", generalId);
+        result.put("generalName", general.getName());
+
+        if (general.getTacticsId() == null) {
+            result.put("equipped", false);
             return result;
         }
-        
-        Tactics tactics = tacticsConfig.getTacticsById(general.getTacticsId());
-        if (tactics != null && tactics.getEffects() != null) {
-            for (Tactics.TacticsEffect effect : tactics.getEffects()) {
-                if ("BUFF".equals(effect.getEffectType()) && effect.getDuration() == 0) {
-                    String attr = effect.getAttribute();
-                    int value = effect.getBaseValue();
-                    attributeBonus.merge(attr, value, Integer::sum);
-                }
-            }
+
+        TacticsTemplate t = tacticsConfig.getById(general.getTacticsId());
+        if (t == null) {
+            result.put("equipped", false);
+            return result;
         }
-        
-        result.put("attributeBonus", attributeBonus);
-        result.put("tacticsId", general.getTacticsId());
-        result.put("tactics", tactics);
+
+        Map<String, Object> owned = userTacticsMapper.findByUserIdAndTacticsId(userId, general.getTacticsId());
+        int level = owned != null ? ((Number) owned.get("level")).intValue() : 1;
+
+        result.put("equipped", true);
+        result.put("tactics", buildTacticsInfo(t, level, true));
         return result;
+    }
+
+    /**
+     * 获取兵法效果数值
+     */
+    public double getTacticsEffect(String tacticsId, int level) {
+        TacticsTemplate t = tacticsConfig.getById(tacticsId);
+        if (t == null) return 0;
+        return TacticsConfig.calcEffect(t, level);
+    }
+
+    /**
+     * 授予兵法（VIP奖励等场景使用）
+     */
+    public void grantTactics(String userId, String tacticsId, int level) {
+        userTacticsMapper.upsert(userId, tacticsId, level, System.currentTimeMillis());
+        logger.info("授予用户 {} 兵法 {}, 等级 {}", userId, tacticsId, level);
+    }
+
+    // ==================== 内部方法 ====================
+
+    private Map<String, Object> buildTacticsInfo(TacticsTemplate t, int level, boolean owned) {
+        Map<String, Object> info = new LinkedHashMap<>();
+        info.put("id", t.getId());
+        info.put("name", t.getName());
+        info.put("icon", t.getIcon());
+        info.put("troopType", t.getTroopType());
+        info.put("category", t.getCategory());
+        info.put("description", t.getDescription());
+        info.put("effectDesc", t.getEffectDesc());
+        info.put("owned", owned);
+        info.put("level", level);
+        info.put("maxLevel", 10);
+        info.put("vipExclusive", t.isVipExclusive());
+
+        if (owned && level > 0) {
+            double effectValue = TacticsConfig.calcEffect(t, level);
+            info.put("effectValue", Math.round(effectValue * 10.0) / 10.0);
+            info.put("triggerRate", TacticsConfig.calcTriggerRate(t, level));
+            if (level < 10) {
+                info.put("nextEffect", Math.round(TacticsConfig.calcEffect(t, level + 1) * 10.0) / 10.0);
+                info.put("upgradeCost", TacticsConfig.calcUpgradeCost(t, level));
+            }
+        } else {
+            info.put("craftCost", TacticsConfig.calcCraftCost(t));
+        }
+        return info;
+    }
+
+    private void checkAndDeductResources(UserResource resource, Map<String, Integer> cost, String userId) {
+        int paperCost = cost.getOrDefault("paper", 0);
+        int silverCost = cost.getOrDefault("silver", 0);
+        int goldCost = cost.getOrDefault("gold", 0);
+
+        if (paperCost > 0 && (resource.getPaper() == null || resource.getPaper() < paperCost)) {
+            throw new BusinessException(400, "纸张不足，需要" + paperCost);
+        }
+        if (silverCost > 0 && (resource.getSilver() == null || resource.getSilver() < silverCost)) {
+            throw new BusinessException(400, "白银不足，需要" + silverCost);
+        }
+        if (goldCost > 0 && (resource.getGold() == null || resource.getGold() < goldCost)) {
+            throw new BusinessException(400, "黄金不足，需要" + goldCost);
+        }
+
+        if (paperCost > 0) resource.setPaper(resource.getPaper() - paperCost);
+        if (silverCost > 0) resource.setSilver(resource.getSilver() - silverCost);
+        if (goldCost > 0) resource.setGold(resource.getGold() - goldCost);
+        userResourceService.saveResource(resource);
     }
 }

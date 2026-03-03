@@ -6,8 +6,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
 /**
  * 招募结果
  */
@@ -18,9 +16,19 @@ import java.util.List;
 public class RecruitResult {
     
     /**
-     * 招募到的武将列表
+     * 招募到的武将（单抽只有1个）
      */
-    private List<General> generals;
+    private General general;
+    
+    /**
+     * 本次获得的将魂（仅高级招募产出，5-20点）
+     */
+    private Integer soulPointGained;
+    
+    /**
+     * 当前总将魂
+     */
+    private Integer totalSoulPoint;
     
     /**
      * 剩余招贤令数量
@@ -28,14 +36,7 @@ public class RecruitResult {
     private Integer remainingTokens;
     
     /**
-     * 是否有新的橙色武将
+     * 招募类型（JUNIOR/INTERMEDIATE/SENIOR）
      */
-    private Boolean hasOrange;
-    
-    /**
-     * 是否有新的紫色武将
-     */
-    private Boolean hasPurple;
+    private String tokenType;
 }
-
-

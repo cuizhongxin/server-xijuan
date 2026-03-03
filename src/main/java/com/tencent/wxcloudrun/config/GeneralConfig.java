@@ -116,7 +116,7 @@ public class GeneralConfig {
             if (name == null || qualityCode == null || type == null) continue;
             int slotId = sid != null ? ((Number) sid).intValue() : 0;
             List<Trait> traits = traitsBySlotId.getOrDefault(slotId, Collections.emptyList());
-            result.add(new GeneralTemplate(name, qualityCode, faction != null ? faction : "群", type, troopType, traits, avatar));
+            result.add(new GeneralTemplate(name, qualityCode, faction != null ? faction : "群", type, troopType, traits, avatar, slotId));
         }
         return result;
     }
@@ -161,6 +161,8 @@ public class GeneralConfig {
         /** 兵种：步/骑/弓，来自槽位，招募时用此替代随机兵种 */
         public String troopType;
         public List<Trait> traits;
+        /** 关联 general_slot 表ID */
+        public int slotId;
 
         public GeneralTemplate(String name, String quality, String faction, String type, List<Trait> traits) {
             this.name = name;
@@ -179,6 +181,17 @@ public class GeneralConfig {
             this.troopType = troopType;
             this.traits = traits;
             this.avatar = avatar;
+        }
+
+        public GeneralTemplate(String name, String quality, String faction, String type, String troopType, List<Trait> traits, String avatar, int slotId) {
+            this.name = name;
+            this.quality = quality;
+            this.faction = faction;
+            this.type = type;
+            this.troopType = troopType;
+            this.traits = traits;
+            this.avatar = avatar;
+            this.slotId = slotId;
         }
     }
 

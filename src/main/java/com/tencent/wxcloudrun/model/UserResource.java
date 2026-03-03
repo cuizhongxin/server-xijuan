@@ -69,6 +69,9 @@ public class UserResource {
     private Integer intermediateToken;     // 中级招贤令
     private Integer seniorToken;           // 高级招贤令
     
+    // 将魂
+    private Integer soulPoint;             // 将魂点数（200点可召唤橙色武将）
+    
     // 每日领取
     private String lastClaimDate;          // 上次领取日期
     private Integer dailyTokenClaimed;     // 今日已领取次数
@@ -135,6 +138,7 @@ public class UserResource {
                 .juniorToken(10)          // 初始10初级招贤令
                 .intermediateToken(0)     // 初始0中级招贤令
                 .seniorToken(0)           // 初始0高级招贤令
+                .soulPoint(0)             // 初始0将魂
                 .lastClaimDate("")
                 .dailyTokenClaimed(0)
                 .rank("白身")

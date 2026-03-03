@@ -47,6 +47,9 @@ public class General {
     // ====== 兵种（步/骑/弓） ======
     private String troopType;               // 兵种：步/骑/弓
     
+    // ====== 槽位关联 ======
+    private Integer slotId;                 // 关联 general_slot 表ID，用于升级时回查基础属性
+    
     // ====== 六维属性（前缀 attr_） ======
     @Builder.Default
     private Integer attrAttack = 0;         // 攻击
@@ -64,6 +67,8 @@ public class General {
     // ====== 士兵 ======
     @Builder.Default
     private Integer soldierRank = 1;        // 兵种等级
+    @Builder.Default
+    private Integer soldierTier = 1;        // 兵阶(1~9)，受爵位限制
     @Builder.Default
     private Integer soldierCount = 100;     // 当前士兵数
     @Builder.Default

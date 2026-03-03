@@ -40,7 +40,7 @@ public class PlunderController {
     }
 
     /**
-     * 执行掠夺
+     * 执行掠夺（自动使用阵型武将）
      */
     @PostMapping("/attack")
     public ApiResponse<Map<String, Object>> attack(
@@ -48,10 +48,9 @@ public class PlunderController {
             HttpServletRequest request) {
         String userId = String.valueOf(request.getAttribute("userId"));
         String targetId = (String) body.get("targetId");
-        String generalId = (String) body.get("generalId");
 
-        logger.info("掠夺攻击, userId={}, targetId={}, generalId={}", userId, targetId, generalId);
-        return ApiResponse.success(plunderService.doPlunder(userId, targetId, generalId));
+        logger.info("掠夺攻击, userId={}, targetId={}", userId, targetId);
+        return ApiResponse.success(plunderService.doPlunder(userId, targetId));
     }
 
     /**

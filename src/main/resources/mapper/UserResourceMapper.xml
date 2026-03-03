@@ -37,6 +37,7 @@
         <result property="juniorToken" column="junior_token"/>
         <result property="intermediateToken" column="intermediate_token"/>
         <result property="seniorToken" column="senior_token"/>
+        <result property="soulPoint" column="soul_point"/>
         <result property="lastClaimDate" column="last_claim_date"/>
         <result property="dailyTokenClaimed" column="daily_token_claimed"/>
         <result property="rank" column="rank"/>
@@ -68,6 +69,7 @@
             merge_scroll, quality_stone,
             basic_food, advanced_food, premium_food,
             normal_recruit_token, advanced_recruit_token, junior_token, intermediate_token, senior_token,
+            soul_point,
             last_claim_date, daily_token_claimed,
             rank, fame,
             general_count, base_general_slots, purchased_slots, vip_bonus_slots, max_general,
@@ -82,6 +84,7 @@
             #{mergeScroll}, #{qualityStone},
             #{basicFood}, #{advancedFood}, #{premiumFood},
             #{normalRecruitToken}, #{advancedRecruitToken}, #{juniorToken}, #{intermediateToken}, #{seniorToken},
+            #{soulPoint},
             #{lastClaimDate}, #{dailyTokenClaimed},
             #{rank}, #{fame},
             #{generalCount}, #{baseGeneralSlots}, #{purchasedSlots}, #{vipBonusSlots}, #{maxGeneral},
@@ -100,6 +103,7 @@
             basic_food = #{basicFood}, advanced_food = #{advancedFood}, premium_food = #{premiumFood},
             normal_recruit_token = #{normalRecruitToken}, advanced_recruit_token = #{advancedRecruitToken},
             junior_token = #{juniorToken}, intermediate_token = #{intermediateToken}, senior_token = #{seniorToken},
+            soul_point = #{soulPoint},
             last_claim_date = #{lastClaimDate}, daily_token_claimed = #{dailyTokenClaimed},
             rank = #{rank}, fame = #{fame},
             general_count = #{generalCount}, base_general_slots = #{baseGeneralSlots},

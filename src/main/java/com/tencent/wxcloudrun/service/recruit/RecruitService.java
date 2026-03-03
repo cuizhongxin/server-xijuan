@@ -1,6 +1,7 @@
 package com.tencent.wxcloudrun.service.recruit;
 
 import com.tencent.wxcloudrun.config.GeneralConfig;
+import com.tencent.wxcloudrun.dto.RecruitResult;
 import com.tencent.wxcloudrun.exception.BusinessException;
 import com.tencent.wxcloudrun.model.General;
 import com.tencent.wxcloudrun.model.UserResource;
@@ -20,7 +21,11 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 
 /**
- * 招募服务 - 基于三国将领配置（打平模型）
+ * 招募服务 - 仅支持单抽
+ * 初级招募：消耗1初级招贤令，概率出白/绿武将
+ * 中级招募：消耗1中级招贤令，概率出蓝/红武将
+ * 高级招募：消耗1高级招贤令，概率出紫/橙武将，额外获得5-20将魂
+ * 200将魂可直接召唤一个橙色武将
  */
 @Service
 public class RecruitService {
@@ -30,6 +35,12 @@ public class RecruitService {
     private static final String JUNIOR_TOKEN_ITEM_ID = "7";
     private static final String INTERMEDIATE_TOKEN_ITEM_ID = "8";
     private static final String SENIOR_TOKEN_ITEM_ID = "9";
+    
+    /** 将魂召唤橙将所需点数 */
+    private static final int SOUL_SUMMON_COST = 200;
+    /** 高级招募将魂产出范围 */
+    private static final int SOUL_MIN = 5;
+    private static final int SOUL_MAX = 20;
     
     @Autowired private UserResourceRepository resourceRepository;
     @Autowired private GeneralRepository generalRepository;
@@ -47,6 +58,10 @@ public class RecruitService {
         resource.setJuniorToken(getWarehouseTokenCount(userId, "JUNIOR"));
         resource.setIntermediateToken(getWarehouseTokenCount(userId, "INTERMEDIATE"));
         resource.setSeniorToken(getWarehouseTokenCount(userId, "SENIOR"));
+        // 确保将魂字段不为null
+        if (resource.getSoulPoint() == null) {
+            resource.setSoulPoint(0);
+        }
         return resource;
     }
     
@@ -148,7 +163,7 @@ public class RecruitService {
                 removeWarehouseTokens(userId, "JUNIOR", 15);
                 resource.setSilver(resource.getSilver() - 5000);
                 resourceRepository.save(resource);
-                addWarehouseTokens(userId, "SENIOR", 1); break;
+                addWarehouseTokens(userId, "INTERMEDIATE", 1); break;
             case "INTERMEDIATE":
                 if (getWarehouseTokenCount(userId, "INTERMEDIATE") < 15) { throw new BusinessException(400, "中级招贤令不足"); }
                 if (resource.getGold() < 5) { throw new BusinessException(400, "黄金不足"); }
@@ -161,24 +176,107 @@ public class RecruitService {
         return getUserResource(userId);
     }
     
-    public List<General> recruit(String userId, String tokenType, int count) {
+    /**
+     * 单抽招募（不再支持十连抽）
+     */
+    public RecruitResult recruit(String userId, String tokenType) {
+        // 检查武将位
         int currentCount = generalRepository.countByUserId(userId);
         int maxSlots = userResourceService.getMaxGeneralSlots(userId);
-        if (currentCount + count > maxSlots) {
-            int avail = maxSlots - currentCount;
-            if (avail <= 0) { throw new BusinessException(400, "武将位已满（" + currentCount + "/" + maxSlots + "）"); }
-            throw new BusinessException(400, "武将位不足，最多还能招募" + avail + "个武将");
+        if (currentCount >= maxSlots) {
+            throw new BusinessException(400, "武将位已满（" + currentCount + "/" + maxSlots + "）");
         }
-        int availableTokens = getWarehouseTokenCount(userId, tokenType);
-        if (availableTokens < count) { throw new BusinessException(400, "招贤令数量不足"); }
-        removeWarehouseTokens(userId, tokenType, count);
         
-        List<General> recruited = new ArrayList<>();
-        for (int i = 0; i < count; i++) { recruited.add(recruitOne(userId, tokenType)); }
-        userResourceService.updateGeneralCount(userId, currentCount + recruited.size());
-        generalRepository.saveAll(recruited);
-        logger.info("用户 {} 使用 {} 招募了 {} 个武将", userId, tokenType, count);
-        return recruited;
+        // 检查并消耗招贤令
+        int availableTokens = getWarehouseTokenCount(userId, tokenType);
+        if (availableTokens < 1) {
+            throw new BusinessException(400, "招贤令数量不足");
+        }
+        removeWarehouseTokens(userId, tokenType, 1);
+        
+        // 执行单抽
+        General general = recruitOne(userId, tokenType);
+        userResourceService.updateGeneralCount(userId, currentCount + 1);
+        generalRepository.saveAll(Collections.singletonList(general));
+        
+        // 高级招募额外获得将魂
+        int soulGained = 0;
+        if ("SENIOR".equalsIgnoreCase(tokenType)) {
+            soulGained = SOUL_MIN + random.nextInt(SOUL_MAX - SOUL_MIN + 1); // 5-20
+            addSoulPoint(userId, soulGained);
+        }
+        
+        // 获取更新后的资源
+        UserResource resource = getUserResource(userId);
+        int remainingTokens = 0;
+        switch (tokenType.toUpperCase()) {
+            case "JUNIOR": remainingTokens = resource.getJuniorToken(); break;
+            case "INTERMEDIATE": remainingTokens = resource.getIntermediateToken(); break;
+            case "SENIOR": remainingTokens = resource.getSeniorToken(); break;
+        }
+        
+        logger.info("用户 {} 使用 {} 单抽招募了武将: {}, 获得将魂: {}", 
+                    userId, tokenType, general.getName(), soulGained);
+        
+        return RecruitResult.builder()
+                .general(general)
+                .soulPointGained(soulGained)
+                .totalSoulPoint(resource.getSoulPoint())
+                .remainingTokens(remainingTokens)
+                .tokenType(tokenType.toUpperCase())
+                .build();
+    }
+    
+    /**
+     * 将魂召唤 - 消耗200将魂直接召唤一个橙色武将
+     */
+    public RecruitResult soulSummon(String userId) {
+        // 检查武将位
+        int currentCount = generalRepository.countByUserId(userId);
+        int maxSlots = userResourceService.getMaxGeneralSlots(userId);
+        if (currentCount >= maxSlots) {
+            throw new BusinessException(400, "武将位已满（" + currentCount + "/" + maxSlots + "）");
+        }
+        
+        // 检查将魂
+        UserResource resource = getUserResource(userId);
+        int currentSoul = resource.getSoulPoint() != null ? resource.getSoulPoint() : 0;
+        if (currentSoul < SOUL_SUMMON_COST) {
+            throw new BusinessException(400, "将魂不足，需要" + SOUL_SUMMON_COST + "点，当前" + currentSoul + "点");
+        }
+        
+        // 消耗将魂
+        addSoulPoint(userId, -SOUL_SUMMON_COST);
+        
+        // 直接招募一个橙色武将
+        General general = recruitOneByQuality(userId, "orange");
+        userResourceService.updateGeneralCount(userId, currentCount + 1);
+        generalRepository.saveAll(Collections.singletonList(general));
+        
+        // 获取更新后的资源
+        resource = getUserResource(userId);
+        
+        logger.info("用户 {} 使用将魂召唤了橙色武将: {}", userId, general.getName());
+        
+        return RecruitResult.builder()
+                .general(general)
+                .soulPointGained(-SOUL_SUMMON_COST)
+                .totalSoulPoint(resource.getSoulPoint())
+                .remainingTokens(0)
+                .tokenType("SOUL")
+                .build();
+    }
+    
+    /**
+     * 增减将魂点数
+     */
+    private void addSoulPoint(String userId, int amount) {
+        UserResource resource = resourceRepository.findByUserId(userId);
+        if (resource == null) { resource = resourceRepository.initUserResource(userId); }
+        int current = resource.getSoulPoint() != null ? resource.getSoulPoint() : 0;
+        resource.setSoulPoint(Math.max(0, current + amount));
+        resource.setUpdateTime(System.currentTimeMillis());
+        resourceRepository.save(resource);
     }
     
     private General recruitOne(String userId, String tokenType) {
@@ -189,7 +287,13 @@ public class RecruitService {
             case "SENIOR": quality = random.nextInt(100) < 90 ? "purple" : "orange"; break;
             default: quality = "white";
         }
-        
+        return recruitOneByQuality(userId, quality);
+    }
+    
+    /**
+     * 按指定品质招募一个武将
+     */
+    private General recruitOneByQuality(String userId, String quality) {
         String playerFaction = nationIdToFaction(nationWarService.getPlayerNation(userId));
         List<GeneralConfig.GeneralTemplate> templates;
         if (playerFaction != null) {
@@ -228,39 +332,51 @@ public class RecruitService {
         String troopType = template.troopType != null ? template.troopType : (new String[]{"步","骑","弓"})[random.nextInt(3)];
         
         int level = 1;
-        int[] attrs = generalService.calcAttributes(qualityMultiplier, troopType, level);
+        int[] attrs;
         
-        // 特征加成
+        // 优先用 slotId 精确计算（已包含特性加成），降级用旧公式+手动加特性
+        if (template.slotId > 0) {
+            attrs = generalService.calcAttributesBySlot(template.slotId, level);
+        } else {
+            attrs = generalService.calcAttributes(qualityMultiplier, troopType, level);
+            // 手动加特性（旧路径兼容）
+            if (template.traits != null) {
+                for (GeneralConfig.Trait trait : template.traits) {
+                    if (trait.value instanceof Integer) {
+                        int v = (Integer) trait.value;
+                        switch (trait.type) {
+                            case "attack": attrs[0] += v; break;
+                            case "defense": attrs[1] += v; break;
+                            case "valor": attrs[2] += v; break;
+                            case "command": attrs[3] += v; break;
+                            case "dodge": attrs[4] = (int) Math.min(50, attrs[4] + v); break;
+                            case "mobility": attrs[5] += v; break;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 特征描述（用于前端展示）
         List<String> traitDescs = new ArrayList<>();
         if (template.traits != null) {
             for (GeneralConfig.Trait trait : template.traits) {
-                if (trait.value instanceof Integer) {
-                    int v = (Integer) trait.value;
-                    switch (trait.type) {
-                        case "attack": attrs[0] += v; break;
-                        case "defense": attrs[1] += v; break;
-                        case "valor": attrs[2] += v; break;
-                        case "command": attrs[3] += v; break;
-                        case "dodge": attrs[4] = (int) Math.min(attrs[4] + v, 100); break;
-                        case "mobility": attrs[5] += v; break;
-                    }
-                }
                 traitDescs.add(formatTrait(trait));
             }
         }
         
         return General.builder()
             .id(id).userId(userId).templateId(template.name).name(template.name)
-            .avatar("").faction(template.faction)
+            .avatar(template.avatar).faction(template.faction)
             .level(level).exp(0L).maxExp(100L)
             .qualityId(qualityId).qualityName(qualityName).qualityColor(qualityColor)
             .qualityBaseMultiplier(qualityMultiplier).qualityStar(star)
             .troopType(troopType)
+            .slotId(template.slotId > 0 ? template.slotId : null)
             .attrAttack(attrs[0]).attrDefense(attrs[1]).attrValor(attrs[2])
             .attrCommand(attrs[3]).attrDodge((double) attrs[4]).attrMobility(attrs[5])
             .soldierRank(random.nextInt(3) + 1).soldierCount(1000).soldierMaxCount(1000)
             .traits(traitDescs)
-            .avatar(template.avatar)
             .statusLocked(false).statusInBattle(false).statusInjured(false).statusMorale(100)
             .statTotalBattles(0).statVictories(0).statDefeats(0).statKills(0).statMvpCount(0)
             .createTime(System.currentTimeMillis()).updateTime(System.currentTimeMillis())

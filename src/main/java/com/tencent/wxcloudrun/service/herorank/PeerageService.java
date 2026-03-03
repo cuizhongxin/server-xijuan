@@ -134,6 +134,45 @@ public class PeerageService {
         return result;
     }
 
+    /**
+     * 爵位晋升
+     */
+    public Map<String, Object> upgradeRank(String userId) {
+        UserResource res = resourceService.getUserResource(userId);
+        String currentRank = res != null && res.getRank() != null ? res.getRank() : "白身";
+        int level = res != null && res.getLevel() != null ? res.getLevel() : 1;
+        long fame = res != null && res.getFame() != null ? res.getFame() : 0;
+
+        Map<String, Object> nextPeerage = findNextPeerage(currentRank);
+        if (nextPeerage == null) {
+            throw new BusinessException(400, "已达最高爵位");
+        }
+
+        long fameRequired = getLong(nextPeerage, "fameRequired", Long.MAX_VALUE);
+        int levelRequired = getInt(nextPeerage, "levelRequired", Integer.MAX_VALUE);
+        String nextRank = (String) nextPeerage.get("rankName");
+
+        if (fame < fameRequired) {
+            throw new BusinessException(400, "声望不足，需要" + fameRequired + "（当前" + fame + "）");
+        }
+        if (level < levelRequired) {
+            throw new BusinessException(400, "等级不足，需要" + levelRequired + "级（当前" + level + "级）");
+        }
+
+        res.setRank(nextRank);
+        resourceService.saveResource(res);
+
+        logger.info("用户 {} 爵位晋升: {} -> {}", userId, currentRank, nextRank);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("oldRank", currentRank);
+        result.put("newRank", nextRank);
+        result.put("maxSoldierTier", getInt(nextPeerage, "maxSoldierTier", 1));
+        result.put("fame", fame);
+        result.put("level", level);
+        return result;
+    }
+
     // ==== 内部工具 ====
 
     private Map<String, Object> findPeerageByRank(String rank) {

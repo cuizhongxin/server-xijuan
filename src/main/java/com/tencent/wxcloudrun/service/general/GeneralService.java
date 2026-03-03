@@ -1,5 +1,7 @@
 package com.tencent.wxcloudrun.service.general;
 
+import com.tencent.wxcloudrun.dao.GeneralSlotMapper;
+import com.tencent.wxcloudrun.dao.GeneralSlotTraitMapper;
 import com.tencent.wxcloudrun.model.General;
 import com.tencent.wxcloudrun.repository.GeneralRepository;
 import org.slf4j.Logger;
@@ -30,6 +32,12 @@ public class GeneralService {
     @Autowired
     private com.tencent.wxcloudrun.service.UserResourceService userResourceService;
 
+    @Autowired
+    private GeneralSlotMapper generalSlotMapper;
+
+    @Autowired
+    private GeneralSlotTraitMapper generalSlotTraitMapper;
+
     public List<General> getUserGenerals(String userId) {
         return generalRepository.findByUserId(userId);
     }
@@ -45,14 +53,17 @@ public class GeneralService {
         
         List<General> initials = new ArrayList<>();
         // 步兵将领：擅长防御，皮糙血厚
-        initials.add(buildGeneral(userId, "赵云", "蜀", 6, "橙色", "#FF8C00", 1.5, 5, "步", 50));
-        initials.add(buildGeneral(userId, "张飞", "蜀", 5, "紫色", "#9370DB", 1.3, 4, "步", 46));
+        // slotId 1=orange步统帅, 7=purple步统帅
+        initials.add(buildGeneral(userId, "赵云", "蜀", 6, "橙色", "#FF8C00", 1.5, 5, "步", 50, 1));
+        initials.add(buildGeneral(userId, "张飞", "蜀", 5, "紫色", "#9370DB", 1.3, 4, "步", 46, 7));
         // 骑兵将领：机动高，攻击力强
-        initials.add(buildGeneral(userId, "关羽", "蜀", 5, "紫色", "#9370DB", 1.3, 4, "骑", 48));
-        initials.add(buildGeneral(userId, "吕布", "群", 6, "橙色", "#FF8C00", 1.5, 5, "骑", 42));
+        // slotId 9=purple骑统帅, 3=orange骑猛将
+        initials.add(buildGeneral(userId, "关羽", "蜀", 5, "紫色", "#9370DB", 1.3, 4, "骑", 48, 9));
+        initials.add(buildGeneral(userId, "吕布", "群", 6, "橙色", "#FF8C00", 1.5, 5, "骑", 42, 3));
         // 弓兵将领：最强杀伤力，可靠的伤害输出者
-        initials.add(buildGeneral(userId, "诸葛亮", "蜀", 6, "橙色", "#FF8C00", 1.5, 5, "弓", 45));
-        initials.add(buildGeneral(userId, "貂蝉", "群", 4, "红色", "#DC143C", 1.1, 4, "弓", 43));
+        // slotId 5=orange弓智将, 17=red弓智将
+        initials.add(buildGeneral(userId, "诸葛亮", "蜀", 6, "橙色", "#FF8C00", 1.5, 5, "弓", 45, 5));
+        initials.add(buildGeneral(userId, "貂蝉", "群", 4, "红色", "#DC143C", 1.1, 4, "弓", 43, 17));
         
         List<General> saved = generalRepository.saveAll(initials);
         logger.info("初始化完成，创建了{}个武将", saved.size());
@@ -62,16 +73,23 @@ public class GeneralService {
     private General buildGeneral(String userId, String name, String faction,
                                  int qualityId, String qualityName, String qualityColor,
                                  double qualityMultiplier, int qualityStar,
-                                 String troopType, int level) {
+                                 String troopType, int level, int slotId) {
         String id = "general_" + System.currentTimeMillis() + "_" + UUID.randomUUID().toString().substring(0, 8);
-        int[] attrs = calcAttributes(qualityMultiplier, troopType, level);
+        
+        // 优先用 slotId 精确计算（含特性加成）
+        int[] attrs;
+        if (slotId > 0) {
+            attrs = calcAttributesBySlot(slotId, level);
+        } else {
+            attrs = calcAttributes(qualityMultiplier, troopType, level);
+        }
         
         return General.builder()
             .id(id).userId(userId).name(name).avatar("").faction(faction)
             .level(level).exp(0L).maxExp(calcMaxExp(level))
             .qualityId(qualityId).qualityName(qualityName).qualityColor(qualityColor)
             .qualityBaseMultiplier(qualityMultiplier).qualityStar(qualityStar)
-            .troopType(troopType)
+            .troopType(troopType).slotId(slotId > 0 ? slotId : null)
             .attrAttack(attrs[0]).attrDefense(attrs[1]).attrValor(attrs[2])
             .attrCommand(attrs[3]).attrDodge((double) attrs[4]).attrMobility(attrs[5])
             .soldierRank(1).soldierCount(1000).soldierMaxCount(1000)
@@ -82,56 +100,123 @@ public class GeneralService {
     }
     
     /**
-     * 计算六维属性 [attack, defense, valor, command, dodge, mobility]
+     * 等级成长系数 - 每级增长 = 基础属性 × growthRate
      *
-     * 核心四维（设计文档）：
-     *   武勇：增加军队攻击伤害输出，提升升级时攻击成长
-     *   统御：提升军队防守伤害减免，提升升级时防御成长
-     *   攻击：直接提升军队攻击力
-     *   防御：直接提升军队防御力
-     *
-     * 兵种特性：
-     *   步兵：擅长防御，皮糙血厚 → 防御/统御高，攻击略低
-     *   骑兵：机动高，攻击力强 → 攻击/武勇高，机动高
-     *   弓兵：最强杀伤力 → 攻击/武勇最高，防御最低
+     * 不同品质成长率不同，高品质武将每级成长更多:
+     *   orange=0.06, purple=0.05, red=0.045, blue=0.04, green=0.035, white=0.03
      */
-    public int[] calcAttributes(double qualityMultiplier, String troopType, int level) {
-        // 基础属性
-        int baseVal = 60, baseCmd = 60, baseAtk = 80, baseDef = 80;
-        int baseMob = 50;
-        double baseDodge = 8.0;
+    private static final Map<String, Double> GROWTH_RATES = new LinkedHashMap<>();
+    static {
+        GROWTH_RATES.put("orange", 0.06);
+        GROWTH_RATES.put("purple", 0.05);
+        GROWTH_RATES.put("red", 0.045);
+        GROWTH_RATES.put("blue", 0.04);
+        GROWTH_RATES.put("green", 0.035);
+        GROWTH_RATES.put("white", 0.03);
+    }
 
-        // 武勇/统御影响攻防成长
-        double valorGrowth = 3.0, commandGrowth = 3.0;
-        double atkGrowth = 5.0, defGrowth = 5.0;
-
-        // 兵种修正
-        double troopValor = 1.0, troopCmd = 1.0, troopAtk = 1.0, troopDef = 1.0;
-        double troopMob = 1.0, troopDodge = 1.0;
-
-        if ("步".equals(troopType)) {
-            // 步兵：防御型，统御高，防御高，攻击略低
-            troopCmd = 1.3; troopDef = 1.4; troopValor = 0.9; troopAtk = 0.85;
-            troopMob = 0.8; troopDodge = 0.9;
-        } else if ("骑".equals(troopType)) {
-            // 骑兵：突击型，武勇高，攻击强，机动高
-            troopValor = 1.3; troopAtk = 1.2; troopMob = 1.5;
-            troopCmd = 0.9; troopDef = 0.9; troopDodge = 1.1;
-        } else if ("弓".equals(troopType)) {
-            // 弓兵：输出型，武勇最高，攻击最强，防御最低
-            troopValor = 1.4; troopAtk = 1.35;
-            troopCmd = 0.8; troopDef = 0.7; troopMob = 0.9; troopDodge = 1.2;
+    /**
+     * v3 基于 general_slot 表的属性计算
+     *
+     * 公式: 属性 = slotBase + slotBase × growthRate × (level - 1) + traitBonus
+     *
+     * slotBase: general_slot 表中该品质+兵种+类型的基础六维
+     * growthRate: 品质成长系数 (orange 0.06 ~ white 0.03)
+     * traitBonus: general_slot_trait 表中的名将特性加成（仅橙色有）
+     *
+     * 示例（橙色步兵统帅 Lv50）:
+     *   base_attack=150, growthRate=0.06
+     *   attack = 150 + 150 × 0.06 × 49 + traitAttack = 150 + 441 + 400 = 991
+     *
+     * 对比（紫色步兵统帅 Lv50）:
+     *   base_attack=130, growthRate=0.05
+     *   attack = 130 + 130 × 0.05 × 49 = 130 + 318 = 448
+     *
+     * 橙色比紫色同级高 ~120%，体现品质差异
+     */
+    public int[] calcAttributesBySlot(int slotId, int level) {
+        Map<String, Object> slot = generalSlotMapper.findById(slotId);
+        if (slot == null) {
+            logger.warn("找不到 slotId={}, 使用默认属性", slotId);
+            return new int[]{100, 100, 50, 50, 10, 50};
         }
 
-        int valor = (int)(baseVal * qualityMultiplier * troopValor + valorGrowth * (level - 1));
-        int command = (int)(baseCmd * qualityMultiplier * troopCmd + commandGrowth * (level - 1));
-        // 武勇加成攻击成长，统御加成防御成长
-        int attack = (int)(baseAtk * qualityMultiplier * troopAtk + (atkGrowth + valor * 0.05) * (level - 1));
-        int defense = (int)(baseDef * qualityMultiplier * troopDef + (defGrowth + command * 0.05) * (level - 1));
-        int dodge = (int) Math.min(baseDodge * qualityMultiplier * troopDodge + 0.3 * (level - 1), 95);
-        int mobility = (int)(baseMob * qualityMultiplier * troopMob + 1.5 * (level - 1));
+        int baseAtk = toInt(slot.get("baseAttack"));
+        int baseDef = toInt(slot.get("baseDefense"));
+        int baseValor = toInt(slot.get("baseValor"));
+        int baseCommand = toInt(slot.get("baseCommand"));
+        double baseDodge = toDouble(slot.get("baseDodge"));
+        int baseMobility = toInt(slot.get("baseMobility"));
+        String qualityCode = (String) slot.get("qualityCode");
 
-        return new int[]{attack, defense, valor, command, dodge, mobility};
+        double growthRate = GROWTH_RATES.getOrDefault(qualityCode, 0.03);
+        int lvGrowth = level - 1; // 1级时无成长
+
+        int atk = (int) (baseAtk + baseAtk * growthRate * lvGrowth);
+        int def = (int) (baseDef + baseDef * growthRate * lvGrowth);
+        int valor = (int) (baseValor + baseValor * growthRate * lvGrowth);
+        int command = (int) (baseCommand + baseCommand * growthRate * lvGrowth);
+        int dodge = (int) Math.min(50, baseDodge + baseDodge * growthRate * lvGrowth);
+        int mobility = (int) (baseMobility + baseMobility * growthRate * lvGrowth);
+
+        // 加载特性加成
+        List<Map<String, Object>> traits = generalSlotTraitMapper.findBySlotIds(Collections.singletonList(slotId));
+        if (traits != null) {
+            for (Map<String, Object> trait : traits) {
+                String traitType = (String) trait.get("traitType");
+                String traitValue = (String) trait.get("traitValue");
+                if (traitType == null || traitValue == null) continue;
+                if ("special".equals(traitType)) continue; // 特殊描述性特性，不加数值
+                try {
+                    int v = Integer.parseInt(traitValue.trim());
+                    switch (traitType) {
+                        case "attack": atk += v; break;
+                        case "defense": def += v; break;
+                        case "valor": valor += v; break;
+                        case "command": command += v; break;
+                        case "dodge": dodge = (int) Math.min(50, dodge + v); break;
+                        case "mobility": mobility += v; break;
+                    }
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+
+        return new int[]{atk, def, valor, command, dodge, mobility};
+    }
+
+    /**
+     * 兼容旧接口 - 无 slotId 时的降级计算（用于初始化等场景）
+     * 仍然保留品质倍率逻辑，但基础值对齐 general_slot 表的白色基准
+     */
+    public int[] calcAttributes(double qualityMultiplier, String troopType, int level) {
+        // 白色基准值（对齐 general_slot 表 white 行: 90/90/45/45/9/45）
+        int baseAtk = 90, baseDef = 90, baseValor = 45, baseCommand = 45;
+        double baseDodge = 9.0;
+        int baseMobility = 45;
+
+        double growthRate = 0.03; // 白色成长率作为基准
+        int lvGrowth = level - 1;
+
+        int atk = (int) ((baseAtk + baseAtk * growthRate * lvGrowth) * qualityMultiplier);
+        int def = (int) ((baseDef + baseDef * growthRate * lvGrowth) * qualityMultiplier);
+        int valor = (int) ((baseValor + baseValor * growthRate * lvGrowth) * qualityMultiplier);
+        int command = (int) ((baseCommand + baseCommand * growthRate * lvGrowth) * qualityMultiplier);
+        int dodge = (int) Math.min(50, (baseDodge + baseDodge * growthRate * lvGrowth) * qualityMultiplier);
+        int mobility = (int) ((baseMobility + baseMobility * growthRate * lvGrowth) * qualityMultiplier);
+
+        return new int[]{atk, def, valor, command, dodge, mobility};
+    }
+
+    private int toInt(Object obj) {
+        if (obj == null) return 0;
+        if (obj instanceof Number) return ((Number) obj).intValue();
+        try { return Integer.parseInt(obj.toString()); } catch (Exception e) { return 0; }
+    }
+
+    private double toDouble(Object obj) {
+        if (obj == null) return 0.0;
+        if (obj instanceof Number) return ((Number) obj).doubleValue();
+        try { return Double.parseDouble(obj.toString()); } catch (Exception e) { return 0.0; }
     }
     
     public Map<String, Object> addGeneralExp(String generalId, long expGain) {
@@ -155,15 +240,26 @@ public class GeneralService {
         
         if (levelsGained > 0) {
             general.setLevel(newLevel);
-            double qm = general.getQualityBaseMultiplier() != null ? general.getQualityBaseMultiplier() : 1.0;
-            String tt = general.getTroopType() != null ? general.getTroopType() : "步";
-            int[] attrs = calcAttributes(qm, tt, newLevel);
-            general.setAttrAttack(attrs[0]);
-            general.setAttrDefense(attrs[1]);
-            general.setAttrValor(attrs[2]);
-            general.setAttrCommand(attrs[3]);
-            general.setAttrDodge((double) attrs[4]);
-            general.setAttrMobility(attrs[5]);
+            // 优先用 slotId 精确计算，降级用旧公式
+            if (general.getSlotId() != null && general.getSlotId() > 0) {
+                int[] attrs = calcAttributesBySlot(general.getSlotId(), newLevel);
+                general.setAttrAttack(attrs[0]);
+                general.setAttrDefense(attrs[1]);
+                general.setAttrValor(attrs[2]);
+                general.setAttrCommand(attrs[3]);
+                general.setAttrDodge((double) attrs[4]);
+                general.setAttrMobility(attrs[5]);
+            } else {
+                double qm = general.getQualityBaseMultiplier() != null ? general.getQualityBaseMultiplier() : 1.0;
+                String tt = general.getTroopType() != null ? general.getTroopType() : "步";
+                int[] attrs = calcAttributes(qm, tt, newLevel);
+                general.setAttrAttack(attrs[0]);
+                general.setAttrDefense(attrs[1]);
+                general.setAttrValor(attrs[2]);
+                general.setAttrCommand(attrs[3]);
+                general.setAttrDodge((double) attrs[4]);
+                general.setAttrMobility(attrs[5]);
+            }
             logger.info("武将 {} 升级 {} -> {}", general.getName(), currentLevel, newLevel);
         }
         
