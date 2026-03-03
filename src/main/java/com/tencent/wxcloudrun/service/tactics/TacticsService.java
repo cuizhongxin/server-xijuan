@@ -242,6 +242,7 @@ public class TacticsService {
         info.put("id", t.getId());
         info.put("name", t.getName());
         info.put("icon", t.getIcon());
+        info.put("iconUrl", t.getIconUrl());
         info.put("troopType", t.getTroopType());
         info.put("category", t.getCategory());
         info.put("description", t.getDescription());

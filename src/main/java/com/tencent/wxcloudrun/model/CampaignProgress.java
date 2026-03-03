@@ -212,7 +212,14 @@ public class CampaignProgress {
          * 战斗日志
          */
         private List<String> battleLog;
-        
+
+        private String playerSoldierIconIdle;
+        private String playerSoldierIconAttack;
+        private String enemySoldierIconIdle;
+        private String enemySoldierIconAttack;
+        private String playerTroopType;
+        private String enemyTroopType;
+
         /**
          * 是否为最后一关
          */

@@ -31,6 +31,7 @@ public class CampaignService {
     private final EquipmentRepository equipmentRepository;
     private final TacticsConfig tacticsConfig;
     private final UserTacticsMapper userTacticsMapper;
+    private final com.tencent.wxcloudrun.service.herorank.PeerageService peerageService;
     
     // 战役配置
     private final Map<String, Campaign> campaignConfigs = new ConcurrentHashMap<>();
@@ -507,6 +508,12 @@ public class CampaignService {
         player.soldierHp = BattleCalculator.getTierSoldierHp(playerTier);
         player.tierMultiplier = BattleCalculator.getTierMultiplier(playerTier);
 
+        // 兵种图标
+        String troopCat = general.getTroopType() != null ? general.getTroopType() : "步";
+        Map<String, String> playerIcons = peerageService.getSoldierIcons(troopCat, playerTier);
+        player.soldierIconIdle = playerIcons.get("iconIdle");
+        player.soldierIconAttack = playerIcons.get("iconAttack");
+
         // 兵法属性填充
         if (general.getTacticsId() != null) {
             TacticsTemplate tt = tacticsConfig.getById(general.getTacticsId());
@@ -616,6 +623,12 @@ public class CampaignService {
                 .troopsLost(troopsLost)
                 .battleLog(battleLog)
                 .isLastStage(progress.getCurrentStage() >= campaign.getStages().size())
+                .playerSoldierIconIdle(player.soldierIconIdle)
+                .playerSoldierIconAttack(player.soldierIconAttack)
+                .enemySoldierIconIdle(enemy.soldierIconIdle)
+                .enemySoldierIconAttack(enemy.soldierIconAttack)
+                .playerTroopType(troopCat)
+                .enemyTroopType(stage.getEnemyTroopType() != null ? stage.getEnemyTroopType() : "步")
                 .build();
         
         if (victory) {

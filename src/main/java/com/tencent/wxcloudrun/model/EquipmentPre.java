@@ -23,6 +23,7 @@ public class EquipmentPre {
     private String setName;      // 套装名
     private String setEffect3;   // 3件套效果
     private String setEffect6;   // 6件套效果
+    private String iconUrl;       // 装备图标URL
     private Integer attack;
     private Integer defense;
     private Integer soldierHp;

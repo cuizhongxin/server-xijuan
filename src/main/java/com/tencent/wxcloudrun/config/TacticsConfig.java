@@ -22,7 +22,7 @@ public class TacticsConfig {
     public void init() {
         // ========== 步兵兵法（被动，始终生效） ==========
         register(TacticsTemplate.builder()
-            .id("t_infantry_1").name("方圆阵").icon("🔄").troopType("步").category("被动")
+            .id("t_infantry_1").name("方圆阵").icon("🔄").iconUrl("/static/icons/tactics/t_infantry_1.png").troopType("步").category("被动")
             .description("步兵阵法，提高防御")
             .effectKey("defBonus").minEffect(2).maxEffect(20).effectUnit("%")
             .effectDesc("提高{value}%的防御")
@@ -31,7 +31,7 @@ public class TacticsConfig {
             .build());
 
         register(TacticsTemplate.builder()
-            .id("t_infantry_2").name("长蛇阵").icon("🐍").troopType("步").category("被动")
+            .id("t_infantry_2").name("长蛇阵").icon("🐍").iconUrl("/static/icons/tactics/t_infantry_2.png").troopType("步").category("被动")
             .description("步兵阵法，提高闪避")
             .effectKey("dodgeBonus").minEffect(1.5).maxEffect(15).effectUnit("%")
             .effectDesc("提高{value}%的闪避")
@@ -40,7 +40,7 @@ public class TacticsConfig {
             .build());
 
         register(TacticsTemplate.builder()
-            .id("t_infantry_3").name("雁行阵").icon("🦅").troopType("步").category("被动")
+            .id("t_infantry_3").name("雁行阵").icon("🦅").iconUrl("/static/icons/tactics/t_infantry_3.png").troopType("步").category("被动")
             .description("步兵阵法，克制骑兵并增强弓兵伤害")
             .effectKey("yanhang").minEffect(2).maxEffect(20).effectUnit("%")
             .effectDesc("减少骑兵{value}%伤害并反弹受伤的{reflect}%，增加弓兵{archerBonus}%伤害")
@@ -50,7 +50,7 @@ public class TacticsConfig {
 
         // ========== 骑兵兵法（主动，需发动判定） ==========
         register(TacticsTemplate.builder()
-            .id("t_cavalry_1").name("铁骑冲锋").icon("🐎").troopType("骑").category("主动")
+            .id("t_cavalry_1").name("铁骑冲锋").icon("🐎").iconUrl("/static/icons/tactics/t_cavalry_1.png").troopType("骑").category("主动")
             .description("骑兵冲锋，对敌方武将造成额外伤害")
             .effectKey("dmgBonus").minEffect(2).maxEffect(20).effectUnit("%")
             .effectDesc("发动后对敌方武将额外造成{value}%伤害")
@@ -59,7 +59,7 @@ public class TacticsConfig {
             .build());
 
         register(TacticsTemplate.builder()
-            .id("t_cavalry_2").name("声东击西").icon("🎭").troopType("骑").category("主动")
+            .id("t_cavalry_2").name("声东击西").icon("🎭").iconUrl("/static/icons/tactics/t_cavalry_2.png").troopType("骑").category("主动")
             .description("骑兵战术，发动后攻击敌方随机弓兵")
             .effectKey("extraTrigger").minEffect(3).maxEffect(30).effectUnit("%")
             .effectDesc("发动后攻击敌方随机弓兵，额外发动概率+{value}%")
@@ -68,7 +68,7 @@ public class TacticsConfig {
             .build());
 
         register(TacticsTemplate.builder()
-            .id("t_cavalry_3").name("擒贼擒王").icon("👑").troopType("骑").category("主动")
+            .id("t_cavalry_3").name("擒贼擒王").icon("👑").iconUrl("/static/icons/tactics/t_cavalry_3.png").troopType("骑").category("主动")
             .description("骑兵战术，发动后攻击敌方等级最高的武将")
             .effectKey("extraTrigger").minEffect(3).maxEffect(30).effectUnit("%")
             .effectDesc("发动后攻击敌方最高武将，额外发动概率+{value}%")
@@ -78,7 +78,7 @@ public class TacticsConfig {
 
         // ========== 弓兵兵法 ==========
         register(TacticsTemplate.builder()
-            .id("t_archer_1").name("连射").icon("🏹").troopType("弓").category("主动")
+            .id("t_archer_1").name("连射").icon("🏹").iconUrl("/static/icons/tactics/t_archer_1.png").troopType("弓").category("主动")
             .description("弓兵技艺，有概率发动两次攻击")
             .effectKey("doubleShot").minEffect(5).maxEffect(50).effectUnit("%")
             .effectDesc("{value}%的概率发动两次攻击")
@@ -87,7 +87,7 @@ public class TacticsConfig {
             .build());
 
         register(TacticsTemplate.builder()
-            .id("t_archer_2").name("长虹贯日").icon("☀️").troopType("弓").category("主动")
+            .id("t_archer_2").name("长虹贯日").icon("☀️").iconUrl("/static/icons/tactics/t_archer_2.png").troopType("弓").category("主动")
             .description("弓兵兵法，穿透性攻击，对同一行所有敌人造成伤害")
             .effectKey("aoeDmg").minEffect(45).maxEffect(85).effectUnit("%")
             .effectDesc("对同一行敌人造成{value}%的伤害")
@@ -96,7 +96,7 @@ public class TacticsConfig {
             .build());
 
         register(TacticsTemplate.builder()
-            .id("t_archer_3").name("落月弓").icon("🌙").troopType("弓").category("被动")
+            .id("t_archer_3").name("落月弓").icon("🌙").iconUrl("/static/icons/tactics/t_archer_3.png").troopType("弓").category("被动")
             .description("弓兵绝技，提高攻击伤害")
             .effectKey("dmgBonus").minEffect(5).maxEffect(50).effectUnit("%")
             .effectDesc("提高{value}%的伤害")
@@ -106,7 +106,7 @@ public class TacticsConfig {
 
         // ========== 吕布专属（VIP10获取，不可制造） ==========
         register(TacticsTemplate.builder()
-            .id("t_special_lvbu").name("辕门射戟").icon("🏹").troopType("弓").category("主动")
+            .id("t_special_lvbu").name("辕门射戟").icon("🏹").iconUrl("/static/icons/tactics/t_special_lvbu.png").troopType("弓").category("主动")
             .description("吕布专属兵法，对同一行所有敌人造成大量伤害")
             .effectKey("aoeDmg").minEffect(60).maxEffect(100).effectUnit("%")
             .effectDesc("对同一行所有敌人造成{value}%的伤害")
@@ -208,7 +208,8 @@ public class TacticsConfig {
     public static class TacticsTemplate {
         private String id;
         private String name;
-        private String icon;
+        private String icon;        // emoji备用
+        private String iconUrl;     // 云托管图标URL
         private String troopType;       // 步/骑/弓
         private String category;        // 被动/主动
         private String description;

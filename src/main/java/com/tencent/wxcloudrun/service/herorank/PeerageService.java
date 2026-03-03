@@ -3,9 +3,11 @@ package com.tencent.wxcloudrun.service.herorank;
 import com.tencent.wxcloudrun.dao.PeerageConfigMapper;
 import com.tencent.wxcloudrun.exception.BusinessException;
 import com.tencent.wxcloudrun.model.General;
+import com.tencent.wxcloudrun.model.UserLevel;
 import com.tencent.wxcloudrun.model.UserResource;
 import com.tencent.wxcloudrun.repository.GeneralRepository;
 import com.tencent.wxcloudrun.service.UserResourceService;
+import com.tencent.wxcloudrun.service.level.LevelService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,6 +31,9 @@ public class PeerageService {
     @Autowired
     private GeneralRepository generalRepository;
 
+    @Autowired
+    private LevelService levelService;
+
     private List<Map<String, Object>> peerageConfigs = new ArrayList<>();
     private List<Map<String, Object>> soldierTiers = new ArrayList<>();
 
@@ -44,7 +49,8 @@ public class PeerageService {
      */
     public Map<String, Object> getPeerageInfo(String userId) {
         UserResource res = resourceService.getUserResource(userId);
-        int level = res != null && res.getLevel() != null ? res.getLevel() : 1;
+        UserLevel userLevel = levelService.getUserLevel(userId);
+        int level = userLevel != null && userLevel.getLevel() != null ? userLevel.getLevel() : 1;
         long fame = res != null && res.getFame() != null ? res.getFame() : 0;
         String currentRank = res != null && res.getRank() != null ? res.getRank() : "白身";
 
@@ -139,8 +145,9 @@ public class PeerageService {
      */
     public Map<String, Object> upgradeRank(String userId) {
         UserResource res = resourceService.getUserResource(userId);
+        UserLevel userLevel = levelService.getUserLevel(userId);
         String currentRank = res != null && res.getRank() != null ? res.getRank() : "白身";
-        int level = res != null && res.getLevel() != null ? res.getLevel() : 1;
+        int level = userLevel != null && userLevel.getLevel() != null ? userLevel.getLevel() : 1;
         long fame = res != null && res.getFame() != null ? res.getFame() : 0;
 
         Map<String, Object> nextPeerage = findNextPeerage(currentRank);
@@ -171,6 +178,23 @@ public class PeerageService {
         result.put("fame", fame);
         result.put("level", level);
         return result;
+    }
+
+    /**
+     * 获取兵种图标（供战斗系统使用）
+     */
+    public Map<String, String> getSoldierIcons(String troopCategory, int tier) {
+        Map<String, String> icons = new HashMap<>();
+        for (Map<String, Object> t : soldierTiers) {
+            if (troopCategory.equals(t.get("troopCategory")) && getInt(t, "tier", 0) == tier) {
+                icons.put("iconIdle", t.get("iconIdle") != null ? t.get("iconIdle").toString()
+                        : t.get("icon_idle") != null ? t.get("icon_idle").toString() : null);
+                icons.put("iconAttack", t.get("iconAttack") != null ? t.get("iconAttack").toString()
+                        : t.get("icon_attack") != null ? t.get("icon_attack").toString() : null);
+                break;
+            }
+        }
+        return icons;
     }
 
     // ==== 内部工具 ====

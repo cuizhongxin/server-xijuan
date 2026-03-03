@@ -11,6 +11,7 @@
         <result column="set_name" property="setName"/>
         <result column="set_effect_3" property="setEffect3"/>
         <result column="set_effect_6" property="setEffect6"/>
+        <result column="icon_url" property="iconUrl"/>
         <result column="attack" property="attack"/>
         <result column="defense" property="defense"/>
         <result column="soldier_hp" property="soldierHp"/>

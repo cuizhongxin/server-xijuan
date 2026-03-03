@@ -239,6 +239,9 @@ public class WarehouseService {
             throw new BusinessException(400, "装备仓库已满，请先扩充或清理");
         }
         
+        if (storage.getEquipmentIds() == null) {
+            storage.setEquipmentIds(new java.util.ArrayList<>());
+        }
         storage.getEquipmentIds().add(equipmentId);
         storage.setUsedSlots(storage.getUsedSlots() + 1);
         warehouseRepository.save(warehouse);
@@ -253,7 +256,7 @@ public class WarehouseService {
         Warehouse warehouse = getWarehouse(userId);
         Warehouse.EquipmentStorage storage = warehouse.getEquipmentStorage();
         
-        if (storage.getEquipmentIds().remove(equipmentId)) {
+        if (storage.getEquipmentIds() != null && storage.getEquipmentIds().remove(equipmentId)) {
             storage.setUsedSlots(Math.max(0, storage.getUsedSlots() - 1));
             warehouseRepository.save(warehouse);
             return true;
