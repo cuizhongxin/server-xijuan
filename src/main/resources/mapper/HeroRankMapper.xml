@@ -10,7 +10,7 @@
                today_purchased AS todayPurchased, last_reset_date AS lastResetDate,
                last_challenge_time AS lastChallengeTime,
                update_time AS updateTime
-        FROM hero_rank WHERE user_id = #{userId}
+        FROM hero_rank WHERE user_id = #{userId} LIMIT 1
     </select>
 
     <insert id="upsert">

@@ -180,23 +180,6 @@ public class PeerageService {
         return result;
     }
 
-    /**
-     * 获取兵种图标（供战斗系统使用）
-     */
-    public Map<String, String> getSoldierIcons(String troopCategory, int tier) {
-        Map<String, String> icons = new HashMap<>();
-        for (Map<String, Object> t : soldierTiers) {
-            if (troopCategory.equals(t.get("troopCategory")) && getInt(t, "tier", 0) == tier) {
-                icons.put("iconIdle", t.get("iconIdle") != null ? t.get("iconIdle").toString()
-                        : t.get("icon_idle") != null ? t.get("icon_idle").toString() : null);
-                icons.put("iconAttack", t.get("iconAttack") != null ? t.get("iconAttack").toString()
-                        : t.get("icon_attack") != null ? t.get("icon_attack").toString() : null);
-                break;
-            }
-        }
-        return icons;
-    }
-
     // ==== 内部工具 ====
 
     private Map<String, Object> findPeerageByRank(String rank) {

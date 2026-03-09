@@ -107,108 +107,61 @@ public class Campaign {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class Stage {
-        /**
-         * 关卡ID
-         */
         private String id;
-        
-        /**
-         * 关卡序号
-         */
         private Integer stageNum;
-        
-        /**
-         * 关卡名称
-         */
         private String name;
-        
-        /**
-         * 敌方将领名称
-         */
         private String enemyGeneralName;
-        
-        /**
-         * 敌方将领头像
-         */
         private String enemyGeneralIcon;
-        
-        /**
-         * 敌方将领等级
-         */
         private Integer enemyLevel;
-        
-        /**
-         * 敌方兵力
-         */
         private Integer enemyTroops;
-        
-        /**
-         * 敌方攻击力
-         */
         private Integer enemyAttack;
-        
-        /**
-         * 敌方防御力
-         */
         private Integer enemyDefense;
-
-        /**
-         * 敌方武勇（暴击率）
-         */
         private Integer enemyValor;
-
-        /**
-         * 敌方统御（伤害加成）
-         */
         private Integer enemyCommand;
-
-        /**
-         * 敌方闪避率
-         */
         private Integer enemyDodge;
-
-        /**
-         * 敌方机动
-         */
         private Integer enemyMobility;
-
-        /**
-         * 敌方士兵HP
-         */
         private Integer enemySoldierHp;
-
-        /**
-         * 敌方兵种类型
-         */
         private String enemyTroopType;
-
-        /**
-         * 敌方兵阶倍率
-         */
         private Double enemyTierMultiplier;
-        
-        /**
-         * 通关经验奖励
-         */
         private Integer expReward;
-        
-        /**
-         * 通关白银奖励
-         */
         private Long silverReward;
-        
-        /**
-         * 掉落物品列表
-         */
         private List<StageDrop> drops;
-        
-        /**
-         * 是否BOSS关
-         */
         @Builder.Default
         private Boolean isBoss = false;
+
+        /**
+         * 阵型NPC列表（6个位置的完整阵型）
+         */
+        private List<StageNpc> formation;
     }
-    
+
+    /**
+     * 阵型中的单个NPC
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class StageNpc {
+        private Integer position;       // 0-5 (0-2前排, 3-5后排)
+        private String name;
+        private String avatar;
+        private Integer level;
+        private String troopType;       // 步/骑/弓
+        private Integer soldierCount;
+        private Integer soldierTier;
+        private Integer attack;
+        private Integer defense;
+        private Integer valor;
+        private Integer command;
+        private Integer dodge;
+        private Integer mobility;
+        private Integer hp;
+        @Builder.Default
+        private Boolean isBoss = false;
+        private String tacticsId;
+    }
+
     /**
      * 关卡掉落
      */
@@ -217,45 +170,15 @@ public class Campaign {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class StageDrop {
-        /**
-         * 物品类型：EQUIPMENT(装备), ITEM(道具), RESOURCE(资源)
-         */
-        private String type;
-        
-        /**
-         * 物品ID
-         */
+        private String type;            // EQUIP_PRE / ITEM / RESOURCE
         private String itemId;
-        
-        /**
-         * 物品名称
-         */
         private String itemName;
-        
-        /**
-         * 物品图标
-         */
         private String icon;
-        
-        /**
-         * 物品品质
-         */
         private String quality;
-        
-        /**
-         * 掉落概率 (0-100)
-         */
-        private Integer dropRate;
-        
-        /**
-         * 掉落数量最小
-         */
+        private Integer equipPreId;     // 关联 equipment_pre.id
+        private Integer dropRate;       // 0-100
         @Builder.Default
         private Integer minCount = 1;
-        
-        /**
-         * 掉落数量最大
-         */
         @Builder.Default
         private Integer maxCount = 1;
     }

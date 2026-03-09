@@ -83,10 +83,12 @@ public class RecruitController {
                                              HttpServletRequest request) {
         String userId = String.valueOf(request.getAttribute("userId"));
         String tokenType = body.get("tokenType").toString();
+        Object sid = request.getAttribute("serverId");
+        String serverId = sid != null ? sid.toString() : null;
         
-        logger.info("单抽招募武将, userId: {}, tokenType: {}", userId, tokenType);
+        logger.info("单抽招募武将, userId: {}, tokenType: {}, serverId: {}", userId, tokenType, serverId);
         
-        RecruitResult result = recruitService.recruit(userId, tokenType);
+        RecruitResult result = recruitService.recruit(userId, tokenType, serverId);
         
         return ApiResponse.success(result);
     }
@@ -97,10 +99,12 @@ public class RecruitController {
     @PostMapping("/soul-summon")
     public ApiResponse<RecruitResult> soulSummon(HttpServletRequest request) {
         String userId = String.valueOf(request.getAttribute("userId"));
+        Object sid = request.getAttribute("serverId");
+        String serverId = sid != null ? sid.toString() : null;
         
-        logger.info("将魂召唤, userId: {}", userId);
+        logger.info("将魂召唤, userId: {}, serverId: {}", userId, serverId);
         
-        RecruitResult result = recruitService.soulSummon(userId);
+        RecruitResult result = recruitService.soulSummon(userId, serverId);
         
         return ApiResponse.success(result);
     }

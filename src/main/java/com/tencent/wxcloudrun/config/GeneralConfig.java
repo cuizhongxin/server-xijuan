@@ -115,8 +115,10 @@ public class GeneralConfig {
             String troopType = (String) row.get("troopType");
             if (name == null || qualityCode == null || type == null) continue;
             int slotId = sid != null ? ((Number) sid).intValue() : 0;
+            Object siObj = row.get("slotIndex");
+            int slotIndex = siObj != null ? ((Number) siObj).intValue() : 0;
             List<Trait> traits = traitsBySlotId.getOrDefault(slotId, Collections.emptyList());
-            result.add(new GeneralTemplate(name, qualityCode, faction != null ? faction : "群", type, troopType, traits, avatar, slotId));
+            result.add(new GeneralTemplate(name, qualityCode, faction != null ? faction : "群", type, troopType, traits, avatar, slotId, slotIndex));
         }
         return result;
     }
@@ -163,6 +165,8 @@ public class GeneralConfig {
         public List<Trait> traits;
         /** 关联 general_slot 表ID */
         public int slotId;
+        /** 品质内序号（general_slot.slot_index），橙色1-9 */
+        public int slotIndex;
 
         public GeneralTemplate(String name, String quality, String faction, String type, List<Trait> traits) {
             this.name = name;
@@ -192,6 +196,18 @@ public class GeneralConfig {
             this.traits = traits;
             this.avatar = avatar;
             this.slotId = slotId;
+        }
+
+        public GeneralTemplate(String name, String quality, String faction, String type, String troopType, List<Trait> traits, String avatar, int slotId, int slotIndex) {
+            this.name = name;
+            this.quality = quality;
+            this.faction = faction;
+            this.type = type;
+            this.troopType = troopType;
+            this.traits = traits;
+            this.avatar = avatar;
+            this.slotId = slotId;
+            this.slotIndex = slotIndex;
         }
     }
 

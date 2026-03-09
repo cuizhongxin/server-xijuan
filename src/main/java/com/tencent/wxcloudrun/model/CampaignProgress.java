@@ -213,10 +213,6 @@ public class CampaignProgress {
          */
         private List<String> battleLog;
 
-        private String playerSoldierIconIdle;
-        private String playerSoldierIconAttack;
-        private String enemySoldierIconIdle;
-        private String enemySoldierIconAttack;
         private String playerTroopType;
         private String enemyTroopType;
 

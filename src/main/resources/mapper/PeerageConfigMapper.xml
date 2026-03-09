@@ -12,7 +12,6 @@
 
     <select id="findAllSoldierTiers" resultType="java.util.HashMap">
         SELECT id, tier, troop_category AS troopCategory, name, icon,
-               icon_idle AS iconIdle, icon_attack AS iconAttack,
                power_multiplier AS powerMultiplier, upgrade_silver AS upgradeSilver,
                peerage_required AS peerageRequired, description
         FROM soldier_tier ORDER BY troop_category, tier
@@ -20,7 +19,6 @@
 
     <select id="findSoldierTiersByCategory" resultType="java.util.HashMap">
         SELECT id, tier, troop_category AS troopCategory, name, icon,
-               icon_idle AS iconIdle, icon_attack AS iconAttack,
                power_multiplier AS powerMultiplier, upgrade_silver AS upgradeSilver,
                peerage_required AS peerageRequired, description
         FROM soldier_tier

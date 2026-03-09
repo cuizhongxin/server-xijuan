@@ -31,7 +31,7 @@ public class General {
     private Integer level;          // 当前等级
     private Long exp;               // 当前经验值
     private Long maxExp;            // 升级所需经验
-    private String avatar;          // 头像资源路径
+    private String avatar;          // 云托管存储路径，前端拼接 BUCKET_URL
     private String faction;         // 阵营：魏/蜀/吴/群/虚构
     
     // ====== 品质（前缀 quality_） ======

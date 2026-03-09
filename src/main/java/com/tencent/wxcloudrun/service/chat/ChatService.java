@@ -69,6 +69,16 @@ public class ChatService {
     }
 
     /**
+     * 发送系统消息（不受频率限制，用于全服通告）
+     */
+    public void sendSystemMessage(String channel, String content) {
+        if (content == null || content.trim().isEmpty()) return;
+        if (channel == null || channel.isEmpty()) channel = "world";
+        chatMapper.insertMessage("SYSTEM", "系统公告", channel, content.trim(), System.currentTimeMillis());
+        logger.info("系统公告: {}", content);
+    }
+
+    /**
      * 获取活跃公告
      */
     public List<Map<String, Object>> getAnnouncements() {

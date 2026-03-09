@@ -1,6 +1,7 @@
 package com.tencent.wxcloudrun.service.recruit;
 
 import com.tencent.wxcloudrun.config.GeneralConfig;
+import com.tencent.wxcloudrun.dao.GameServerMapper;
 import com.tencent.wxcloudrun.dto.RecruitResult;
 import com.tencent.wxcloudrun.exception.BusinessException;
 import com.tencent.wxcloudrun.model.General;
@@ -9,6 +10,7 @@ import com.tencent.wxcloudrun.model.Warehouse;
 import com.tencent.wxcloudrun.repository.GeneralRepository;
 import com.tencent.wxcloudrun.repository.UserResourceRepository;
 import com.tencent.wxcloudrun.service.UserResourceService;
+import com.tencent.wxcloudrun.service.chat.ChatService;
 import com.tencent.wxcloudrun.service.general.GeneralService;
 import com.tencent.wxcloudrun.service.nationwar.NationWarService;
 import com.tencent.wxcloudrun.service.warehouse.WarehouseService;
@@ -19,6 +21,7 @@ import org.springframework.stereotype.Service;
 
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * 招募服务 - 仅支持单抽
@@ -42,6 +45,19 @@ public class RecruitService {
     private static final int SOUL_MIN = 5;
     private static final int SOUL_MAX = 20;
     
+    /** 开服前N天橙色概率提升期 */
+    private static final long LAUNCH_BONUS_DAYS = 2;
+    /** 开服期间高级招募出橙色的概率(%) */
+    private static final int LAUNCH_ORANGE_RATE = 30;
+    /** 正常高级招募出橙色的概率(%) */
+    private static final int NORMAL_ORANGE_RATE = 10;
+    /** 橙色8号将在橙色池中的权重(%) */
+    private static final int ORANGE_NO8_WEIGHT_PCT = 5;
+    /** 橙色9号将不可通过招募获得 */
+    private static final int ORANGE_EXCLUDED_SLOT_INDEX = 9;
+    /** 橙色池可招募的最大 slot_index */
+    private static final int ORANGE_MAX_RECRUITABLE = 8;
+    
     @Autowired private UserResourceRepository resourceRepository;
     @Autowired private GeneralRepository generalRepository;
     @Autowired private GeneralConfig generalConfig;
@@ -49,6 +65,11 @@ public class RecruitService {
     @Autowired private WarehouseService warehouseService;
     @Autowired private NationWarService nationWarService;
     @Autowired private GeneralService generalService;
+    @Autowired private GameServerMapper gameServerMapper;
+    @Autowired private ChatService chatService;
+    
+    /** 红色(4)/紫色(5)/橙色(6) 以上发全服通告 */
+    private static final int ANNOUNCE_MIN_QUALITY_ID = 4;
     
     private Random random = new Random();
     
@@ -179,7 +200,7 @@ public class RecruitService {
     /**
      * 单抽招募（不再支持十连抽）
      */
-    public RecruitResult recruit(String userId, String tokenType) {
+    public RecruitResult recruit(String userId, String tokenType, String serverId) {
         // 检查武将位
         int currentCount = generalRepository.countByUserId(userId);
         int maxSlots = userResourceService.getMaxGeneralSlots(userId);
@@ -194,15 +215,18 @@ public class RecruitService {
         }
         removeWarehouseTokens(userId, tokenType, 1);
         
-        // 执行单抽
-        General general = recruitOne(userId, tokenType);
+        // 执行单抽（带开服加成判断）
+        General general = recruitOne(userId, tokenType, serverId);
         userResourceService.updateGeneralCount(userId, currentCount + 1);
         generalRepository.saveAll(Collections.singletonList(general));
+        
+        // 红色以上名将全服通告
+        tryAnnounceRecruit(userId, general);
         
         // 高级招募额外获得将魂
         int soulGained = 0;
         if ("SENIOR".equalsIgnoreCase(tokenType)) {
-            soulGained = SOUL_MIN + random.nextInt(SOUL_MAX - SOUL_MIN + 1); // 5-20
+            soulGained = SOUL_MIN + random.nextInt(SOUL_MAX - SOUL_MIN + 1);
             addSoulPoint(userId, soulGained);
         }
         
@@ -229,8 +253,9 @@ public class RecruitService {
     
     /**
      * 将魂召唤 - 消耗200将魂直接召唤一个橙色武将
+     * 同样遵循橙色招募规则（slot9不可招、不重复、#8概率5%）
      */
-    public RecruitResult soulSummon(String userId) {
+    public RecruitResult soulSummon(String userId, String serverId) {
         // 检查武将位
         int currentCount = generalRepository.countByUserId(userId);
         int maxSlots = userResourceService.getMaxGeneralSlots(userId);
@@ -248,10 +273,13 @@ public class RecruitService {
         // 消耗将魂
         addSoulPoint(userId, -SOUL_SUMMON_COST);
         
-        // 直接招募一个橙色武将
-        General general = recruitOneByQuality(userId, "orange");
+        // 直接招募一个橙色武将（应用橙色专属规则）
+        General general = recruitOrangeGeneral(userId);
         userResourceService.updateGeneralCount(userId, currentCount + 1);
         generalRepository.saveAll(Collections.singletonList(general));
+        
+        // 全服通告
+        tryAnnounceRecruit(userId, general);
         
         // 获取更新后的资源
         resource = getUserResource(userId);
@@ -279,19 +307,26 @@ public class RecruitService {
         resourceRepository.save(resource);
     }
     
-    private General recruitOne(String userId, String tokenType) {
+    private General recruitOne(String userId, String tokenType, String serverId) {
         String quality;
         switch (tokenType.toUpperCase()) {
             case "JUNIOR": quality = random.nextInt(100) < 70 ? "green" : "white"; break;
             case "INTERMEDIATE": quality = random.nextInt(100) < 50 ? "blue" : "red"; break;
-            case "SENIOR": quality = random.nextInt(100) < 90 ? "purple" : "orange"; break;
+            case "SENIOR": {
+                int orangeRate = isWithinLaunchBonus(serverId) ? LAUNCH_ORANGE_RATE : NORMAL_ORANGE_RATE;
+                quality = random.nextInt(100) < (100 - orangeRate) ? "purple" : "orange";
+                break;
+            }
             default: quality = "white";
+        }
+        if ("orange".equals(quality)) {
+            return recruitOrangeGeneral(userId);
         }
         return recruitOneByQuality(userId, quality);
     }
     
     /**
-     * 按指定品质招募一个武将
+     * 按指定品质招募一个武将（非橙色通用逻辑）
      */
     private General recruitOneByQuality(String userId, String quality) {
         String playerFaction = nationIdToFaction(nationWarService.getPlayerNation(userId));
@@ -309,6 +344,124 @@ public class RecruitService {
         }
         GeneralConfig.GeneralTemplate template = templates.get(random.nextInt(templates.size()));
         return createGeneralFromTemplate(userId, template);
+    }
+    
+    /**
+     * 橙色武将专属招募逻辑：
+     *  1. slot_index=9 的橙色武将不可通过招募获得
+     *  2. 1-8号全部集齐前，同一武将只会招募到一次
+     *  3. 8号橙色武将在橙色池中占5%概率，最难获得
+     *  4. 如果1-8号已全部集齐，则重新开放全池随机（可重复）
+     */
+    private General recruitOrangeGeneral(String userId) {
+        // 获取全部橙色模板
+        String playerFaction = nationIdToFaction(nationWarService.getPlayerNation(userId));
+        List<GeneralConfig.GeneralTemplate> allOrange;
+        if (playerFaction != null) {
+            allOrange = generalConfig.getRecruitableGeneralsByQuality("orange", playerFaction);
+            if (allOrange == null || allOrange.isEmpty()) {
+                allOrange = generalConfig.getAllGeneralsByQuality("orange");
+            }
+        } else {
+            allOrange = generalConfig.getAllGeneralsByQuality("orange");
+        }
+        if (allOrange == null || allOrange.isEmpty()) {
+            throw new BusinessException(500, "橙色品质暂无可招募将领");
+        }
+        
+        // 规则1: 过滤掉 slot_index = 9
+        List<GeneralConfig.GeneralTemplate> pool = allOrange.stream()
+                .filter(t -> t.slotIndex != ORANGE_EXCLUDED_SLOT_INDEX)
+                .collect(Collectors.toList());
+        if (pool.isEmpty()) {
+            throw new BusinessException(500, "橙色品质暂无可招募将领");
+        }
+        
+        // 规则2: 查询用户已拥有的橙色武将模板名
+        List<General> userGenerals = generalRepository.findByUserId(userId);
+        Set<String> ownedOrangeNames = new HashSet<>();
+        for (General g : userGenerals) {
+            if (g.getQualityId() != null && g.getQualityId() == 6) {
+                ownedOrangeNames.add(g.getTemplateId());
+            }
+        }
+        
+        // 检查1-8号是否已全部集齐
+        Set<String> allRecruitableNames = pool.stream()
+                .map(t -> t.name)
+                .collect(Collectors.toSet());
+        boolean allCollected = ownedOrangeNames.containsAll(allRecruitableNames);
+        
+        // 未全部集齐时，排除已拥有的
+        List<GeneralConfig.GeneralTemplate> candidates;
+        if (!allCollected) {
+            candidates = pool.stream()
+                    .filter(t -> !ownedOrangeNames.contains(t.name))
+                    .collect(Collectors.toList());
+            if (candidates.isEmpty()) {
+                candidates = pool;
+            }
+        } else {
+            candidates = pool;
+        }
+        
+        // 规则3+4: 加权随机选择，8号占5%
+        GeneralConfig.GeneralTemplate selected = weightedOrangeSelect(candidates);
+        
+        logger.info("橙色招募: userId={}, 已拥有={}, 候选池大小={}, 命中={}(slot_index={})",
+                userId, ownedOrangeNames, candidates.size(), selected.name, selected.slotIndex);
+        
+        return createGeneralFromTemplate(userId, selected);
+    }
+    
+    /**
+     * 带权重的橙色武将随机选择
+     * slot_index=8 占5%权重，其余平分95%
+     */
+    private GeneralConfig.GeneralTemplate weightedOrangeSelect(List<GeneralConfig.GeneralTemplate> candidates) {
+        if (candidates.size() == 1) return candidates.get(0);
+        
+        boolean hasNo8 = candidates.stream().anyMatch(t -> t.slotIndex == ORANGE_MAX_RECRUITABLE);
+        if (!hasNo8) {
+            return candidates.get(random.nextInt(candidates.size()));
+        }
+        
+        int roll = random.nextInt(100);
+        if (roll < ORANGE_NO8_WEIGHT_PCT) {
+            // 命中8号
+            for (GeneralConfig.GeneralTemplate t : candidates) {
+                if (t.slotIndex == ORANGE_MAX_RECRUITABLE) return t;
+            }
+        }
+        // 从非8号中等概率选择
+        List<GeneralConfig.GeneralTemplate> nonNo8 = candidates.stream()
+                .filter(t -> t.slotIndex != ORANGE_MAX_RECRUITABLE)
+                .collect(Collectors.toList());
+        if (nonNo8.isEmpty()) {
+            return candidates.get(random.nextInt(candidates.size()));
+        }
+        return nonNo8.get(random.nextInt(nonNo8.size()));
+    }
+    
+    /**
+     * 判断当前是否处于开服前N天奖励期
+     */
+    private boolean isWithinLaunchBonus(String serverId) {
+        if (serverId == null || serverId.isEmpty()) return false;
+        try {
+            int sid = Integer.parseInt(serverId);
+            Map<String, Object> server = gameServerMapper.findServerById(sid);
+            if (server == null) return false;
+            Object openTimeObj = server.get("open_time");
+            if (openTimeObj == null) openTimeObj = server.get("openTime");
+            if (openTimeObj == null) return false;
+            long openTime = ((Number) openTimeObj).longValue();
+            long elapsed = System.currentTimeMillis() - openTime;
+            return elapsed < LAUNCH_BONUS_DAYS * 24 * 60 * 60 * 1000L;
+        } catch (Exception e) {
+            logger.warn("检查开服奖励期异常, serverId={}", serverId, e);
+            return false;
+        }
     }
     
     private General createGeneralFromTemplate(String userId, GeneralConfig.GeneralTemplate template) {
@@ -385,6 +538,7 @@ public class RecruitService {
     
     private String formatTrait(GeneralConfig.Trait trait) {
         if ("special".equals(trait.type)) { return trait.value.toString(); }
+        if ("tactics_trigger".equals(trait.type)) { return "兵法发动概率翻倍"; }
         String name;
         switch (trait.type) {
             case "attack": name = "攻击力"; break;
@@ -396,6 +550,50 @@ public class RecruitService {
             default: name = trait.type;
         }
         return name + "+" + trait.value;
+    }
+    
+    /**
+     * 红色以上名将招募成功后发全服通告
+     */
+    private void tryAnnounceRecruit(String userId, General general) {
+        try {
+            if (general.getQualityId() == null || general.getQualityId() < ANNOUNCE_MIN_QUALITY_ID) return;
+            if (general.getSlotId() == null || general.getSlotId() <= 0) return;
+            
+            String lordName = resolveLordName(userId);
+            String qualityTag;
+            switch (general.getQualityId()) {
+                case 6: qualityTag = "橙色"; break;
+                case 5: qualityTag = "紫色"; break;
+                case 4: qualityTag = "红色"; break;
+                default: qualityTag = "";
+            }
+            String msg = "恭喜玩家【" + lordName + "】成功招募到" + qualityTag + "名将【" + general.getName() + "】！";
+            chatService.sendSystemMessage("world", msg);
+        } catch (Exception e) {
+            logger.warn("发送招募通告异常", e);
+        }
+    }
+    
+    /**
+     * 从复合userId中解析主公名称
+     */
+    private String resolveLordName(String compositeUserId) {
+        try {
+            int lastUnderscore = compositeUserId.lastIndexOf('_');
+            if (lastUnderscore > 0) {
+                String rawUserId = compositeUserId.substring(0, lastUnderscore);
+                String serverIdStr = compositeUserId.substring(lastUnderscore + 1);
+                int serverId = Integer.parseInt(serverIdStr);
+                Map<String, Object> ps = gameServerMapper.findPlayerServer(rawUserId, serverId);
+                if (ps != null && ps.get("lordName") != null) {
+                    return (String) ps.get("lordName");
+                }
+            }
+        } catch (Exception e) {
+            logger.debug("解析主公名称失败: {}", compositeUserId);
+        }
+        return "无名英雄";
     }
     
     private String nationIdToFaction(String nationId) {

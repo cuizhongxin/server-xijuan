@@ -196,8 +196,8 @@ public class BattleCalculator {
             return result;
         }
 
-        // ===== 主动兵法发动判定 =====
-        double triggerRate = attacker.tacticsTriggerRate;
+        // ===== 主动兵法发动判定（品质加成 + 名将特性翻倍） =====
+        double triggerRate = (attacker.tacticsTriggerRate + attacker.tacticsTriggerBonus) * attacker.tacticsTriggerMultiplier;
         boolean triggered = random.nextDouble() * 100 < triggerRate;
 
         if (!triggered) {
@@ -300,14 +300,16 @@ public class BattleCalculator {
         public int hp;
         public String name;
         public int level;
-        public String soldierIconIdle;
-        public String soldierIconAttack;
         // 兵法相关
         public String tacticsId;
         public String tacticsName;
         public int tacticsLevel;
         public double tacticsTriggerRate;
         public double tacticsEffectValue;
+        /** 武将品质带来的兵法发动概率加成(%) */
+        public double tacticsTriggerBonus;
+        /** 名将特性"兵法发动概率提升"的倍率，默认1，拥有该特性时为2（翻倍） */
+        public double tacticsTriggerMultiplier = 1;
 
         public BattleUnit() {
             this.tierMultiplier = 1.0;

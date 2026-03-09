@@ -134,11 +134,17 @@ public class GeneralService {
      *
      * 橙色比紫色同级高 ~120%，体现品质差异
      */
+    /**
+     * v3 基于 general_slot 表的属性计算
+     *
+     * 返回: [atk, def, valor, command, dodge, mobility, tacticsTriggerBonus, tacticsTriggerMultiplier]
+     * 第7个元素为兵法发动概率加成(%), 第8个元素为兵法发动倍率(默认1, 翻倍为2)
+     */
     public int[] calcAttributesBySlot(int slotId, int level) {
         Map<String, Object> slot = generalSlotMapper.findById(slotId);
         if (slot == null) {
             logger.warn("找不到 slotId={}, 使用默认属性", slotId);
-            return new int[]{100, 100, 50, 50, 10, 50};
+            return new int[]{100, 100, 50, 50, 10, 50, 0, 1};
         }
 
         int baseAtk = toInt(slot.get("baseAttack"));
@@ -147,10 +153,11 @@ public class GeneralService {
         int baseCommand = toInt(slot.get("baseCommand"));
         double baseDodge = toDouble(slot.get("baseDodge"));
         int baseMobility = toInt(slot.get("baseMobility"));
+        int tacticsTriggerBonus = toInt(slot.get("tacticsTriggerBonus"));
         String qualityCode = (String) slot.get("qualityCode");
 
         double growthRate = GROWTH_RATES.getOrDefault(qualityCode, 0.03);
-        int lvGrowth = level - 1; // 1级时无成长
+        int lvGrowth = level - 1;
 
         int atk = (int) (baseAtk + baseAtk * growthRate * lvGrowth);
         int def = (int) (baseDef + baseDef * growthRate * lvGrowth);
@@ -158,6 +165,7 @@ public class GeneralService {
         int command = (int) (baseCommand + baseCommand * growthRate * lvGrowth);
         int dodge = (int) Math.min(50, baseDodge + baseDodge * growthRate * lvGrowth);
         int mobility = (int) (baseMobility + baseMobility * growthRate * lvGrowth);
+        int tacticsTriggerMultiplier = 1;
 
         // 加载特性加成
         List<Map<String, Object>> traits = generalSlotTraitMapper.findBySlotIds(Collections.singletonList(slotId));
@@ -166,7 +174,7 @@ public class GeneralService {
                 String traitType = (String) trait.get("traitType");
                 String traitValue = (String) trait.get("traitValue");
                 if (traitType == null || traitValue == null) continue;
-                if ("special".equals(traitType)) continue; // 特殊描述性特性，不加数值
+                if ("special".equals(traitType)) continue;
                 try {
                     int v = Integer.parseInt(traitValue.trim());
                     switch (traitType) {
@@ -176,12 +184,38 @@ public class GeneralService {
                         case "command": command += v; break;
                         case "dodge": dodge = (int) Math.min(50, dodge + v); break;
                         case "mobility": mobility += v; break;
+                        case "tactics_trigger": tacticsTriggerMultiplier = v; break;
                     }
                 } catch (NumberFormatException ignored) {}
             }
         }
 
-        return new int[]{atk, def, valor, command, dodge, mobility};
+        return new int[]{atk, def, valor, command, dodge, mobility, tacticsTriggerBonus, tacticsTriggerMultiplier};
+    }
+
+    /**
+     * 根据 slotId 获取兵法发动概率加成(%)
+     */
+    public int getTacticsTriggerBonus(int slotId) {
+        Map<String, Object> slot = generalSlotMapper.findById(slotId);
+        if (slot == null) return 0;
+        return toInt(slot.get("tacticsTriggerBonus"));
+    }
+
+    /**
+     * 根据 slotId 获取兵法发动概率倍率（含"兵法发动概率提升"名将特性时返回2，否则1）
+     */
+    public int getTacticsTriggerMultiplier(int slotId) {
+        List<Map<String, Object>> traits = generalSlotTraitMapper.findBySlotIds(Collections.singletonList(slotId));
+        if (traits != null) {
+            for (Map<String, Object> trait : traits) {
+                if ("tactics_trigger".equals(trait.get("traitType"))) {
+                    try { return Integer.parseInt(((String) trait.get("traitValue")).trim()); }
+                    catch (Exception e) { return 2; }
+                }
+            }
+        }
+        return 1;
     }
 
     /**

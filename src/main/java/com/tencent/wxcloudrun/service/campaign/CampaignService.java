@@ -41,270 +41,289 @@ public class CampaignService {
         initCampaignConfigs();
     }
     
+    // ======================== 阵营NPC名池 (步/骑/弓 各5个名称) ========================
+    private static final String[][][] FACTION_NPC_POOL = {
+        /* 0 黄巾 */ {{"黄巾步兵","黄巾枪兵","黄巾盾兵","黄巾力士","黄巾精锐"},{"黄巾骑兵","黄巾马军","黄巾铁骑","黄巾精骑","黄巾突骑"},{"黄巾弓手","黄巾射手","黄巾火弓","黄巾神射","黄巾长弓"}},
+        /* 1 西凉 */ {{"西凉步兵","西凉盾兵","西凉重甲","飞熊军","飞熊精锐"},{"西凉骑兵","西凉铁骑","西凉精骑","西凉突骑","飞熊骑兵"},{"西凉弓手","西凉弓将","西凉神射","飞熊弓手","西凉长弓"}},
+        /* 2 袁军 */ {{"袁军步兵","袁军枪兵","袁军盾兵","袁军重甲","袁军精锐"},{"袁军骑兵","袁军铁骑","袁军精骑","袁军突骑","大戟士"},{"袁军弓手","袁军弓将","袁军神射","袁军长弓","袁军精弓"}},
+        /* 3 曹军 */ {{"曹军步兵","曹军枪兵","曹军盾兵","曹军重甲","曹军精锐"},{"曹军骑兵","曹军铁骑","虎豹骑","虎豹精骑","曹军突骑"},{"曹军弓手","曹军弓将","曹军神射","曹军精弓","曹军长弓"}},
+        /* 4 吕布 */ {{"陷阵步兵","陷阵枪兵","陷阵精锐","陷阵重甲","飞将步卒"},{"飞将骑兵","赤兔铁骑","飞将精骑","吕布亲卫","飞将突骑"},{"飞将弓手","陷阵弓手","飞将神射","飞将精弓","飞将长弓"}},
+        /* 5 吴军 */ {{"吴军步兵","吴军枪兵","吴军盾兵","吴军重甲","吴军精锐"},{"吴军骑兵","吴军铁骑","吴军精骑","锦帆骑","吴军突骑"},{"吴军弓手","吴军弓将","吴军神射","丹阳弓手","吴军长弓"}},
+        /* 6 魏军 */ {{"魏军步兵","魏军枪兵","魏军盾兵","魏军重甲","魏军精锐"},{"魏军骑兵","魏军铁骑","魏军精骑","虎卫骑","魏军突骑"},{"魏军弓手","魏军弓将","魏军神射","魏军精弓","魏军长弓"}}
+    };
+    private static final String[] FACTION_KEYS = {"黄巾","西凉","袁军","曹军","吕布","吴军","魏军"};
+
+    private static int factionIdx(String f) {
+        for (int i = 0; i < FACTION_KEYS.length; i++) if (FACTION_KEYS[i].equals(f)) return i;
+        return 3;
+    }
+
+    private static int[] getEquipPreIds(int maxLv) {
+        if (maxLv <= 10) return new int[]{1,2,3,4,5,6};
+        if (maxLv <= 20) return new int[]{7,8,9,10,11,12};
+        if (maxLv <= 40) return new int[]{19,20,21,22,23,24};
+        if (maxLv <= 50) return new int[]{31,32,33,34,35,36};
+        if (maxLv <= 60) return new int[]{37,38,39,40,41,42, 55,56,57,58,59,60};
+        if (maxLv <= 80) return new int[]{55,56,57,58,59,60, 79,80,81,82,83,84};
+        if (maxLv <= 100) return new int[]{79,80,81,82,83,84, 97,98,99,100,101,102};
+        return new int[0]; // Lv100+ 预留，暂无装备掉落
+    }
+
+    private static int[] getItemDropPool(int maxLv) {
+        if (maxLv <= 20) return new int[]{1,14,17,20,28,32};
+        if (maxLv <= 50) return new int[]{36,37,15,18,21,7,29,33};
+        if (maxLv <= 100) return new int[]{2,38,16,19,22,8,29,30,34};
+        return new int[0]; // Lv100+ 预留，暂无道具掉落
+    }
+
     /**
-     * 初始化战役配置
+     * 初始化战役配置 - 12个战役覆盖 Lv1~200
+     *
+     *  1. 黄巾之乱     Lv1-10    5关   解锁Lv1
+     *  2. 诸侯讨董     Lv10-20   7关   解锁Lv10
+     *  3. 乱世华雄     Lv20-40   10关  解锁Lv20  (起始每关6NPC)
+     *  4. 官渡之战     Lv40-50   15关  解锁Lv40
+     *  5. 赤壁之战     Lv50-60   20关  解锁Lv50  (起始20关)
+     *  6. 定军山之战   Lv60-80   20关  解锁Lv60
+     *  7. 战神吕布     Lv80-100  20关  解锁Lv80
+     *  8. 夷陵烽火     Lv100-120 20关  解锁Lv100 (预留)
+     *  9. 五丈原       Lv120-140 20关  解锁Lv120 (预留)
+     * 10. 姜维北伐     Lv140-160 20关  解锁Lv140 (预留)
+     * 11. 钟会伐蜀     Lv160-180 20关  解锁Lv160 (预留)
+     * 12. 一统天下     Lv180-200 20关  解锁Lv180 (预留)
      */
     private void initCampaignConfigs() {
-        // 战役1: 乱世枭雄
-        Campaign campaign1 = Campaign.builder()
-                .id("campaign_luanshi")
-                .name("乱世枭雄")
-                .description("黄巾起义，天下大乱，各路诸侯纷纷崛起")
-                .icon("/images/campaign/luanshi.png")
-                .backgroundImage("/images/campaign/bg_luanshi.jpg")
-                .enemyLevelMin(1)
-                .enemyLevelMax(20)
-                .expRewardMin(500)
-                .expRewardMax(2000)
-                .dailyLimit(3)
-                .staminaCost(6)
-                .requiredLevel(1)
-                .order(1)
-                .stages(createLuanshiStages())
-                .dropPreviews(Arrays.asList(
-                    Campaign.DropPreview.builder().icon("/images/equip/sword1.png").name("青铜剑").quality("优秀").build(),
-                    Campaign.DropPreview.builder().icon("/images/equip/armor1.png").name("皮甲").quality("优秀").build(),
-                    Campaign.DropPreview.builder().icon("/images/equip/helmet1.png").name("铁盔").quality("精良").build()
-                ))
-                .build();
-        
-        // 战役2: 四世三公
-        Campaign campaign2 = Campaign.builder()
-                .id("campaign_sishi")
-                .name("四世三公")
-                .description("袁氏家族四代位居三公，门生故吏遍布天下")
-                .icon("/images/campaign/sishi.png")
-                .backgroundImage("/images/campaign/bg_sishi.jpg")
-                .enemyLevelMin(20)
-                .enemyLevelMax(40)
-                .expRewardMin(2000)
-                .expRewardMax(6000)
-                .dailyLimit(3)
-                .staminaCost(8)
-                .requiredLevel(15)
-                .order(2)
-                .stages(createSishiStages())
-                .dropPreviews(Arrays.asList(
-                    Campaign.DropPreview.builder().icon("/images/equip/sword2.png").name("精钢剑").quality("精良").build(),
-                    Campaign.DropPreview.builder().icon("/images/equip/armor2.png").name("锁子甲").quality("精良").build(),
-                    Campaign.DropPreview.builder().icon("/images/equip/ring1.png").name("玉扳指").quality("史诗").build()
-                ))
-                .build();
-        
-        // 战役3: 战神吕布
-        Campaign campaign3 = Campaign.builder()
-                .id("campaign_lvbu")
-                .name("战神吕布")
-                .description("三姓家奴？天下无双！人中吕布，马中赤兔")
-                .icon("/images/campaign/lvbu.png")
-                .backgroundImage("/images/campaign/bg_lvbu.jpg")
-                .enemyLevelMin(60)
-                .enemyLevelMax(80)
-                .expRewardMin(8000)
-                .expRewardMax(26000)
-                .dailyLimit(2)
-                .staminaCost(10)
-                .requiredLevel(40)
-                .order(3)
-                .stages(createLvbuStages())
-                .dropPreviews(Arrays.asList(
-                    Campaign.DropPreview.builder().icon("/images/equip/halberd.png").name("方天画戟").quality("传说").build(),
-                    Campaign.DropPreview.builder().icon("/images/equip/armor3.png").name("兽面吞头连环铠").quality("史诗").build(),
-                    Campaign.DropPreview.builder().icon("/images/equip/horse.png").name("赤兔马").quality("传说").build()
-                ))
-                .build();
-        
-        // 战役4: 官渡之战
-        Campaign campaign4 = Campaign.builder()
-                .id("campaign_guandu")
-                .name("官渡之战")
-                .description("曹操以少胜多，奠定统一北方的基础")
-                .icon("/images/campaign/guandu.png")
-                .backgroundImage("/images/campaign/bg_guandu.jpg")
-                .enemyLevelMin(40)
-                .enemyLevelMax(60)
-                .expRewardMin(5000)
-                .expRewardMax(15000)
-                .dailyLimit(2)
-                .staminaCost(10)
-                .requiredLevel(30)
-                .order(4)
-                .stages(createGuanduStages())
-                .dropPreviews(Arrays.asList(
-                    Campaign.DropPreview.builder().icon("/images/equip/sword3.png").name("倚天剑").quality("史诗").build(),
-                    Campaign.DropPreview.builder().icon("/images/equip/armor4.png").name("玄铁重甲").quality("史诗").build()
-                ))
-                .build();
-        
-        // 战役5: 赤壁之战
-        Campaign campaign5 = Campaign.builder()
-                .id("campaign_chibi")
-                .name("赤壁之战")
-                .description("孙刘联军大败曹操，奠定三分天下格局")
-                .icon("/images/campaign/chibi.png")
-                .backgroundImage("/images/campaign/bg_chibi.jpg")
-                .enemyLevelMin(80)
-                .enemyLevelMax(100)
-                .expRewardMin(20000)
-                .expRewardMax(50000)
-                .dailyLimit(1)
-                .staminaCost(15)
-                .requiredLevel(60)
-                .order(5)
-                .stages(createChibiStages())
-                .dropPreviews(Arrays.asList(
-                    Campaign.DropPreview.builder().icon("/images/equip/fan.png").name("羽扇").quality("传说").build(),
-                    Campaign.DropPreview.builder().icon("/images/equip/robe.png").name("八卦道袍").quality("传说").build()
-                ))
-                .build();
-        
-        campaignConfigs.put(campaign1.getId(), campaign1);
-        campaignConfigs.put(campaign2.getId(), campaign2);
-        campaignConfigs.put(campaign3.getId(), campaign3);
-        campaignConfigs.put(campaign4.getId(), campaign4);
-        campaignConfigs.put(campaign5.getId(), campaign5);
-        
+
+        // ===== 战役1: 黄巾之乱 (5关, NPC递增1→6) =====
+        reg("campaign_huangjin","黄巾之乱","苍天已死黄天当立！讨伐张角三兄弟",1,10,1,5,4,1, 5,false,"黄巾",
+            new String[]{"黄巾贼兵","黄巾弓手","波才","张梁","张角"},
+            new String[]{"步","弓","步","步","弓"},
+            Arrays.asList(dp("新手长剑","普通"),dp("新手布甲","普通"),dp("新手布帽","优秀")));
+
+        // ===== 战役2: 诸侯讨董 (7关, NPC递增1→6) =====
+        reg("campaign_dongzhuo","诸侯讨董","十八路诸侯会盟讨董，西凉铁骑势不可挡",10,20,10,4,5,2, 7,false,"西凉",
+            new String[]{"胡轸","李傕","郭汜","张济","徐荣","李儒","董卓"},
+            new String[]{"骑","骑","步","步","步","弓","步"},
+            Arrays.asList(dp("宣武长剑","优秀"),dp("宣武战甲","优秀"),dp("宣武头盔","精良")));
+
+        // ===== 战役3: 乱世华雄 (10关, 全6NPC) =====
+        reg("campaign_huaxiong","乱世华雄","华雄威震汜水关，斩杀联军数将",20,40,20,3,6,3, 10,true,"西凉",
+            new String[]{"赵岑","李肃","胡轸","牛辅","张济","樊稠","吕布亲卫","高顺","张辽","华雄"},
+            new String[]{"步","弓","骑","步","步","骑","骑","步","骑","步"},
+            Arrays.asList(dp("陷阵长枪","精良"),dp("陷阵重甲","精良"),dp("陷阵头盔","精良")));
+
+        // ===== 战役4: 官渡之战 (15关, 全6NPC) =====
+        reg("campaign_guandu","官渡之战","袁绍携河北四州之众南下，曹操以少胜多",40,50,40,3,8,4, 15,true,"袁军",
+            new String[]{"蒋奇","韩猛","吕旷","吕翔","高览","淳于琼","蒋义渠","张郃","高干","逢纪","审配","颜良","文丑","袁谭","袁绍"},
+            new String[]{"弓","骑","步","步","步","弓","骑","步","骑","弓","弓","骑","骑","弓","骑"},
+            Arrays.asList(dp("狂战巨斧","史诗"),dp("狂战重甲","史诗"),dp("狂战头盔","史诗")));
+
+        // ===== 战役5: 赤壁之战 (20关, 全6NPC) =====
+        reg("campaign_chibi","赤壁之战","曹操率八十万大军南下，孙刘联军火烧赤壁",50,60,50,3,8,5, 20,true,"曹军",
+            new String[]{"蔡瑁","张允","蒋干","于禁","李典","乐进","曹洪","曹仁","夏侯惇","夏侯渊","曹休","曹真","张辽","徐晃","张郃","许褚","典韦","荀攸","程昱","曹操"},
+            new String[]{"弓","弓","弓","步","骑","步","步","步","骑","弓","骑","骑","骑","步","步","步","步","弓","弓","步"},
+            Arrays.asList(dp("天狼战刃","史诗"),dp("天狼战甲","史诗"),dp("熊王巨锤","传说")));
+
+        // ===== 战役6: 定军山之战 (20关, 全6NPC) =====
+        reg("campaign_dingjun","定军山之战","刘备取汉中，黄忠于定军山阵斩夏侯渊",60,80,60,2,10,6, 20,true,"曹军",
+            new String[]{"曹军先锋","曹军校尉","曹洪","夏侯尚","于禁","张郃","曹仁","徐晃","曹真","曹休","张辽","许褚","典韦","夏侯惇","司马师","司马懿","张郃","夏侯渊","曹操","夏侯渊"},
+            new String[]{"步","骑","步","骑","步","步","步","步","骑","弓","骑","步","步","骑","弓","弓","步","弓","步","弓"},
+            Arrays.asList(dp("熊王巨锤","传说"),dp("雄狮战刃","传说"),dp("雄狮战甲","传说")));
+
+        // ===== 战役7: 战神吕布 (20关, 全6NPC) =====
+        reg("campaign_lvbu","战神吕布","人中吕布马中赤兔，虎牢关前无人能敌",80,100,80,2,12,7, 20,true,"吕布",
+            new String[]{"宋宪","魏续","侯成","曹性","成廉","薛兰","臧霸","郝萌","秦宜禄","张超","高顺","陈宫","张辽","陷阵统领","陷阵精锐","赤兔铁骑","高顺","陈宫","张辽","吕布"},
+            new String[]{"步","步","骑","弓","骑","弓","步","骑","步","步","步","弓","骑","步","步","骑","步","弓","骑","骑"},
+            Arrays.asList(dp("雄狮战刃","传说"),dp("圣象神兵","传说"),dp("方天画戟","传说")));
+
+        // ===== 战役8: 夷陵烽火 (20关, 预留) =====
+        reg("campaign_yiling","夷陵烽火","刘备为关羽报仇东征孙吴，陆逊火烧连营",100,120,100,2,14,8, 20,true,"吴军",
+            new String[]{"吴军斥候","吴军校尉","潘璋","马忠","朱然","步骘","凌统","吕蒙","甘宁","丁奉","韩当","周泰","太史慈","黄盖","程普","鲁肃","吕蒙","周瑜","孙权","陆逊"},
+            new String[]{"步","骑","步","弓","步","弓","骑","步","骑","步","步","步","弓","弓","步","弓","步","弓","骑","弓"},
+            Arrays.asList(dp("玄武战刃","传说"),dp("玄武战甲","传说")));
+
+        // ===== 战役9: 五丈原 (20关, 预留) =====
+        reg("campaign_wuzhang","五丈原","诸葛亮六出祁山，秋风五丈原",120,140,120,2,16,9, 20,true,"魏军",
+            new String[]{"魏军先锋","魏军校尉","郭淮","孙礼","王朗","曹真","曹爽","张郃","郝昭","牛金","费耀","戴陵","司马师","司马昭","郭淮","张郃","曹真","曹爽","司马师","司马懿"},
+            new String[]{"步","骑","弓","步","弓","骑","步","步","步","骑","弓","步","骑","弓","弓","步","骑","步","骑","弓"},
+            Arrays.asList(dp("玄武战刃","传说"),dp("秘银神剑","传说")));
+
+        // ===== 战役10: 姜维北伐 (20关, 预留) =====
+        reg("campaign_jiangwei","姜维北伐","继承丞相遗志，九伐中原",140,160,140,2,18,10, 20,true,"魏军",
+            new String[]{"魏军先锋","魏军校尉","陈泰","王经","郭淮","徐质","司马望","钟会","邓忠","师纂","田续","胡烈","杜预","诸葛绪","邓艾","钟会","司马昭","邓艾","钟会","邓艾"},
+            new String[]{"步","骑","步","弓","弓","步","弓","骑","骑","骑","弓","步","步","弓","步","骑","步","步","骑","步"},
+            Arrays.asList(dp("秘银神剑","传说"),dp("秘银战甲","传说")));
+
+        // ===== 战役11: 钟会伐蜀 (20关, 预留) =====
+        reg("campaign_zhonghui","钟会伐蜀","魏国大举伐蜀，蜀汉风雨飘摇",160,180,160,2,20,11, 20,true,"魏军",
+            new String[]{"魏军先锋","魏军校尉","胡烈","田续","师纂","邓忠","庞会","句安","王买","李辅","胡渊","卫瓘","杜预","诸葛绪","邓艾","钟会","邓艾","钟会","司马炎","钟会"},
+            new String[]{"步","骑","步","弓","骑","骑","步","步","弓","步","骑","弓","步","弓","步","骑","步","骑","步","骑"},
+            Arrays.asList(dp("秘银神剑","传说"),dp("秘银战甲","传说")));
+
+        // ===== 战役12: 一统天下 (20关, 预留) =====
+        reg("campaign_yitong","一统天下","天下分久必合，谁能问鼎天下？",180,200,180,1,22,12, 20,true,"魏军",
+            new String[]{"王浑","王濬","杜预","贾充","羊祜","王戎","王衍","刘琨","祖逖","陶侃","桓温","谢玄","刘裕","羊祜","杜预","王濬","贾充","王浑","陆抗","司马炎"},
+            new String[]{"骑","弓","步","弓","步","步","弓","步","骑","步","骑","步","步","步","步","弓","弓","骑","步","步"},
+            Arrays.asList(dp("秘银神剑","传说"),dp("秘银战甲","传说")));
+
         log.info("战役配置初始化完成，共{}个战役", campaignConfigs.size());
     }
-    
-    private List<Campaign.Stage> createLuanshiStages() {
-        String[] generals = {"张角", "张宝", "张梁", "波才", "彭脱", "韩忠", "赵弘"};
-        String[] types = {"步", "弓", "步", "骑", "步", "弓", "骑"};
-        return createStagesWithFormula(generals, types, "luanshi", 1, 3, 200, 100, "优秀");
+
+    private Campaign.DropPreview dp(String name, String quality) {
+        return Campaign.DropPreview.builder().name(name).quality(quality).build();
     }
-    
-    private List<Campaign.Stage> createSishiStages() {
-        String[] generals = {"颜良", "文丑", "淳于琼", "高览", "张郃", "袁谭", "袁绍"};
-        String[] types = {"骑", "骑", "弓", "步", "步", "弓", "骑"};
-        return createStagesWithFormula(generals, types, "sishi", 20, 3, 500, 200, "精良");
-    }
-    
-    private List<Campaign.Stage> createLvbuStages() {
-        String[] generals = {"宋宪", "魏续", "侯成", "曹性", "高顺", "陈宫", "吕布"};
-        String[] types = {"步", "步", "骑", "弓", "步", "弓", "骑"};
-        return createStagesWithFormula(generals, types, "lvbu", 60, 3, 2000, 500, "史诗");
-    }
-    
-    private List<Campaign.Stage> createGuanduStages() {
-        String[] generals = {"蒋奇", "韩猛", "吕旷", "吕翔", "审配", "逢纪", "袁绍"};
-        String[] types = {"弓", "骑", "步", "步", "弓", "步", "骑"};
-        return createStagesWithFormula(generals, types, "guandu", 40, 3, 1000, 300, "精良");
-    }
-    
-    private List<Campaign.Stage> createChibiStages() {
-        String[] generals = {"蔡瑁", "张允", "于禁", "李典", "夏侯惇", "张辽", "曹操"};
-        String[] types = {"弓", "弓", "步", "骑", "骑", "骑", "步"};
-        return createStagesWithFormula(generals, types, "chibi", 80, 3, 5000, 1000, "传说");
+
+    private void reg(String id, String name, String desc,
+                     int lvMin, int lvMax, int reqLv,
+                     int dailyLimit, int staminaCost, int order,
+                     int stageCount, boolean fullFormation, String faction,
+                     String[] generals, String[] troopTypes,
+                     List<Campaign.DropPreview> dropPreviews) {
+        int baseExp = 60 + lvMin * 25;
+        long baseSilver = 40 + (long) lvMin * 18;
+        int[] equipIds = getEquipPreIds(lvMax);
+        int[] itemIds = getItemDropPool(lvMax);
+        String prefix = id.replace("campaign_", "");
+
+        Campaign campaign = Campaign.builder()
+                .id(id).name(name).description(desc)
+                .icon("/images/campaign/" + prefix + ".png")
+                .backgroundImage("/images/campaign/bg_" + prefix + ".jpg")
+                .enemyLevelMin(lvMin).enemyLevelMax(lvMax)
+                .expRewardMin(baseExp).expRewardMax(baseExp * stageCount)
+                .dailyLimit(dailyLimit).staminaCost(staminaCost)
+                .requiredLevel(reqLv).order(order)
+                .stages(buildStages(generals, troopTypes, prefix,
+                        lvMin, lvMax, stageCount, fullFormation, faction,
+                        baseExp, baseSilver, equipIds, itemIds))
+                .dropPreviews(dropPreviews)
+                .build();
+        campaignConfigs.put(id, campaign);
     }
 
     /**
-     * 统一关卡生成方法 - 使用新伤害体系的NPC属性公式
-     *
-     * NPC属性 = 模拟"穿戴本级副本装备的同等级武将"
-     * 确保全身本级装备的玩家可以无伤横扫，低一档装备强化满可以勉强通过
+     * 关卡生成 - 支持7/20关、单/6NPC阵型、equipment_pre+item掉落
      */
-    private List<Campaign.Stage> createStagesWithFormula(
+    private List<Campaign.Stage> buildStages(
             String[] generals, String[] troopTypes, String prefix,
-            int baseLv, int lvStep, int baseExp, long baseSilver, String quality) {
+            int minLv, int maxLv, int stageCount,
+            boolean fullFormation, String faction,
+            int baseExp, long baseSilver,
+            int[] equipPreIds, int[] itemDropIds) {
+
         List<Campaign.Stage> stages = new ArrayList<>();
-        for (int i = 1; i <= 7; i++) {
-            int npcLevel = baseLv + i * lvStep;
-            // 关卡越后NPC品质越高: 1.0 ~ 1.9
-            double npcQuality = 1.0 + (i - 1) * 0.15;
-            String troopType = troopTypes[i - 1];
+        int levelRange = maxLv - minLv;
+        Random rng = new Random(prefix.hashCode());
+        int fi = factionIdx(faction);
+        String[][] npcPool = FACTION_NPC_POOL[fi];
+        String[] types = {"步","骑","弓"};
 
-            // 用 GeneralService 同款公式算NPC六维
+        for (int i = 1; i <= stageCount; i++) {
+            int npcLevel = minLv + (int) Math.round((double) levelRange * i / stageCount);
+            npcLevel = Math.max(npcLevel, minLv + 1);
+            boolean isBoss = (i == stageCount);
+
+            double npcQuality = 1.0 + (double)(i - 1) / Math.max(1, stageCount - 1) * 0.9;
+            if (isBoss) npcQuality += 0.15;
+
+            int gIdx = (i - 1) % generals.length;
+            String mainGeneral = generals[gIdx];
+            String troopType = troopTypes[gIdx];
+
             int[] attrs = generalService.calcAttributes(npcQuality, troopType, npcLevel);
-            int npcAtk = attrs[0];
-            int npcDef = attrs[1];
-            // NPC也有装备加成，模拟穿戴本级副本装备（约等于武将裸属性的40%）
-            int equipBonus = (int)(npcAtk * 0.4);
-            npcAtk += equipBonus;
-            npcDef += (int)(npcDef * 0.4);
-
-            // 士兵数 = 基于兵阶推算
+            int npcAtk = attrs[0] + (int)(attrs[0] * 0.4);
+            int npcDef = attrs[1] + (int)(attrs[1] * 0.4);
             int npcTier = Math.min(9, 1 + npcLevel / 20);
             int npcSoldiers = BattleCalculator.getTierMaxSoldiers(npcTier);
             int npcSoldierHp = BattleCalculator.getTierSoldierHp(npcTier);
 
+            if (isBoss) {
+                npcAtk = (int)(npcAtk * 1.35);
+                npcDef = (int)(npcDef * 1.35);
+                npcSoldiers = (int)(npcSoldiers * 1.3);
+            }
+
+            // 阵型
+            int npcCount = fullFormation ? 6 : Math.min(6, 1 + (i - 1) * 5 / Math.max(1, stageCount - 1));
+            List<Campaign.StageNpc> formation = new ArrayList<>();
+            for (int pos = 0; pos < npcCount; pos++) {
+                String nm; String tt; int lv; boolean boss = false;
+                if (pos == 0) {
+                    nm = mainGeneral; tt = troopType; lv = npcLevel; boss = isBoss;
+                } else {
+                    int ti = (pos + rng.nextInt(3)) % 3;
+                    tt = types[ti];
+                    nm = npcPool[ti][(pos + rng.nextInt(npcPool[ti].length)) % npcPool[ti].length];
+                    lv = Math.max(1, npcLevel - 1 - rng.nextInt(3));
+                }
+                double q = pos == 0 ? npcQuality : npcQuality * 0.85;
+                int[] a = generalService.calcAttributes(q, tt, lv);
+                int fa = a[0] + (int)(a[0] * 0.35); int fd = a[1] + (int)(a[1] * 0.35);
+                if (boss) { fa = (int)(fa * 1.35); fd = (int)(fd * 1.35); }
+                int ft = Math.min(9, 1 + lv / 20);
+                int fs = BattleCalculator.getTierMaxSoldiers(ft);
+                if (boss) fs = (int)(fs * 1.3);
+
+                formation.add(Campaign.StageNpc.builder()
+                        .position(pos).name(nm).avatar(nm + ".png")
+                        .level(lv).troopType(tt).soldierCount(fs).soldierTier(ft)
+                        .attack(fa).defense(fd).valor(a[2]).command(a[3]).dodge(a[4]).mobility(a[5])
+                        .hp(300 + lv * 100 + (boss ? lv * 50 : 0)).isBoss(boss).build());
+            }
+
+            // 掉落: 白银 + equipment_pre装备 + item道具
+            List<Campaign.StageDrop> drops = new ArrayList<>();
+            drops.add(Campaign.StageDrop.builder()
+                    .type("RESOURCE").itemId("silver").itemName("白银")
+                    .dropRate(100).minCount(50 * i).maxCount(100 * i).build());
+
+            if (equipPreIds.length > 0) {
+                int equipId = equipPreIds[rng.nextInt(equipPreIds.length)];
+                drops.add(Campaign.StageDrop.builder()
+                        .type("EQUIP_PRE").equipPreId(equipId)
+                        .itemId(String.valueOf(equipId)).itemName("装备")
+                        .dropRate(isBoss ? 80 : Math.min(50, 10 + i * 2))
+                        .minCount(1).maxCount(1).build());
+                if (isBoss && equipPreIds.length > 1) {
+                    int equipId2 = equipPreIds[rng.nextInt(equipPreIds.length)];
+                    drops.add(Campaign.StageDrop.builder()
+                            .type("EQUIP_PRE").equipPreId(equipId2)
+                            .itemId(String.valueOf(equipId2)).itemName("BOSS装备")
+                            .dropRate(60).minCount(1).maxCount(1).build());
+                }
+            }
+
+            if (itemDropIds.length > 0) {
+                int pick = 1 + rng.nextInt(2);
+                Set<Integer> picked = new HashSet<>();
+                for (int n = 0; n < pick && picked.size() < itemDropIds.length; n++) {
+                    int itemId = itemDropIds[rng.nextInt(itemDropIds.length)];
+                    if (picked.add(itemId)) {
+                        drops.add(Campaign.StageDrop.builder()
+                                .type("ITEM").itemId(String.valueOf(itemId))
+                                .dropRate(isBoss ? 60 : 20 + rng.nextInt(20))
+                                .minCount(1).maxCount(isBoss ? 3 : 2).build());
+                    }
+                }
+            }
+
             stages.add(Campaign.Stage.builder()
-                    .id(prefix + "_stage_" + i)
-                    .stageNum(i)
-                    .name("第" + i + "关")
-                    .enemyGeneralName(generals[i - 1])
-                    .enemyGeneralIcon("/images/general/" + generals[i - 1] + ".png")
-                    .enemyLevel(npcLevel)
-                    .enemyTroops(npcSoldiers)
-                    .enemyAttack(npcAtk)
-                    .enemyDefense(npcDef)
-                    .enemyValor(attrs[2])
-                    .enemyCommand(attrs[3])
-                    .enemyDodge(attrs[4])
-                    .enemyMobility(attrs[5])
-                    .enemySoldierHp(npcSoldierHp)
-                    .enemyTroopType(troopType)
+                    .id(prefix + "_stage_" + i).stageNum(i)
+                    .name(isBoss ? "BOSS: " + mainGeneral : "第" + i + "关")
+                    .enemyGeneralName(mainGeneral)
+                    .enemyGeneralIcon("/images/general/" + mainGeneral + ".png")
+                    .enemyLevel(npcLevel).enemyTroops(npcSoldiers)
+                    .enemyAttack(npcAtk).enemyDefense(npcDef)
+                    .enemyValor(attrs[2]).enemyCommand(attrs[3])
+                    .enemyDodge(attrs[4]).enemyMobility(attrs[5])
+                    .enemySoldierHp(npcSoldierHp).enemyTroopType(troopType)
                     .enemyTierMultiplier(BattleCalculator.getTierMultiplier(npcTier))
                     .expReward(baseExp + i * (baseExp / 2))
                     .silverReward(baseSilver + i * (baseSilver / 2))
-                    .isBoss(i == 7)
-                    .drops(createStageDrops(i, quality))
+                    .isBoss(isBoss).drops(drops).formation(formation)
                     .build());
         }
         return stages;
-    }
-    
-    private List<Campaign.StageDrop> createStageDrops(int stageNum, String quality) {
-        List<Campaign.StageDrop> drops = new ArrayList<>();
-        // 基础掉落 - 白银
-        drops.add(Campaign.StageDrop.builder()
-                .type("RESOURCE")
-                .itemId("silver")
-                .itemName("白银")
-                .icon("/images/resource/silver.png")
-                .dropRate(100)
-                .minCount(50 * stageNum)
-                .maxCount(100 * stageNum)
-                .build());
-        
-        // 装备掉落
-        if (stageNum >= 3) {
-            drops.add(Campaign.StageDrop.builder()
-                    .type("EQUIPMENT")
-                    .itemId("equip_random")
-                    .itemName("随机装备")
-                    .icon("/images/equip/random.png")
-                    .quality(quality)
-                    .dropRate(20 + stageNum * 5)
-                    .minCount(1)
-                    .maxCount(1)
-                    .build());
-        }
-        
-        // BOSS关特殊掉落
-        if (stageNum == 7) {
-            drops.add(Campaign.StageDrop.builder()
-                    .type("EQUIPMENT")
-                    .itemId("equip_boss")
-                    .itemName("BOSS装备")
-                    .icon("/images/equip/boss.png")
-                    .quality(getHigherQuality(quality))
-                    .dropRate(50)
-                    .minCount(1)
-                    .maxCount(1)
-                    .build());
-        }
-        
-        return drops;
-    }
-    
-    private String getHigherQuality(String quality) {
-        switch (quality) {
-            case "普通": return "优秀";
-            case "优秀": return "精良";
-            case "精良": return "史诗";
-            case "史诗": return "传说";
-            default: return "传说";
-        }
     }
     
     /**
@@ -336,29 +355,32 @@ public class CampaignService {
                     campaignInfo.put("dropPreviews", campaign.getDropPreviews());
                     campaignInfo.put("stageCount", campaign.getStages().size());
                     
-                    // 是否解锁
                     boolean unlocked = userLevel >= campaign.getRequiredLevel();
                     campaignInfo.put("unlocked", unlocked);
+                    campaignInfo.put("locked", !unlocked);
+                    campaignInfo.put("stages", campaign.getStages());
                     
-                    // 进度信息
                     CampaignProgress progress = progressMap.get(campaign.getId());
                     if (progress != null) {
-                        // 检查是否需要重置今日次数
                         if (!today.equals(progress.getTodayDate())) {
                             progress.setTodayChallengeCount(0);
                             progress.setTodayDate(today);
                             campaignRepository.save(progress);
                         }
-                        campaignInfo.put("currentStage", progress.getCurrentStage());
-                        campaignInfo.put("maxClearedStage", progress.getMaxClearedStage());
-                        campaignInfo.put("todayCount", progress.getTodayChallengeCount());
+                        Map<String, Object> progressInfo = new HashMap<>();
+                        progressInfo.put("currentStage", progress.getCurrentStage());
+                        progressInfo.put("maxClearedStage", progress.getMaxClearedStage());
+                        progressInfo.put("todayCount", progress.getTodayChallengeCount());
+                        progressInfo.put("status", progress.getStatus());
+                        progressInfo.put("fullCleared", progress.getFullCleared());
+                        progressInfo.put("currentTroops", progress.getCurrentTroops());
+                        progressInfo.put("maxTroops", progress.getMaxTroops());
+                        progressInfo.put("reviveCount", progress.getReviveCount());
+                        campaignInfo.put("progress", progressInfo);
                         campaignInfo.put("status", progress.getStatus());
                         campaignInfo.put("fullCleared", progress.getFullCleared());
                         campaignInfo.put("canSweep", progress.getFullCleared());
                     } else {
-                        campaignInfo.put("currentStage", 0);
-                        campaignInfo.put("maxClearedStage", 0);
-                        campaignInfo.put("todayCount", 0);
                         campaignInfo.put("status", "IDLE");
                         campaignInfo.put("fullCleared", false);
                         campaignInfo.put("canSweep", false);
@@ -465,7 +487,95 @@ public class CampaignService {
     }
     
     /**
-     * 进攻当前关卡 - 使用新伤害计算体系
+     * 前端上报战斗结果（前端本地模拟战斗后调用）
+     */
+    public CampaignProgress.BattleResult reportBattleResult(
+            String odUserId, String campaignId,
+            boolean victory, Integer troopsLost, Integer remainingTroops) {
+        Campaign campaign = campaignConfigs.get(campaignId);
+        if (campaign == null) throw new BusinessException("战役不存在");
+
+        CampaignProgress progress = campaignRepository.findByUserIdAndCampaignId(odUserId, campaignId);
+        if (progress == null || !"IN_PROGRESS".equals(progress.getStatus())) {
+            throw new BusinessException("战役未开始");
+        }
+
+        int stageIndex = progress.getCurrentStage() - 1;
+        if (stageIndex < 0 || stageIndex >= campaign.getStages().size()) {
+            throw new BusinessException("关卡不存在");
+        }
+        Campaign.Stage stage = campaign.getStages().get(stageIndex);
+
+        int actualRemaining = remainingTroops != null ? remainingTroops
+                : Math.max(0, progress.getCurrentTroops() - (troopsLost != null ? troopsLost : 0));
+        int actualLost = troopsLost != null ? troopsLost
+                : Math.max(0, progress.getCurrentTroops() - actualRemaining);
+
+        CampaignProgress.BattleResult result = CampaignProgress.BattleResult.builder()
+                .victory(victory)
+                .stageNum(progress.getCurrentStage())
+                .remainingTroops(actualRemaining)
+                .troopsLost(actualLost)
+                .isLastStage(progress.getCurrentStage() >= campaign.getStages().size())
+                .build();
+
+        if (victory) {
+            long expGained = stage.getExpReward() != null ? stage.getExpReward() : 0;
+            long silverGained = stage.getSilverReward() != null ? stage.getSilverReward() : 0;
+            result.setExpGained(expGained);
+            result.setSilverGained(silverGained);
+
+            Random dropRandom = new Random();
+            List<CampaignProgress.DropItem> drops = processDrops(stage.getDrops(), dropRandom);
+            result.setDrops(drops);
+
+            General general = generalService.getGeneralById(progress.getGeneralId());
+            if (general != null) {
+                long curExp = general.getExp() != null ? general.getExp() : 0;
+                general.setExp(curExp + expGained);
+                generalService.saveGeneral(general);
+            }
+
+            UserResource resource = userResourceService.getUserResource(odUserId);
+            resource.setSilver(resource.getSilver() + silverGained);
+            userResourceService.saveUserResource(resource);
+
+            for (CampaignProgress.DropItem drop : drops) {
+                if ("EQUIPMENT".equals(drop.getType())) {
+                    Equipment equipment = generateRandomEquipment(odUserId, drop.getQuality(), stage.getEnemyLevel());
+                    equipmentRepository.save(equipment);
+                }
+            }
+
+            boolean isFirstClear = progress.getMaxClearedStage() < progress.getCurrentStage();
+            result.setIsFirstClear(isFirstClear);
+
+            progress.setCurrentTroops(actualRemaining);
+            progress.setTotalExpGained(progress.getTotalExpGained() + expGained);
+            progress.setTotalSilverGained(progress.getTotalSilverGained() + silverGained);
+
+            if (isFirstClear) progress.setMaxClearedStage(progress.getCurrentStage());
+
+            if (progress.getCurrentStage() >= campaign.getStages().size()) {
+                progress.setStatus("COMPLETED");
+                progress.setFullCleared(true);
+            } else {
+                progress.setCurrentStage(progress.getCurrentStage() + 1);
+            }
+        } else {
+            progress.setCurrentTroops(actualRemaining);
+            if (actualRemaining <= 0 && progress.getReviveCount() <= 0) {
+                progress.setStatus("IDLE");
+            }
+        }
+
+        progress.setUpdateTime(System.currentTimeMillis());
+        campaignRepository.save(progress);
+        return result;
+    }
+
+    /**
+     * 进攻当前关卡 - 服务端模拟战斗
      */
     public CampaignProgress.BattleResult attack(String odUserId, String campaignId) {
         Campaign campaign = campaignConfigs.get(campaignId);
@@ -508,11 +618,13 @@ public class CampaignService {
         player.soldierHp = BattleCalculator.getTierSoldierHp(playerTier);
         player.tierMultiplier = BattleCalculator.getTierMultiplier(playerTier);
 
-        // 兵种图标
         String troopCat = general.getTroopType() != null ? general.getTroopType() : "步";
-        Map<String, String> playerIcons = peerageService.getSoldierIcons(troopCat, playerTier);
-        player.soldierIconIdle = playerIcons.get("iconIdle");
-        player.soldierIconAttack = playerIcons.get("iconAttack");
+
+        // 品质兵法发动加成 + 名将特性翻倍
+        if (general.getSlotId() != null && general.getSlotId() > 0) {
+            player.tacticsTriggerBonus = generalService.getTacticsTriggerBonus(general.getSlotId());
+            player.tacticsTriggerMultiplier = generalService.getTacticsTriggerMultiplier(general.getSlotId());
+        }
 
         // 兵法属性填充
         if (general.getTacticsId() != null) {
@@ -623,10 +735,6 @@ public class CampaignService {
                 .troopsLost(troopsLost)
                 .battleLog(battleLog)
                 .isLastStage(progress.getCurrentStage() >= campaign.getStages().size())
-                .playerSoldierIconIdle(player.soldierIconIdle)
-                .playerSoldierIconAttack(player.soldierIconAttack)
-                .enemySoldierIconIdle(enemy.soldierIconIdle)
-                .enemySoldierIconAttack(enemy.soldierIconAttack)
                 .playerTroopType(troopCat)
                 .enemyTroopType(stage.getEnemyTroopType() != null ? stage.getEnemyTroopType() : "步")
                 .build();

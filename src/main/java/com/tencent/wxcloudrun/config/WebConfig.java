@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
@@ -30,6 +31,16 @@ public class WebConfig implements WebMvcConfigurer {
     }
     
     /**
+     * 静态资源映射 — 头像、装备图标等存储在云托管对象存储
+     * 本地开发时映射到 classpath:/static/，生产环境映射到实际存储路径
+     */
+    @Override
+    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        registry.addResourceHandler("/static/**")
+                .addResourceLocations("classpath:/static/", "file:./static/");
+    }
+
+    /**
      * 配置拦截器
      * 注意：context-path=/api，所以这里的路径是相对于context-path的
      */
@@ -40,7 +51,8 @@ public class WebConfig implements WebMvcConfigurer {
                 .excludePathPatterns(
                         "/auth/login",
                         "/health",
-                        "/recharge/callback/**"  // 支付回调不需要认证
+                        "/recharge/callback/**",
+                        "/static/**"
                 );
     }
 }
