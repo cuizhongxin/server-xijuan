@@ -180,6 +180,14 @@ public class PeerageService {
         return result;
     }
 
+    /**
+     * 根据爵位名称获取可解锁的最高兵种阶位
+     */
+    public int getMaxSoldierTier(String rankName) {
+        Map<String, Object> peerage = findPeerageByRank(rankName);
+        return peerage != null ? getInt(peerage, "maxSoldierTier", 1) : 1;
+    }
+
     // ==== 内部工具 ====
 
     private Map<String, Object> findPeerageByRank(String rank) {

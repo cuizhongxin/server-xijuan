@@ -92,7 +92,7 @@ public class GeneralService {
             .troopType(troopType).slotId(slotId > 0 ? slotId : null)
             .attrAttack(attrs[0]).attrDefense(attrs[1]).attrValor(attrs[2])
             .attrCommand(attrs[3]).attrDodge((double) attrs[4]).attrMobility(attrs[5])
-            .soldierRank(1).soldierCount(1000).soldierMaxCount(1000)
+            .soldierRank(1).soldierCount(100).soldierMaxCount(100)
             .statusLocked(false).statusInBattle(false).statusInjured(false).statusMorale(100)
             .statTotalBattles(0).statVictories(0).statDefeats(0).statKills(0).statMvpCount(0)
             .createTime(System.currentTimeMillis()).updateTime(System.currentTimeMillis())
