@@ -365,8 +365,21 @@ public class GeneralService {
         if (source == null || target == null) { throw new RuntimeException("武将不存在"); }
         if (!source.getUserId().equals(userId) || !target.getUserId().equals(userId)) { throw new RuntimeException("无权操作"); }
         if (sourceId.equals(targetId)) { throw new RuntimeException("不能传承给自己"); }
-        
-        double rate = "advanced".equals(scrollType) ? 1.0 : "medium".equals(scrollType) ? 0.75 : 0.5;
+
+        // APK rates: basic=50%, medium(15044)=80%, advanced(15045)=100%
+        double rate;
+        if ("advanced".equals(scrollType)) {
+            rate = 1.0;
+            boolean consumed = warehouseService.removeItem(userId, "15045", 1);
+            if (!consumed) { throw new RuntimeException("高级传承符不足"); }
+        } else if ("medium".equals(scrollType)) {
+            rate = 0.8;
+            boolean consumed = warehouseService.removeItem(userId, "15044", 1);
+            if (!consumed) { throw new RuntimeException("初级传承符不足"); }
+        } else {
+            rate = 0.5;
+        }
+
         long sourceExp = source.getExp() != null ? source.getExp() : 0;
         for (int i = 1; i < source.getLevel(); i++) { sourceExp += calcMaxExp(i); }
         long expGained = (long)(sourceExp * rate);
@@ -377,6 +390,7 @@ public class GeneralService {
         Map<String, Object> result = new HashMap<>();
         result.put("success", true);
         result.put("expGained", expGained);
+        result.put("rate", rate);
         result.put("sourceGeneral", source.getName());
         result.put("targetGeneral", target.getName());
         result.put("levelUp", expResult.get("levelUp"));
