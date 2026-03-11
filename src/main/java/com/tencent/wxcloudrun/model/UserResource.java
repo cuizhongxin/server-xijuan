@@ -141,7 +141,7 @@ public class UserResource {
                 .soulPoint(0)             // 初始0将魂
                 .lastClaimDate("")
                 .dailyTokenClaimed(0)
-                .rank("白身")
+                .rank("平民")
                 .fame(0L)
                 .generalCount(0)
                 .baseGeneralSlots(10)     // 基础10个武将位

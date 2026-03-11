@@ -67,9 +67,9 @@ public class SoldierController {
         500, 1000, 3000, 8000, 15000, 30000, 100000, 200000, 300000, 500000
     };
 
-    // 兵种阶位对应爵位要求 (来自peerage_config.max_soldier_tier)
+    // 兵种阶位对应爵位要求 (来自APK BanneretID.json + peerage_config)
     private static final String[] ARMY_PEERAGE = {
-        "白身", "平民", "士人", "男", "子", "伯", "侯", "公", "王", "王"
+        "平民", "公士", "民爵", "勋爵", "男爵", "子爵", "伯爵", "侯爵", "公爵", "王"
     };
 
     /**
@@ -295,7 +295,7 @@ public class SoldierController {
         }
 
         UserResource res = resourceService.getUserResource(userId);
-        String currentRankName = res != null && res.getRank() != null ? res.getRank() : "白身";
+        String currentRankName = res != null && res.getRank() != null ? res.getRank() : "平民";
         int maxTier = peerageService.getMaxSoldierTier(currentRankName);
         if (targetTier > maxTier) {
             return ApiResponse.error(400, "爵位不足，需要爵位「" + peerageNeed + "」才能升级到" + targetTier + "阶兵种（当前爵位：" + currentRankName + "）");

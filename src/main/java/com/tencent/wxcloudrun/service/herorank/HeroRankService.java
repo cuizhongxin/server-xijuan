@@ -417,7 +417,7 @@ public class HeroRankService {
             String userName = "主公Lv." + level;
             heroRankMapper.upsert(userId, userName, level, power,
                     res.getFame() != null ? res.getFame() : 0,
-                    res.getRank() != null ? res.getRank() : "白身",
+                    res.getRank() != null ? res.getRank() : "平民",
                     0, 0, 0, 0, today(),
                     0L,
                     System.currentTimeMillis());

@@ -272,26 +272,29 @@ public class UserResourceService {
      */
     private void updateRank(UserResource resource) {
         long fame = resource.getFame();
+        // 爵位名称 (来自APK BanneretID.json)
         String rank;
         
-        if (fame >= 1000000) {
+        if (fame >= 1200000) {
             rank = "王";
-        } else if (fame >= 500000) {
-            rank = "公";
-        } else if (fame >= 200000) {
-            rank = "侯";
-        } else if (fame >= 100000) {
-            rank = "伯";
-        } else if (fame >= 50000) {
-            rank = "子";
+        } else if (fame >= 600000) {
+            rank = "公爵";
+        } else if (fame >= 220000) {
+            rank = "侯爵";
+        } else if (fame >= 90000) {
+            rank = "伯爵";
+        } else if (fame >= 45000) {
+            rank = "子爵";
         } else if (fame >= 20000) {
-            rank = "男";
-        } else if (fame >= 10000) {
-            rank = "士人";
-        } else if (fame >= 5000) {
-            rank = "平民";
+            rank = "男爵";
+        } else if (fame >= 9000) {
+            rank = "勋爵";
+        } else if (fame >= 3000) {
+            rank = "民爵";
+        } else if (fame >= 1000) {
+            rank = "公士";
         } else {
-            rank = "白身";
+            rank = "平民";
         }
         
         resource.setRank(rank);

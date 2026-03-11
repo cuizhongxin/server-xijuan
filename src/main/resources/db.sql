@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS `user_resource` (
   `senior_token` INT DEFAULT 0 COMMENT '高级声望符',
   `last_claim_date` VARCHAR(16) DEFAULT '' COMMENT '上次领取日期',
   `daily_token_claimed` INT DEFAULT 0 COMMENT '今日已领取令牌数',
-  `rank` VARCHAR(16) DEFAULT '白身' COMMENT '爵位名称',
+  `rank` VARCHAR(16) DEFAULT '平民' COMMENT '爵位名称',
   `fame` BIGINT DEFAULT 0 COMMENT '声望值',
   `general_count` INT DEFAULT 0 COMMENT '当前武将数量',
   `base_general_slots` INT DEFAULT 10 COMMENT '基础武将槽位数',
@@ -661,7 +661,7 @@ CREATE TABLE IF NOT EXISTS `hero_rank` (
   `power` BIGINT DEFAULT 0 COMMENT '战力值',
   `level` INT DEFAULT 1 COMMENT '等级',
   `fame` BIGINT DEFAULT 0 COMMENT '声望值',
-  `rank_name` VARCHAR(32) DEFAULT '白身' COMMENT '爵位名称',
+  `rank_name` VARCHAR(32) DEFAULT '平民' COMMENT '爵位名称',
   `ranking` INT DEFAULT 0 COMMENT '当前排名',
   `today_challenge` INT DEFAULT 0 COMMENT '今日挑战次数',
   `today_wins` INT DEFAULT 0 COMMENT '今日胜利次数',
@@ -678,7 +678,7 @@ CREATE TABLE IF NOT EXISTS `hero_rank` (
 
 -- 兼容旧表: 补充 hero_rank 缺失字段
 ALTER TABLE `hero_rank` ADD COLUMN IF NOT EXISTS `fame` BIGINT DEFAULT 0 COMMENT '声望值';
-ALTER TABLE `hero_rank` ADD COLUMN IF NOT EXISTS `rank_name` VARCHAR(32) DEFAULT '白身' COMMENT '爵位名称';
+ALTER TABLE `hero_rank` ADD COLUMN IF NOT EXISTS `rank_name` VARCHAR(32) DEFAULT '平民' COMMENT '爵位名称';
 ALTER TABLE `hero_rank` ADD COLUMN IF NOT EXISTS `ranking` INT DEFAULT 0 COMMENT '当前排名';
 ALTER TABLE `hero_rank` ADD COLUMN IF NOT EXISTS `today_challenge` INT DEFAULT 0 COMMENT '今日挑战次数';
 ALTER TABLE `hero_rank` ADD COLUMN IF NOT EXISTS `today_wins` INT DEFAULT 0 COMMENT '今日胜利次数';

@@ -52,7 +52,7 @@ public class PeerageService {
         UserLevel userLevel = levelService.getUserLevel(userId);
         int level = userLevel != null && userLevel.getLevel() != null ? userLevel.getLevel() : 1;
         long fame = res != null && res.getFame() != null ? res.getFame() : 0;
-        String currentRank = res != null && res.getRank() != null ? res.getRank() : "白身";
+        String currentRank = res != null && res.getRank() != null ? res.getRank() : "平民";
 
         Map<String, Object> currentPeerage = findPeerageByRank(currentRank);
         Map<String, Object> nextPeerage = findNextPeerage(currentRank);
@@ -92,7 +92,7 @@ public class PeerageService {
      */
     public Map<String, Object> upgradeSoldierTier(String userId, String generalId, int targetTier, String troopCategory) {
         UserResource res = resourceService.getUserResource(userId);
-        String currentRank = res != null && res.getRank() != null ? res.getRank() : "白身";
+        String currentRank = res != null && res.getRank() != null ? res.getRank() : "平民";
         Map<String, Object> peerage = findPeerageByRank(currentRank);
         int maxTier = peerage != null ? getInt(peerage, "maxSoldierTier", 1) : 1;
 
@@ -146,7 +146,7 @@ public class PeerageService {
     public Map<String, Object> upgradeRank(String userId) {
         UserResource res = resourceService.getUserResource(userId);
         UserLevel userLevel = levelService.getUserLevel(userId);
-        String currentRank = res != null && res.getRank() != null ? res.getRank() : "白身";
+        String currentRank = res != null && res.getRank() != null ? res.getRank() : "平民";
         int level = userLevel != null && userLevel.getLevel() != null ? userLevel.getLevel() : 1;
         long fame = res != null && res.getFame() != null ? res.getFame() : 0;
 
