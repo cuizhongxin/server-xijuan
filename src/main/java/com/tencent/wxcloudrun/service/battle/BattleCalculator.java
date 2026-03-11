@@ -238,16 +238,31 @@ public class BattleCalculator {
                 break;
             }
             case "t_cavalry_3": {
-                // 擒贼擒王 - 攻击最高等级武将
-                result.effectDesc = "擒贼擒王！攻击敌方主将";
-                BattleUnit highestTarget = target;
+                // 以逸待劳 - 伏击，额外伤害
+                double ambushBonus = 1 + attacker.tacticsEffectValue / 100.0;
+                int origAtkC3 = attacker.attack;
+                attacker.attack = (int)(origAtkC3 * ambushBonus);
+                result.damages.add(calcDamage(attacker, target));
+                result.effectDesc = "以逸待劳！伏击额外" + (int)attacker.tacticsEffectValue + "%伤害";
+                attacker.attack = origAtkC3;
+                break;
+            }
+            case "t_cavalry_4": {
+                // 战神突击 - 贯穿一行
+                double pierceRatio = attacker.tacticsEffectValue / 100.0;
+                result.effectDesc = "战神突击！贯穿攻击";
                 if (allEnemies != null) {
                     for (BattleUnit e : allEnemies) {
-                        if (e.hp > 0 && e.level > highestTarget.level) highestTarget = e;
+                        if (e.hp > 0) {
+                            int origAtkP = attacker.attack;
+                            attacker.attack = (int)(origAtkP * pierceRatio);
+                            result.damages.add(calcDamage(attacker, e));
+                            attacker.attack = origAtkP;
+                        }
                     }
+                } else {
+                    result.damages.add(calcDamage(attacker, target));
                 }
-                result.damages.add(calcDamage(attacker, highestTarget));
-                result.specialTarget = highestTarget.name;
                 break;
             }
             case "t_archer_1": {

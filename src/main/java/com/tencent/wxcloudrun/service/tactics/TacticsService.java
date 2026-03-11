@@ -242,9 +242,10 @@ public class TacticsService {
         info.put("id", t.getId());
         info.put("name", t.getName());
         info.put("icon", t.getIcon());
-        info.put("iconUrl", t.getIconUrl());
+        info.put("apkIconId", t.getApkIconId());
         info.put("troopType", t.getTroopType());
         info.put("category", t.getCategory());
+        info.put("type", t.getCategory());
         info.put("description", t.getDescription());
         info.put("effectDesc", t.getEffectDesc());
         info.put("owned", owned);

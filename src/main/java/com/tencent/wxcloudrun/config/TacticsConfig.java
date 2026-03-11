@@ -6,11 +6,11 @@ import javax.annotation.PostConstruct;
 import java.util.*;
 
 /**
- * 兵法配置 - 9+1种兵种专属兵法
+ * 兵法配置 - 12+1种兵种专属兵法 (与APK WarBookShow_cfg.json对齐)
  *
- * 步兵(被动): 方圆阵、长蛇阵、雁行阵
- * 骑兵(主动): 铁骑冲锋、声东击西、擒贼擒王
- * 弓兵(主动/被动): 连射、长虹贯日、落月弓
+ * 弓兵: 连射(33001)、长虹贯日(33002)、落月弓(33003)
+ * 骑兵: 声东击西(33004)、铁骑冲锋(33005)、以逸待劳(33006)、战神突击(33012)
+ * 步兵: 方圆阵(33007)、偃月阵(33008)、长蛇阵(33009)、雁行阵(33010)、却月阵(33011)
  * 吕布专属: 辕门射戟
  */
 @Component
@@ -20,65 +20,9 @@ public class TacticsConfig {
 
     @PostConstruct
     public void init() {
-        // ========== 步兵兵法（被动，始终生效） ==========
-        register(TacticsTemplate.builder()
-            .id("t_infantry_1").name("方圆阵").icon("🔄").iconUrl("tactics/t_infantry_1.png").troopType("步").category("被动")
-            .description("步兵阵法，提高防御")
-            .effectKey("defBonus").minEffect(2).maxEffect(20).effectUnit("%")
-            .effectDesc("提高{value}%的防御")
-            .baseTriggerRate(100)
-            .craftPaper(3000).craftSilver(8000).upgradePaperPerLv(3000).upgradeSilverPerLv(8000)
-            .build());
-
-        register(TacticsTemplate.builder()
-            .id("t_infantry_2").name("长蛇阵").icon("🐍").iconUrl("tactics/t_infantry_2.png").troopType("步").category("被动")
-            .description("步兵阵法，提高闪避")
-            .effectKey("dodgeBonus").minEffect(1.5).maxEffect(15).effectUnit("%")
-            .effectDesc("提高{value}%的闪避")
-            .baseTriggerRate(100)
-            .craftPaper(3000).craftSilver(8000).upgradePaperPerLv(3000).upgradeSilverPerLv(8000)
-            .build());
-
-        register(TacticsTemplate.builder()
-            .id("t_infantry_3").name("雁行阵").icon("🦅").iconUrl("tactics/t_infantry_3.png").troopType("步").category("被动")
-            .description("步兵阵法，克制骑兵并增强弓兵伤害")
-            .effectKey("yanhang").minEffect(2).maxEffect(20).effectUnit("%")
-            .effectDesc("减少骑兵{value}%伤害并反弹受伤的{reflect}%，增加弓兵{archerBonus}%伤害")
-            .baseTriggerRate(100)
-            .craftPaper(8000).craftSilver(15000).upgradePaperPerLv(6000).upgradeSilverPerLv(12000)
-            .build());
-
-        // ========== 骑兵兵法（主动，需发动判定） ==========
-        register(TacticsTemplate.builder()
-            .id("t_cavalry_1").name("铁骑冲锋").icon("🐎").iconUrl("tactics/t_cavalry_1.png").troopType("骑").category("主动")
-            .description("骑兵冲锋，对敌方武将造成额外伤害")
-            .effectKey("dmgBonus").minEffect(2).maxEffect(20).effectUnit("%")
-            .effectDesc("发动后对敌方武将额外造成{value}%伤害")
-            .baseTriggerRate(30)
-            .craftPaper(5000).craftSilver(10000).upgradePaperPerLv(5000).upgradeSilverPerLv(10000)
-            .build());
-
-        register(TacticsTemplate.builder()
-            .id("t_cavalry_2").name("声东击西").icon("🎭").iconUrl("tactics/t_cavalry_2.png").troopType("骑").category("主动")
-            .description("骑兵战术，发动后攻击敌方随机弓兵")
-            .effectKey("extraTrigger").minEffect(3).maxEffect(30).effectUnit("%")
-            .effectDesc("发动后攻击敌方随机弓兵，额外发动概率+{value}%")
-            .baseTriggerRate(30)
-            .craftPaper(5000).craftSilver(12000).upgradePaperPerLv(4500).upgradeSilverPerLv(10000)
-            .build());
-
-        register(TacticsTemplate.builder()
-            .id("t_cavalry_3").name("擒贼擒王").icon("👑").iconUrl("tactics/t_cavalry_3.png").troopType("骑").category("主动")
-            .description("骑兵战术，发动后攻击敌方等级最高的武将")
-            .effectKey("extraTrigger").minEffect(3).maxEffect(30).effectUnit("%")
-            .effectDesc("发动后攻击敌方最高武将，额外发动概率+{value}%")
-            .baseTriggerRate(30)
-            .craftPaper(6000).craftSilver(12000).upgradePaperPerLv(5000).upgradeSilverPerLv(11000)
-            .build());
-
         // ========== 弓兵兵法 ==========
         register(TacticsTemplate.builder()
-            .id("t_archer_1").name("连射").icon("🏹").iconUrl("tactics/t_archer_1.png").troopType("弓").category("主动")
+            .id("t_archer_1").name("连射").icon("🏹").apkIconId("33001").troopType("弓").category("连击")
             .description("弓兵技艺，有概率发动两次攻击")
             .effectKey("doubleShot").minEffect(5).maxEffect(50).effectUnit("%")
             .effectDesc("{value}%的概率发动两次攻击")
@@ -87,7 +31,7 @@ public class TacticsConfig {
             .build());
 
         register(TacticsTemplate.builder()
-            .id("t_archer_2").name("长虹贯日").icon("☀️").iconUrl("tactics/t_archer_2.png").troopType("弓").category("主动")
+            .id("t_archer_2").name("长虹贯日").icon("☀️").apkIconId("33002").troopType("弓").category("穿透")
             .description("弓兵兵法，穿透性攻击，对同一行所有敌人造成伤害")
             .effectKey("aoeDmg").minEffect(45).maxEffect(85).effectUnit("%")
             .effectDesc("对同一行敌人造成{value}%的伤害")
@@ -96,7 +40,7 @@ public class TacticsConfig {
             .build());
 
         register(TacticsTemplate.builder()
-            .id("t_archer_3").name("落月弓").icon("🌙").iconUrl("tactics/t_archer_3.png").troopType("弓").category("被动")
+            .id("t_archer_3").name("落月弓").icon("🌙").apkIconId("33003").troopType("弓").category("强击")
             .description("弓兵绝技，提高攻击伤害")
             .effectKey("dmgBonus").minEffect(5).maxEffect(50).effectUnit("%")
             .effectDesc("提高{value}%的伤害")
@@ -104,9 +48,92 @@ public class TacticsConfig {
             .craftPaper(3500).craftSilver(8000).upgradePaperPerLv(3500).upgradeSilverPerLv(8000)
             .build());
 
+        // ========== 骑兵兵法（主动，需发动判定） ==========
+        register(TacticsTemplate.builder()
+            .id("t_cavalry_2").name("声东击西").icon("🎭").apkIconId("33004").troopType("骑").category("偷袭")
+            .description("骑兵战术，发动后攻击敌方随机弓兵")
+            .effectKey("extraTrigger").minEffect(3).maxEffect(30).effectUnit("%")
+            .effectDesc("发动后攻击敌方随机弓兵，额外发动概率+{value}%")
+            .baseTriggerRate(30)
+            .craftPaper(5000).craftSilver(12000).upgradePaperPerLv(4500).upgradeSilverPerLv(10000)
+            .build());
+
+        register(TacticsTemplate.builder()
+            .id("t_cavalry_1").name("铁骑冲锋").icon("🐎").apkIconId("33005").troopType("骑").category("强袭")
+            .description("骑兵冲锋，对敌方武将造成额外伤害")
+            .effectKey("dmgBonus").minEffect(2).maxEffect(20).effectUnit("%")
+            .effectDesc("发动后对敌方武将额外造成{value}%伤害")
+            .baseTriggerRate(30)
+            .craftPaper(5000).craftSilver(10000).upgradePaperPerLv(5000).upgradeSilverPerLv(10000)
+            .build());
+
+        register(TacticsTemplate.builder()
+            .id("t_cavalry_3").name("以逸待劳").icon("⏳").apkIconId("33006").troopType("骑").category("伏击")
+            .description("骑兵战术，伏击敌方，造成额外伤害")
+            .effectKey("ambushDmg").minEffect(3).maxEffect(30).effectUnit("%")
+            .effectDesc("发动后伏击敌方，额外造成{value}%伤害")
+            .baseTriggerRate(25)
+            .craftPaper(5000).craftSilver(10000).upgradePaperPerLv(4500).upgradeSilverPerLv(10000)
+            .build());
+
+        // ========== 步兵兵法（被动，始终生效） ==========
+        register(TacticsTemplate.builder()
+            .id("t_infantry_1").name("方圆阵").icon("🔄").apkIconId("33007").troopType("步").category("防御")
+            .description("步兵阵法，提高防御")
+            .effectKey("defBonus").minEffect(2).maxEffect(20).effectUnit("%")
+            .effectDesc("提高{value}%的防御")
+            .baseTriggerRate(100)
+            .craftPaper(3000).craftSilver(8000).upgradePaperPerLv(3000).upgradeSilverPerLv(8000)
+            .build());
+
+        register(TacticsTemplate.builder()
+            .id("t_infantry_4").name("偃月阵").icon("🌓").apkIconId("33008").troopType("步").category("防御")
+            .description("步兵阵法，增加防御并减少受到的伤害")
+            .effectKey("defBonus2").minEffect(3).maxEffect(25).effectUnit("%")
+            .effectDesc("提高{value}%的防御并减少受到的伤害")
+            .baseTriggerRate(100)
+            .craftPaper(4000).craftSilver(10000).upgradePaperPerLv(3500).upgradeSilverPerLv(9000)
+            .build());
+
+        register(TacticsTemplate.builder()
+            .id("t_infantry_2").name("长蛇阵").icon("🐍").apkIconId("33009").troopType("步").category("防御")
+            .description("步兵阵法，提高闪避")
+            .effectKey("dodgeBonus").minEffect(1.5).maxEffect(15).effectUnit("%")
+            .effectDesc("提高{value}%的闪避")
+            .baseTriggerRate(100)
+            .craftPaper(3000).craftSilver(8000).upgradePaperPerLv(3000).upgradeSilverPerLv(8000)
+            .build());
+
+        register(TacticsTemplate.builder()
+            .id("t_infantry_3").name("雁行阵").icon("🦅").apkIconId("33010").troopType("步").category("闪避")
+            .description("步兵阵法，克制骑兵并增强弓兵伤害")
+            .effectKey("yanhang").minEffect(2).maxEffect(20).effectUnit("%")
+            .effectDesc("减少骑兵{value}%伤害并反弹受伤的{reflect}%，增加弓兵{archerBonus}%伤害")
+            .baseTriggerRate(100)
+            .craftPaper(8000).craftSilver(15000).upgradePaperPerLv(6000).upgradeSilverPerLv(12000)
+            .build());
+
+        register(TacticsTemplate.builder()
+            .id("t_infantry_5").name("却月阵").icon("🌘").apkIconId("33011").troopType("步").category("反伤")
+            .description("步兵阵法，受到攻击时反弹部分伤害")
+            .effectKey("reflectDmg").minEffect(3).maxEffect(25).effectUnit("%")
+            .effectDesc("受到攻击时反弹{value}%的伤害")
+            .baseTriggerRate(100)
+            .craftPaper(6000).craftSilver(12000).upgradePaperPerLv(5000).upgradeSilverPerLv(10000)
+            .build());
+
+        register(TacticsTemplate.builder()
+            .id("t_cavalry_4").name("战神突击").icon("⚔️").apkIconId("33012").troopType("骑").category("贯穿")
+            .description("骑兵绝技，贯穿攻击一行敌人")
+            .effectKey("pierceDmg").minEffect(40).maxEffect(80).effectUnit("%")
+            .effectDesc("贯穿攻击一行敌人，造成{value}%的伤害")
+            .baseTriggerRate(25)
+            .craftPaper(8000).craftSilver(15000).upgradePaperPerLv(6000).upgradeSilverPerLv(12000)
+            .build());
+
         // ========== 吕布专属（VIP10获取，不可制造） ==========
         register(TacticsTemplate.builder()
-            .id("t_special_lvbu").name("辕门射戟").icon("🏹").iconUrl("tactics/t_special_lvbu.png").troopType("弓").category("主动")
+            .id("t_special_lvbu").name("辕门射戟").icon("🏹").apkIconId("33002").troopType("弓").category("穿透")
             .description("吕布专属兵法，对同一行所有敌人造成大量伤害")
             .effectKey("aoeDmg").minEffect(60).maxEffect(100).effectUnit("%")
             .effectDesc("对同一行所有敌人造成{value}%的伤害")
@@ -208,8 +235,8 @@ public class TacticsConfig {
     public static class TacticsTemplate {
         private String id;
         private String name;
-        private String icon;        // emoji备用
-        private String iconUrl;     // 云托管存储路径，前端拼接 BUCKET_URL
+        private String icon;
+        private String apkIconId;       // APK图标ID，如 "33001"，前端映射 images/ui/tactics/33001.jpg
         private String troopType;       // 步/骑/弓
         private String category;        // 被动/主动
         private String description;
