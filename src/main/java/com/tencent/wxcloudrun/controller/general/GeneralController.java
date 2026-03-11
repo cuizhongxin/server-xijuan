@@ -154,10 +154,15 @@ public class GeneralController {
                                      HttpServletRequest request) {
         String userId = String.valueOf(request.getAttribute("userId"));
         String generalId = (String) params.get("generalId");
-        Number itemIdNum = (Number) params.get("itemId");
+        Object itemIdObj = params.get("itemId");
         Number countNum = (Number) params.get("count");
 
-        int itemId = itemIdNum != null ? itemIdNum.intValue() : 0;
+        int itemId = 0;
+        if (itemIdObj instanceof Number) {
+            itemId = ((Number) itemIdObj).intValue();
+        } else if (itemIdObj instanceof String) {
+            itemId = Integer.parseInt((String) itemIdObj);
+        }
         int count = countNum != null ? countNum.intValue() : 1;
 
         logger.info("使用经验药, userId: {}, generalId: {}, itemId: {}, count: {}",

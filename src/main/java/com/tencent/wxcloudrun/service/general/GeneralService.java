@@ -413,26 +413,32 @@ public class GeneralService {
 
     /**
      * 使用经验药
-     * itemId: 28=初级经验丹(200exp), 29=中级经验丹(1000exp), 30=高级经验丹(5000exp)
+     * itemId: 15031=初级(5000), 15032=中级(15000), 15033=高级(35000), 15034=特级(60000)
      */
     public Map<String, Object> useExpItem(String userId, String generalId, int itemId, int count) {
-        General general = generalRepository.findById(generalId);
-        if (general == null) { throw new RuntimeException("武将不存在"); }
-        if (!general.getUserId().equals(userId)) { throw new RuntimeException("无权操作"); }
-
         int expPer;
         switch (itemId) {
             case 28: expPer = 200; break;
             case 29: expPer = 1000; break;
             case 30: expPer = 5000; break;
+            case 15031: expPer = 5000; break;
+            case 15032: expPer = 15000; break;
+            case 15033: expPer = 35000; break;
+            case 15034: expPer = 60000; break;
             default: throw new RuntimeException("无效的经验药道具");
         }
 
-        // 扣除道具
+        if (generalId == null || generalId.isEmpty()) {
+            throw new RuntimeException("请选择武将");
+        }
+
         boolean consumed = warehouseService.removeItem(userId, String.valueOf(itemId), count);
         if (!consumed) { throw new RuntimeException("道具数量不足"); }
 
         long totalExp = (long) expPer * count;
+        General general = generalRepository.findById(generalId);
+        if (general == null) { throw new RuntimeException("武将不存在"); }
+        if (!general.getUserId().equals(userId)) { throw new RuntimeException("无权操作"); }
         Map<String, Object> expResult = addGeneralExp(generalId, totalExp);
 
         Map<String, Object> result = new HashMap<>();
@@ -440,6 +446,7 @@ public class GeneralService {
         result.put("expGained", totalExp);
         result.put("itemId", itemId);
         result.put("count", count);
+        result.put("type", "general");
         result.put("levelUp", expResult.get("levelUp"));
         result.put("newLevel", expResult.get("newLevel"));
         return result;
