@@ -122,15 +122,47 @@ public class CampaignService {
         return result.stream().mapToInt(Integer::intValue).toArray();
     }
 
-    private static String[] getDropPreviewsForChapter(int chapterOrder) {
-        if (chapterOrder < 1 || chapterOrder > APK_CHAPTER_EQUIP_IDS.length) return new String[0];
+    private static final Map<Integer, String[]> APK_PROP_INFO = new HashMap<>();
+    static {
+        APK_PROP_INFO.put(15201, new String[]{"黑铁装备",   "images/item/15201.jpg"});
+        APK_PROP_INFO.put(15202, new String[]{"精钢装备",   "images/item/15202.jpg"});
+        APK_PROP_INFO.put(15203, new String[]{"紫铜装备",   "images/item/15203.jpg"});
+        APK_PROP_INFO.put(15206, new String[]{"宣武套装",   "images/item/15206.jpg"});
+        APK_PROP_INFO.put(15207, new String[]{"折冲套装",   "images/item/15207.jpg"});
+        APK_PROP_INFO.put(15208, new String[]{"骁勇套装",   "images/item/15208.jpg"});
+        APK_PROP_INFO.put(15209, new String[]{"破俘套装",   "images/item/15209.jpg"});
+        APK_PROP_INFO.put(15210, new String[]{"陷阵套装",   "images/item/15210.jpg"});
+        APK_PROP_INFO.put(15211, new String[]{"狂战套装",   "images/item/15211.jpg"});
+        APK_PROP_INFO.put(15212, new String[]{"天狼套装",   "images/item/15212.jpg"});
+        APK_PROP_INFO.put(15213, new String[]{"破军套装",   "images/item/15213.jpg"});
+        APK_PROP_INFO.put(15214, new String[]{"龙威套装",   "images/item/15214.jpg"});
+        APK_PROP_INFO.put(15215, new String[]{"战神套装",   "images/item/15215.jpg"});
+        APK_PROP_INFO.put(15221, new String[]{"征戎套装",   "images/item/15221.jpg"});
+        APK_PROP_INFO.put(15222, new String[]{"诛邪套装",   "images/item/15222.jpg"});
+        APK_PROP_INFO.put(15001, new String[]{"初级合成符", "images/item/15001.jpg"});
+        APK_PROP_INFO.put(11001, new String[]{"初级声望符", "images/item/11001.jpg"});
+        APK_PROP_INFO.put(15042, new String[]{"特训符",     "images/item/15042.jpg"});
+        APK_PROP_INFO.put(15052, new String[]{"军需令",     "images/item/15052.jpg"});
+        APK_PROP_INFO.put(15022, new String[]{"鬼谷兵法",   "images/item/15022.jpg"});
+        APK_PROP_INFO.put(15023, new String[]{"太公六韬",   "images/item/15023.jpg"});
+        APK_PROP_INFO.put(15024, new String[]{"孙子兵法",   "images/item/15024.jpg"});
+        APK_PROP_INFO.put(11104, new String[]{"招财符",     "images/item/11104.jpg"});
+    }
+
+    private static List<Campaign.DropPreview> getDropPreviewsForChapter(int chapterOrder) {
+        if (chapterOrder < 1 || chapterOrder > APK_CHAPTER_EQUIP_IDS.length) return new ArrayList<>();
         int[] rawIds = APK_CHAPTER_EQUIP_IDS[chapterOrder - 1];
-        List<String> names = new ArrayList<>();
+        List<Campaign.DropPreview> list = new ArrayList<>();
         for (int id : rawIds) {
-            String name = EQUIP_BOX_NAME_MAP.get(id);
-            if (name != null) names.add(name);
+            String[] info = APK_PROP_INFO.get(id);
+            if (info != null) {
+                list.add(Campaign.DropPreview.builder()
+                    .name(info[0]).icon(info[1])
+                    .quality(EQUIP_BOX_MAP.containsKey(id) ? "装备" : "道具")
+                    .build());
+            }
         }
-        return names.toArray(new String[0]);
+        return list;
     }
 
     private static int[] getItemDropPool(int maxLv) {
@@ -213,10 +245,6 @@ public class CampaignService {
         log.info("战役配置初始化完成，共{}个战役", campaignConfigs.size());
     }
 
-    private Campaign.DropPreview dp(String name, String quality) {
-        return Campaign.DropPreview.builder().name(name).quality(quality).build();
-    }
-
     private void regApk(String id, String name, String desc,
                         int lvMin, int lvMax, int reqLv,
                         int dailyLimit, int staminaCost, int order,
@@ -226,11 +254,7 @@ public class CampaignService {
 
         int[] equipIds = getEquipPreIdsForChapter(order);
         int[] itemIds = getItemDropPool(lvMax);
-        String[] dropNames = getDropPreviewsForChapter(order);
-        List<Campaign.DropPreview> dropPreviews = new ArrayList<>();
-        for (String dn : dropNames) {
-            dropPreviews.add(dp(dn, "装备"));
-        }
+        List<Campaign.DropPreview> dropPreviews = getDropPreviewsForChapter(order);
 
         int baseExp = calcBaseExp(lvMin, lvMax);
         long baseSilver = calcBaseSilver(lvMin, lvMax);
