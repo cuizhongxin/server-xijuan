@@ -7,6 +7,7 @@ import com.tencent.wxcloudrun.model.*;
 import com.tencent.wxcloudrun.repository.DungeonProgressRepository;
 import com.tencent.wxcloudrun.repository.EquipmentPreRepository;
 import com.tencent.wxcloudrun.repository.EquipmentRepository;
+import com.tencent.wxcloudrun.service.equipment.EquipmentService;
 import com.tencent.wxcloudrun.service.general.GeneralService;
 import com.tencent.wxcloudrun.service.level.LevelService;
 import org.slf4j.Logger;
@@ -45,6 +46,9 @@ public class DungeonService {
     
     @Autowired
     private GeneralService generalService;
+    
+    @Autowired
+    private EquipmentService equipmentService;
     
     private final Random random = new Random();
     
@@ -300,57 +304,7 @@ public class DungeonService {
             return generateRandomDropEquipment(userId, npc, dungeonId);
         }
 
-        String equipmentId = "equip_" + System.currentTimeMillis() + "_" +
-                UUID.randomUUID().toString().substring(0, 8);
-
-        int slotTypeId = pre.getSlotTypeId();
-        Equipment.SlotType slotType = equipmentConfig.getSlotType(slotTypeId);
-        int qualityId = pre.getDefaultQualityId();
-        Equipment.Quality quality = equipmentConfig.getQuality(qualityId);
-
-        Equipment.SetInfo setInfo = null;
-        if (pre.getSetName() != null && !pre.getSetName().isEmpty()) {
-            setInfo = Equipment.SetInfo.builder()
-                    .setId("SET_" + pre.getSetName())
-                    .setName(pre.getSetName())
-                    .setLevel(pre.getLevel())
-                    .threeSetEffect(pre.getSetEffect3())
-                    .sixSetEffect(pre.getSetEffect6())
-                    .build();
-        }
-
-        Equipment.Attributes baseAttributes = Equipment.Attributes.builder()
-                .attack(pre.getAttack() != null ? pre.getAttack() : 0)
-                .defense(pre.getDefense() != null ? pre.getDefense() : 0)
-                .hp(pre.getSoldierHp() != null ? pre.getSoldierHp() : 0)
-                .mobility(pre.getMobility() != null ? pre.getMobility() : 0)
-                .build();
-
-        Equipment equipment = Equipment.builder()
-                .id(equipmentId)
-                .userId(userId)
-                .name(pre.getName())
-                .slotType(slotType)
-                .level(pre.getLevel())
-                .quality(quality)
-                .setInfo(setInfo)
-                .baseAttributes(baseAttributes)
-                .bonusAttributes(Equipment.Attributes.builder().build())
-                .source(Equipment.Source.builder()
-                        .type("DUNGEON")
-                        .name("副本掉落")
-                        .detail(dungeonId)
-                        .build())
-                .equipped(false)
-                .equippedGeneralId(null)
-                .icon(slotType.getIcon())
-                .description(String.format("%s - %s级%s装备",
-                        pre.getSetName() != null ? pre.getSetName() + "套装" : "副本装备",
-                        pre.getLevel(), quality.getName()))
-                .createTime(System.currentTimeMillis())
-                .updateTime(System.currentTimeMillis())
-                .build();
-
+        Equipment equipment = equipmentService.buildEquipmentFromPre(userId, pre, "DUNGEON", "副本掉落");
         equipmentRepository.save(equipment);
         return equipment;
     }

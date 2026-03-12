@@ -28,4 +28,14 @@ public class Item {
      * 道具品质，1~6：白、绿、蓝、紫、橙、红
      */
     private Integer quality;
+    
+    /**
+     * 道具图标文件名（如 11001.jpg）
+     */
+    private String icon;
+    
+    /**
+     * 道具描述
+     */
+    private String description;
 }

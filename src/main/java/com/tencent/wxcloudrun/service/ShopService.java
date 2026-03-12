@@ -163,15 +163,20 @@ public class ShopService {
         // 根据商品分类映射到仓库物品类型
         String itemType = mapClassifyToItemType(goods.getClassify());
         
+        String itemIcon = (item.getIcon() != null && !item.getIcon().isEmpty())
+                ? item.getIcon() : goods.getIcon();
+        String itemDesc = (item.getDescription() != null && !item.getDescription().isEmpty())
+                ? item.getDescription() : goods.getDesc();
+        
         Warehouse.WarehouseItem warehouseItem = Warehouse.WarehouseItem.builder()
                 .itemId(warehouseItemId)
                 .itemType(itemType)
                 .name(item.getItemName())
-                .icon(goods.getIcon())
+                .icon(itemIcon)
                 .quality(String.valueOf(item.getQuality() != null ? item.getQuality() : 1))
                 .count(count)
                 .maxStack(9999)
-                .description(goods.getDesc())
+                .description(itemDesc)
                 .usable(true)
                 .build();
         
@@ -187,6 +192,7 @@ public class ShopService {
         if (classify == null) return "other";
         switch (classify) {
             case "enhance":
+            case "common_props":
                 return "material";
             case "recruit":
                 return "token";
@@ -195,7 +201,9 @@ public class ShopService {
             case "consumable":
                 return "consumable";
             case "special":
-                return "special";
+            case "new_products":
+            case "active":
+                return "consumable";
             default:
                 return "other";
         }

@@ -13,11 +13,11 @@ public interface EquipmentPreMapper {
 
     List<EquipmentPre> findAll();
 
-    List<EquipmentPre> findBySource(@Param("source") String source);
+    List<EquipmentPre> findByColor(@Param("color") Integer color);
 
-    List<EquipmentPre> findByLevel(@Param("level") Integer level);
+    List<EquipmentPre> findBySuitId(@Param("suitId") Integer suitId);
 
-    List<EquipmentPre> findByLevelAndSource(@Param("level") Integer level, @Param("source") String source);
+    List<EquipmentPre> findByNeedLevel(@Param("needLevel") Integer needLevel);
 
     List<EquipmentPre> findByIds(@Param("ids") List<Integer> ids);
 

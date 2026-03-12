@@ -5,56 +5,92 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * 装备模板（equipment_pre 表映射）
- * 定义所有可获取装备的基础属性模板
- */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class EquipmentPre {
 
-    private Integer id;
+    private Integer id;           // APK装备ID (如22001)
     private String name;
-    private Integer level;
-    private String source;       // 副本掉落/副本产出/手工制作/秘境产出/天地宝箱
-    private String position;     // 武器/戒指/铠甲/项链/头盔/鞋子
-    private String setName;      // 套装名
-    private String setEffect3;   // 3件套效果
-    private String setEffect6;   // 6件套效果
-    private String iconUrl;       // 云托管存储路径，前端拼接 BUCKET_URL
-    private Integer attack;
-    private Integer defense;
-    private Integer soldierHp;
-    private Integer mobility;
+    private String description;
+    private Integer color;        // 品质: 2=绿, 3=蓝, 4=紫, 5=橙
+    private Integer type;         // 部位: 1=武器, 2=戒指, 3=项链, 4=铠甲, 5=头盔, 6=靴子
+    private String position;      // 部位中文名
+    private Integer needLevel;    // 穿戴所需等级
+    private Integer maxLevel;     // 最大强化等级
+    private Integer suitId;       // 套装ID (0=散件)
+    private String suitName;      // 套装名称
+    private Integer basePrice;    // 基础售价(白银)
+    private String iconUrl;       // 图片文件名
+    private Integer genAtt;       // 武将攻击
+    private Integer genDef;       // 武将防御
+    private Integer genFor;       // 武勇
+    private Integer genLeader;    // 统御
+    private Integer armyLife;     // 军队生命
+    private Integer armyAtt;      // 军队攻击
+    private Integer armyDef;      // 军队防御
+    private Integer armySp;       // 军队速度/机动
+    private Integer armyHit;      // 命中
+    private Integer armyMis;      // 闪避
 
     /**
-     * position → slotTypeId 映射
+     * APK type -> slotTypeId 映射
+     * APK: 1=武器, 2=戒指, 3=项链, 4=铠甲, 5=头盔, 6=靴子
+     * 系统: 1=武器, 2=头盔, 3=铠甲, 4=戒指, 5=鞋子, 6=项链
      */
     public Integer getSlotTypeId() {
-        if (position == null) return 1;
-        switch (position) {
-            case "武器": return 1;
-            case "头盔": return 2;
-            case "铠甲": return 3;
-            case "戒指": return 4;
-            case "鞋子": return 5;
-            case "项链": return 6;
+        if (type == null) return 1;
+        switch (type) {
+            case 1: return 1; // 武器
+            case 2: return 4; // 戒指
+            case 3: return 6; // 项链
+            case 4: return 3; // 铠甲
+            case 5: return 2; // 头盔
+            case 6: return 5; // 靴子(鞋子)
             default: return 1;
         }
     }
 
     /**
-     * 根据等级推断默认品质ID
+     * 根据 color 推断品质ID
      */
     public Integer getDefaultQualityId() {
-        if (level == null) return 1;
-        if (level <= 1) return 1;
-        if (level <= 20) return 2;
-        if (level <= 40) return 3;
-        if (level <= 60) return 4;
-        if (level <= 80) return 5;
-        return 5;
+        if (color == null) return 2;
+        return color;
+    }
+
+    // ---- 兼容旧代码的 getter ----
+
+    public Integer getLevel() {
+        return needLevel;
+    }
+
+    public Integer getAttack() {
+        return genAtt;
+    }
+
+    public Integer getDefense() {
+        return genDef;
+    }
+
+    public Integer getSoldierHp() {
+        return armyLife;
+    }
+
+    public Integer getMobility() {
+        return armySp;
+    }
+
+    public String getSetName() {
+        return suitName;
+    }
+
+    public String getSetEffect3() {
+        return null;
+    }
+
+    public String getSetEffect6() {
+        return null;
     }
 }

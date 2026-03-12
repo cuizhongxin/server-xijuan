@@ -98,13 +98,25 @@ public class Equipment {
     private Attributes enhanceAttributes;
     
     /**
-     * 品质值 (0-100，100为完美品质)
+     * 品质值 (1-5: 粗糙/普通/优良/无暇/完美)
      */
     @Builder.Default
     private Integer qualityValue = 0;
     
+    public String getQualityName() {
+        if (qualityValue == null || qualityValue <= 0) return "粗糙";
+        switch (qualityValue) {
+            case 1: return "粗糙";
+            case 2: return "普通";
+            case 3: return "优良";
+            case 4: return "无暇";
+            case 5: return "完美";
+            default: return "粗糙";
+        }
+    }
+    
     /**
-     * 品质属性加成（基于品质值计算）
+     * 品质属性（存储100%模板原始属性，用于品质缩放计算）
      */
     private Attributes qualityAttributes;
     

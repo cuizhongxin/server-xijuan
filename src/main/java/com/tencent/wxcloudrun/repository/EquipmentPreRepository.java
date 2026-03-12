@@ -9,9 +9,6 @@ import javax.annotation.PostConstruct;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * 装备模板仓库 - 启动时加载全部模板到内存缓存
- */
 @Repository
 public class EquipmentPreRepository {
 
@@ -51,34 +48,36 @@ public class EquipmentPreRepository {
                 .collect(Collectors.toList());
     }
 
-    public List<EquipmentPre> findBySource(String source) {
+    public List<EquipmentPre> findByColor(Integer color) {
         return cache.values().stream()
-                .filter(p -> source.equals(p.getSource()))
+                .filter(p -> color.equals(p.getColor()))
+                .sorted(Comparator.comparingInt(EquipmentPre::getNeedLevel).thenComparingInt(EquipmentPre::getId))
                 .collect(Collectors.toList());
     }
 
+    public List<EquipmentPre> findBySuitId(Integer suitId) {
+        return cache.values().stream()
+                .filter(p -> suitId.equals(p.getSuitId()))
+                .sorted(Comparator.comparingInt(EquipmentPre::getType))
+                .collect(Collectors.toList());
+    }
+
+    public List<EquipmentPre> findByNeedLevel(Integer needLevel) {
+        return cache.values().stream()
+                .filter(p -> p.getNeedLevel() != null && p.getNeedLevel() <= needLevel)
+                .sorted(Comparator.comparingInt(EquipmentPre::getNeedLevel).reversed()
+                        .thenComparing(Comparator.comparingInt(EquipmentPre::getColor).reversed()))
+                .collect(Collectors.toList());
+    }
+
+    @Deprecated
     public List<EquipmentPre> findByLevel(Integer level) {
-        return cache.values().stream()
-                .filter(p -> level.equals(p.getLevel()))
-                .collect(Collectors.toList());
+        return findByNeedLevel(level);
     }
 
-    /**
-     * 获取所有可手工制作的装备模板
-     */
-    public List<EquipmentPre> findCraftable() {
-        return cache.values().stream()
-                .filter(p -> "手工制作".equals(p.getSource()))
-                .sorted(Comparator.comparingInt(EquipmentPre::getLevel).thenComparingInt(EquipmentPre::getId))
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * 按套装名获取模板
-     */
     public List<EquipmentPre> findBySetName(String setName) {
         return cache.values().stream()
-                .filter(p -> setName.equals(p.getSetName()))
+                .filter(p -> setName.equals(p.getSuitName()))
                 .collect(Collectors.toList());
     }
 }

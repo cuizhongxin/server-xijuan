@@ -5,17 +5,26 @@
     <resultMap id="equipmentPreMap" type="com.tencent.wxcloudrun.model.EquipmentPre">
         <id column="id" property="id"/>
         <result column="name" property="name"/>
-        <result column="level" property="level"/>
-        <result column="source" property="source"/>
+        <result column="description" property="description"/>
+        <result column="color" property="color"/>
+        <result column="type" property="type"/>
         <result column="position" property="position"/>
-        <result column="set_name" property="setName"/>
-        <result column="set_effect_3" property="setEffect3"/>
-        <result column="set_effect_6" property="setEffect6"/>
+        <result column="need_level" property="needLevel"/>
+        <result column="max_level" property="maxLevel"/>
+        <result column="suit_id" property="suitId"/>
+        <result column="suit_name" property="suitName"/>
+        <result column="base_price" property="basePrice"/>
         <result column="icon_url" property="iconUrl"/>
-        <result column="attack" property="attack"/>
-        <result column="defense" property="defense"/>
-        <result column="soldier_hp" property="soldierHp"/>
-        <result column="mobility" property="mobility"/>
+        <result column="gen_att" property="genAtt"/>
+        <result column="gen_def" property="genDef"/>
+        <result column="gen_for" property="genFor"/>
+        <result column="gen_leader" property="genLeader"/>
+        <result column="army_life" property="armyLife"/>
+        <result column="army_att" property="armyAtt"/>
+        <result column="army_def" property="armyDef"/>
+        <result column="army_sp" property="armySp"/>
+        <result column="army_hit" property="armyHit"/>
+        <result column="army_mis" property="armyMis"/>
     </resultMap>
 
     <select id="findById" resultMap="equipmentPreMap">
@@ -23,19 +32,19 @@
     </select>
 
     <select id="findAll" resultMap="equipmentPreMap">
-        SELECT * FROM equipment_pre ORDER BY level, id
+        SELECT * FROM equipment_pre ORDER BY color, need_level, id
     </select>
 
-    <select id="findBySource" resultMap="equipmentPreMap">
-        SELECT * FROM equipment_pre WHERE source = #{source} ORDER BY level, id
+    <select id="findByColor" resultMap="equipmentPreMap">
+        SELECT * FROM equipment_pre WHERE color = #{color} ORDER BY need_level, id
     </select>
 
-    <select id="findByLevel" resultMap="equipmentPreMap">
-        SELECT * FROM equipment_pre WHERE level = #{level} ORDER BY id
+    <select id="findBySuitId" resultMap="equipmentPreMap">
+        SELECT * FROM equipment_pre WHERE suit_id = #{suitId} ORDER BY type
     </select>
 
-    <select id="findByLevelAndSource" resultMap="equipmentPreMap">
-        SELECT * FROM equipment_pre WHERE level = #{level} AND source = #{source} ORDER BY id
+    <select id="findByNeedLevel" resultMap="equipmentPreMap">
+        SELECT * FROM equipment_pre WHERE need_level &lt;= #{needLevel} ORDER BY need_level DESC, color DESC, id
     </select>
 
     <select id="findByIds" resultMap="equipmentPreMap">
@@ -47,7 +56,7 @@
     </select>
 
     <select id="findBySetName" resultMap="equipmentPreMap">
-        SELECT * FROM equipment_pre WHERE set_name = #{setName} ORDER BY id
+        SELECT * FROM equipment_pre WHERE suit_name = #{setName} ORDER BY id
     </select>
 
 </mapper>

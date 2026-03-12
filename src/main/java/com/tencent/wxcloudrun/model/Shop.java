@@ -42,7 +42,7 @@ public class Shop {
     private String icon;
     
     /**
-     * 商品分类: enhance/recruit/resource/consumable/special
+     * 商品分类: new_products(新品热卖)/common_props(常用道具)/active(活动专区)
      */
     private String classify;
     

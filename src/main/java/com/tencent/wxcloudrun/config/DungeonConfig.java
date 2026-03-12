@@ -369,7 +369,7 @@ public class DungeonConfig {
                     dropType = "DUNGEON";
                     dropLevel = 1;
                     dropRate = 80;
-                    dropEquipPreIds = rangeList(1, 6);
+                    dropEquipPreIds = Arrays.asList(22001,22002,22003,22004,22005,22006);
                 } else {
                     qualityId = 1;
                 }
@@ -388,7 +388,7 @@ public class DungeonConfig {
                     dropType = "DUNGEON";
                     dropLevel = 20;
                     dropRate = 60;
-                    dropEquipPreIds = rangeList(7, 12);
+                    dropEquipPreIds = Arrays.asList(22011,22012,22013,22014,22015,22016);
                 } else {
                     qualityId = 2;
                 }
@@ -402,7 +402,7 @@ public class DungeonConfig {
                     dropType = "DUNGEON";
                     dropLevel = 40;
                     dropRate = 45;
-                    dropEquipPreIds = rangeList(19, 24); // 陷阵套装
+                    dropEquipPreIds = Arrays.asList(23031,23032,23033,23034,23035,23036); // 折冲套装
                 } else {
                     qualityId = 2;
                 }
@@ -417,7 +417,7 @@ public class DungeonConfig {
                     dropType = "DUNGEON";
                     dropLevel = 50;
                     dropRate = 40;
-                    dropEquipPreIds = rangeList(31, 36); // 狂战套装
+                    dropEquipPreIds = Arrays.asList(23071,23072,23073,23074,23075,23076); // 狂战套装
                 } else if (index == totalCount) {
                     qualityId = 4;
                     isBoss = true;
@@ -425,8 +425,8 @@ public class DungeonConfig {
                     dropType = "DUNGEON";
                     dropLevel = 60;
                     dropRate = 30;
-                    List<Integer> ids = new ArrayList<>(rangeList(37, 42)); // 天狼
-                    ids.addAll(rangeList(55, 60)); // 熊王
+                    List<Integer> ids = new ArrayList<>(Arrays.asList(23081,23082,23083,23084,23085,23086)); // 天狼套装
+                    ids.addAll(Arrays.asList(24091,24092,24093,24094,24095,24096)); // 破军套装
                     dropEquipPreIds = ids;
                 } else {
                     qualityId = 2;
@@ -442,7 +442,7 @@ public class DungeonConfig {
                     dropType = "DUNGEON";
                     dropLevel = 70;
                     dropRate = 25;
-                    dropEquipPreIds = rangeList(61, 78); // 天诛+地煞+幽冥
+                    dropEquipPreIds = Arrays.asList(24141,24142,24143,24144,24145,24146, 24151,24152,24153,24154,24155,24156, 24161,24162,24163,24164,24165,24166); // 地煞+天诛+幽冥
                 } else if (index == totalCount) {
                     qualityId = 4;
                     isBoss = true;
@@ -450,7 +450,7 @@ public class DungeonConfig {
                     dropType = "DUNGEON";
                     dropLevel = 80;
                     dropRate = 15;
-                    dropEquipPreIds = rangeList(79, 84); // 雄狮套装
+                    dropEquipPreIds = Arrays.asList(25111,25112,25113,25114,25115,25116); // 战神套装
                 } else {
                     qualityId = 2;
                 }
@@ -465,7 +465,7 @@ public class DungeonConfig {
                     dropType = "DUNGEON";
                     dropLevel = 90;
                     dropRate = 18;
-                    dropEquipPreIds = rangeList(97, 102); // 圣象套装
+                    dropEquipPreIds = Arrays.asList(23091,23092,23093,23094,23095,23096); // 征戎套装
                 } else if (index == totalCount) {
                     qualityId = 5;
                     isBoss = true;
@@ -473,7 +473,7 @@ public class DungeonConfig {
                     dropType = "DUNGEON";
                     dropLevel = 100;
                     dropRate = 10;
-                    dropEquipPreIds = rangeList(109, 114); // 玄武套装
+                    dropEquipPreIds = Arrays.asList(25181,25182,25183,25184,25185,25186); // 诛邪套装
                 } else {
                     qualityId = 2;
                 }

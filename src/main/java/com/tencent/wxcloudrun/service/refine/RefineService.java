@@ -1,5 +1,6 @@
 package com.tencent.wxcloudrun.service.refine;
 
+import com.tencent.wxcloudrun.config.EquipmentConfig;
 import com.tencent.wxcloudrun.exception.BusinessException;
 import com.tencent.wxcloudrun.model.Equipment;
 import com.tencent.wxcloudrun.model.UserResource;
@@ -11,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.Random;
 
 /**
  * 精炼服务 - 装备强化、品质提升、套装融合、装备分解
@@ -65,15 +67,6 @@ public class RefineService {
     // 强化属性加成（每级百分比）
     private static final double ENHANCE_BONUS_PER_LEVEL = 0.05; // 每级5%
 
-    // 品质提升消耗品质石
-    private static final int QUALITY_STONE_COST = 5;
-
-    // 品质提升消耗银币
-    private static final int QUALITY_SILVER_COST = 5000;
-
-    // 品质提升随机范围
-    private static final int QUALITY_UPGRADE_MIN = 1;
-    private static final int QUALITY_UPGRADE_MAX = 5;
 
     // 套装定义
     private static final Map<String, SetDefinition> SET_DEFINITIONS = new HashMap<>();
@@ -247,21 +240,29 @@ public class RefineService {
             throw new BusinessException(400, "装备不存在");
         }
 
-        int currentQuality = equipment.getQualityValue() != null ? equipment.getQualityValue() : 0;
-        
+        int currentQualityId = equipment.getQualityValue() != null ? equipment.getQualityValue() : 1;
+        if (currentQualityId < 1) currentQualityId = 1;
+        EquipmentConfig.EquipQualityLevel ql = EquipmentConfig.getEquipQualityLevel(currentQualityId);
+
         Map<String, Object> info = new HashMap<>();
         info.put("equipmentId", equipmentId);
         info.put("equipmentName", equipment.getName());
-        info.put("currentQuality", currentQuality);
-        info.put("maxQuality", 100);
-        info.put("qualityDesc", getQualityDesc(currentQuality));
-        info.put("currentBonus", calculateQualityBonus(equipment, currentQuality));
-        
-        if (currentQuality < 100) {
+        info.put("currentQuality", currentQualityId);
+        info.put("maxQuality", 5);
+        info.put("qualityName", ql.name);
+        info.put("attrRate", ql.attrRate);
+        info.put("qualityDesc", ql.name + " (" + (ql.attrRate / 100) + "%)");
+        info.put("baseAttributes", equipment.getQualityAttributes());
+        info.put("currentAttributes", equipment.getBaseAttributes());
+
+        if (currentQualityId < 5) {
+            EquipmentConfig.EquipQualityLevel next = EquipmentConfig.getEquipQualityLevel(currentQualityId + 1);
             info.put("canUpgrade", true);
-            info.put("qualityStoneCost", QUALITY_STONE_COST);
-            info.put("silverCost", QUALITY_SILVER_COST);
-            info.put("upgradeRange", QUALITY_UPGRADE_MIN + "-" + QUALITY_UPGRADE_MAX + "%");
+            info.put("silverCost", ql.needSilver);
+            info.put("successRate", ql.increaseRate);
+            info.put("successRateDesc", (ql.increaseRate / 100.0) + "%");
+            info.put("nextQualityName", next.name);
+            info.put("nextAttrRate", next.attrRate);
         } else {
             info.put("canUpgrade", false);
             info.put("message", "已达完美品质");
@@ -271,7 +272,7 @@ public class RefineService {
     }
 
     /**
-     * 提升品质
+     * 提升品质（洗练）
      */
     public Map<String, Object> upgradeQuality(String odUserId, String equipmentId) {
         Equipment equipment = equipmentService.getEquipment(odUserId, equipmentId);
@@ -279,49 +280,65 @@ public class RefineService {
             throw new BusinessException(400, "装备不存在");
         }
 
-        int currentQuality = equipment.getQualityValue() != null ? equipment.getQualityValue() : 0;
-        
-        if (currentQuality >= 100) {
+        int currentQualityId = equipment.getQualityValue() != null ? equipment.getQualityValue() : 1;
+        if (currentQualityId < 1) currentQualityId = 1;
+
+        if (currentQualityId >= 5) {
             throw new BusinessException(400, "已达完美品质");
         }
 
-        // 检查资源
+        EquipmentConfig.EquipQualityLevel ql = EquipmentConfig.getEquipQualityLevel(currentQualityId);
+
         UserResource resource = userResourceService.getUserResource(odUserId);
-        
-        if (resource.getSilver() < QUALITY_SILVER_COST) {
-            throw new BusinessException(400, "银币不足");
-        }
-        
-        int qualityStone = resource.getQualityStone() != null ? resource.getQualityStone() : 0;
-        if (qualityStone < QUALITY_STONE_COST) {
-            throw new BusinessException(400, "品质石不足");
+        if (resource.getSilver() < ql.needSilver) {
+            throw new BusinessException(400, "银币不足，需要" + ql.needSilver);
         }
 
-        // 扣除资源
-        resource.setSilver(resource.getSilver() - QUALITY_SILVER_COST);
-        resource.setQualityStone(qualityStone - QUALITY_STONE_COST);
+        resource.setSilver(resource.getSilver() - ql.needSilver);
 
-        // 随机提升品质
-        int upgrade = QUALITY_UPGRADE_MIN + (int)(Math.random() * (QUALITY_UPGRADE_MAX - QUALITY_UPGRADE_MIN + 1));
-        int newQuality = Math.min(100, currentQuality + upgrade);
-        
-        equipment.setQualityValue(newQuality);
-        equipment.setQualityAttributes(calculateQualityBonus(equipment, newQuality));
+        boolean success = new Random().nextInt(10000) < ql.increaseRate;
 
-        // 保存
+        Map<String, Object> result = new HashMap<>();
+        result.put("oldQuality", currentQualityId);
+        result.put("oldQualityName", ql.name);
+
+        if (success) {
+            int newQualityId = currentQualityId + 1;
+            EquipmentConfig.EquipQualityLevel newQl = EquipmentConfig.getEquipQualityLevel(newQualityId);
+            equipment.setQualityValue(newQualityId);
+
+            Equipment.Attributes raw = equipment.getQualityAttributes();
+            if (raw != null) {
+                double newRate = newQl.attrRate / 10000.0;
+                equipment.setBaseAttributes(Equipment.Attributes.builder()
+                    .attack((int)(safeVal(raw.getAttack()) * newRate))
+                    .defense((int)(safeVal(raw.getDefense()) * newRate))
+                    .valor((int)(safeVal(raw.getValor()) * newRate))
+                    .command((int)(safeVal(raw.getCommand()) * newRate))
+                    .hp((int)(safeVal(raw.getHp()) * newRate))
+                    .mobility((int)(safeVal(raw.getMobility()) * newRate))
+                    .build());
+            }
+
+            result.put("success", true);
+            result.put("newQuality", newQualityId);
+            result.put("newQualityName", newQl.name);
+            result.put("newAttrRate", newQl.attrRate);
+            result.put("newAttributes", equipment.getBaseAttributes());
+            logger.info("洗练成功: {} {} -> {}", equipment.getName(), ql.name, newQl.name);
+        } else {
+            result.put("success", false);
+            result.put("newQuality", currentQualityId);
+            result.put("newQualityName", ql.name);
+            logger.info("洗练失败: {} {}", equipment.getName(), ql.name);
+        }
+
+        result.put("silverCost", ql.needSilver);
+        result.put("isPerfect", equipment.getQualityValue() >= 5);
+
         equipmentService.saveEquipment(odUserId, equipment);
         userResourceService.saveUserResource(resource);
 
-        Map<String, Object> result = new HashMap<>();
-        result.put("oldQuality", currentQuality);
-        result.put("newQuality", newQuality);
-        result.put("upgrade", upgrade);
-        result.put("qualityDesc", getQualityDesc(newQuality));
-        result.put("isPerfect", newQuality >= 100);
-        result.put("newBonus", equipment.getQualityAttributes());
-
-        logger.info("装备品质提升: {} {}% -> {}%", equipment.getName(), currentQuality, newQuality);
-        
         return result;
     }
 
@@ -523,35 +540,28 @@ public class RefineService {
             .build();
     }
 
-    private Equipment.Attributes calculateQualityBonus(Equipment equipment, int qualityValue) {
-        if (qualityValue <= 0) {
-            return Equipment.Attributes.builder().build();
+    private Equipment.Attributes calculateQualityBonus(Equipment equipment, int qualityId) {
+        Equipment.Attributes raw = equipment.getQualityAttributes();
+        if (raw == null) {
+            raw = equipment.getBaseAttributes();
+            if (raw == null) return Equipment.Attributes.builder().build();
         }
-        
-        Equipment.Attributes base = equipment.getBaseAttributes();
-        if (base == null) {
-            base = Equipment.Attributes.builder().attack(50).defense(30).build();
-        }
-        
-        // 品质值每点提供0.5%属性加成
-        double multiplier = qualityValue * 0.005;
-        
+        EquipmentConfig.EquipQualityLevel ql = EquipmentConfig.getEquipQualityLevel(qualityId);
+        double rate = ql.attrRate / 10000.0;
         return Equipment.Attributes.builder()
-            .attack((int)(base.getAttack() * multiplier))
-            .defense((int)(base.getDefense() * multiplier))
-            .valor((int)(base.getValor() * multiplier))
-            .command((int)(base.getCommand() * multiplier))
-            .hp((int)(base.getHp() * multiplier))
+            .attack((int)(safeVal(raw.getAttack()) * rate))
+            .defense((int)(safeVal(raw.getDefense()) * rate))
+            .valor((int)(safeVal(raw.getValor()) * rate))
+            .command((int)(safeVal(raw.getCommand()) * rate))
+            .hp((int)(safeVal(raw.getHp()) * rate))
+            .mobility((int)(safeVal(raw.getMobility()) * rate))
             .build();
     }
 
-    private String getQualityDesc(int qualityValue) {
-        if (qualityValue >= 100) return "完美";
-        if (qualityValue >= 80) return "精良";
-        if (qualityValue >= 60) return "优秀";
-        if (qualityValue >= 40) return "良好";
-        if (qualityValue >= 20) return "普通";
-        return "粗糙";
+    private int safeVal(Integer v) { return v != null ? v : 0; }
+
+    private String getQualityDesc(int qualityId) {
+        return EquipmentConfig.getEquipQualityName(qualityId);
     }
 
     private int getEnhanceStoneCount(UserResource resource, int level) {

@@ -505,6 +505,49 @@ public class EquipmentConfig {
         return result;
     }
     
+    // ==================== APK装备品质配置 (from EquipQuality_cfg.json) ====================
+
+    public static class EquipQualityLevel {
+        public final int id;
+        public final String name;
+        public final int attrRate;      // 万分比
+        public final int acquireRate;   // 万分比
+        public final int increaseRate;  // 万分比
+        public final int needSilver;
+        public EquipQualityLevel(int id, String name, int attrRate, int acquireRate, int increaseRate, int needSilver) {
+            this.id = id; this.name = name; this.attrRate = attrRate; this.acquireRate = acquireRate; this.increaseRate = increaseRate; this.needSilver = needSilver;
+        }
+    }
+
+    private static final EquipQualityLevel[] EQUIP_QUALITY_LEVELS = {
+        new EquipQualityLevel(1, "粗糙", 8000, 5890, 8000, 500),
+        new EquipQualityLevel(2, "普通", 8500, 3000, 4000, 1000),
+        new EquipQualityLevel(3, "优良", 9000, 1000, 2500, 2000),
+        new EquipQualityLevel(4, "无暇", 9500,  100, 1000, 3000),
+        new EquipQualityLevel(5, "完美", 10000,  10,    0,    0),
+    };
+
+    public static EquipQualityLevel getEquipQualityLevel(int qualityId) {
+        if (qualityId < 1 || qualityId > 5) return EQUIP_QUALITY_LEVELS[0];
+        return EQUIP_QUALITY_LEVELS[qualityId - 1];
+    }
+
+    public static int rollEquipQuality() {
+        Random rng = new Random();
+        int roll = rng.nextInt(10000);
+        int cumulative = 0;
+        for (EquipQualityLevel lv : EQUIP_QUALITY_LEVELS) {
+            cumulative += lv.acquireRate;
+            if (roll < cumulative) return lv.id;
+        }
+        return 1;
+    }
+
+    public static String getEquipQualityName(int qualityId) {
+        if (qualityId < 1 || qualityId > 5) return "粗糙";
+        return EQUIP_QUALITY_LEVELS[qualityId - 1].name;
+    }
+
     // ==================== 装备模板内部类 ====================
     
     @lombok.Data

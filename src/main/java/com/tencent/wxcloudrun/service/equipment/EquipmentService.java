@@ -283,28 +283,49 @@ public class EquipmentService {
     // ==================== 军械局制作（基于 equipment_pre 模板）====================
 
     /**
-     * 获取所有可在军械局制作的装备列表
+     * 获取所有可在军械局制作的装备列表（返回全部模板）
      */
     public List<Map<String, Object>> getCraftableEquipmentList() {
-        List<EquipmentPre> craftable = equipmentPreRepository.findCraftable();
+        return getAllEquipmentPreList();
+    }
+
+    /**
+     * 获取所有装备模板列表（前端展示用）
+     */
+    public List<Map<String, Object>> getAllEquipmentPreList() {
+        List<EquipmentPre> all = equipmentPreRepository.findAll();
         List<Map<String, Object>> result = new ArrayList<>();
-        for (EquipmentPre pre : craftable) {
-            Map<String, Object> item = new HashMap<>();
-            item.put("preId", pre.getId());
-            item.put("name", pre.getName());
-            item.put("level", pre.getLevel());
-            item.put("position", pre.getPosition());
-            item.put("setName", pre.getSetName());
-            item.put("setEffect3", pre.getSetEffect3());
-            item.put("setEffect6", pre.getSetEffect6());
-            item.put("attack", pre.getAttack());
-            item.put("defense", pre.getDefense());
-            item.put("soldierHp", pre.getSoldierHp());
-            item.put("mobility", pre.getMobility());
-            item.put("cost", getArsenalCraftCost(pre.getLevel()));
-            result.add(item);
+        for (EquipmentPre pre : all) {
+            result.add(preToMap(pre));
         }
         return result;
+    }
+
+    private Map<String, Object> preToMap(EquipmentPre pre) {
+        Map<String, Object> item = new HashMap<>();
+        item.put("preId", pre.getId());
+        item.put("name", pre.getName());
+        item.put("description", pre.getDescription());
+        item.put("color", pre.getColor());
+        item.put("type", pre.getType());
+        item.put("position", pre.getPosition());
+        item.put("needLevel", pre.getNeedLevel());
+        item.put("maxLevel", pre.getMaxLevel());
+        item.put("suitId", pre.getSuitId());
+        item.put("suitName", pre.getSuitName());
+        item.put("basePrice", pre.getBasePrice());
+        item.put("iconUrl", pre.getIconUrl());
+        item.put("genAtt", pre.getGenAtt());
+        item.put("genDef", pre.getGenDef());
+        item.put("genFor", pre.getGenFor());
+        item.put("genLeader", pre.getGenLeader());
+        item.put("armyLife", pre.getArmyLife());
+        item.put("armyAtt", pre.getArmyAtt());
+        item.put("armyDef", pre.getArmyDef());
+        item.put("armySp", pre.getArmySp());
+        item.put("armyHit", pre.getArmyHit());
+        item.put("armyMis", pre.getArmyMis());
+        return item;
     }
 
     /**
@@ -315,11 +336,8 @@ public class EquipmentService {
         if (pre == null) {
             throw new BusinessException(400, "装备模板不存在");
         }
-        if (!"手工制作".equals(pre.getSource())) {
-            throw new BusinessException(400, "该装备不可手工制作");
-        }
 
-        Map<String, Integer> cost = getArsenalCraftCost(pre.getLevel());
+        Map<String, Integer> cost = getArsenalCraftCost(pre.getNeedLevel());
 
         UserResource resource = resourceRepository.findByUserId(userId);
         if (resource == null) {
@@ -347,6 +365,15 @@ public class EquipmentService {
         resource.setWood(wood     - needWood);
         resourceRepository.save(resource);
 
+        Equipment equipment = buildEquipmentFromPre(userId, pre, "CRAFT", "军械局制作");
+        logger.info("用户 {} 在军械局制作装备: {} (preId={})", userId, pre.getName(), preId);
+        return equipmentRepository.save(equipment);
+    }
+
+    /**
+     * 根据装备模板生成装备实例（通用方法）
+     */
+    public Equipment buildEquipmentFromPre(String userId, EquipmentPre pre, String sourceType, String sourceName) {
         String equipmentId = "equip_" + System.currentTimeMillis() + "_" +
                 UUID.randomUUID().toString().substring(0, 8);
 
@@ -356,51 +383,71 @@ public class EquipmentService {
         Equipment.Quality quality = equipmentConfig.getQuality(qualityId);
 
         Equipment.SetInfo setInfo = null;
-        if (pre.getSetName() != null && !pre.getSetName().isEmpty()) {
+        if (pre.getSuitId() != null && pre.getSuitId() > 0 && pre.getSuitName() != null) {
             setInfo = Equipment.SetInfo.builder()
-                    .setId("SET_" + pre.getSetName())
-                    .setName(pre.getSetName())
-                    .setLevel(pre.getLevel())
-                    .threeSetEffect(pre.getSetEffect3())
-                    .sixSetEffect(pre.getSetEffect6())
+                    .setId("SET_" + pre.getSuitId())
+                    .setName(pre.getSuitName())
+                    .setLevel(pre.getNeedLevel())
                     .build();
         }
 
-        Equipment.Attributes baseAttributes = Equipment.Attributes.builder()
-                .attack(pre.getAttack() != null ? pre.getAttack() : 0)
-                .defense(pre.getDefense() != null ? pre.getDefense() : 0)
-                .hp(pre.getSoldierHp() != null ? pre.getSoldierHp() : 0)
-                .mobility(pre.getMobility() != null ? pre.getMobility() : 0)
+        // Raw template attributes (100% = 完美品质)
+        Equipment.Attributes rawAttributes = Equipment.Attributes.builder()
+                .attack(val(pre.getGenAtt()))
+                .defense(val(pre.getGenDef()))
+                .valor(val(pre.getGenFor()))
+                .command(val(pre.getGenLeader()))
+                .hp(val(pre.getArmyLife()))
+                .mobility(val(pre.getArmySp()))
                 .build();
 
-        Equipment equipment = Equipment.builder()
+        // Roll quality
+        int equipQualityId = EquipmentConfig.rollEquipQuality();
+        EquipmentConfig.EquipQualityLevel ql = EquipmentConfig.getEquipQualityLevel(equipQualityId);
+        double rate = ql.attrRate / 10000.0;
+
+        // Actual attributes = raw * rate
+        Equipment.Attributes baseAttributes = Equipment.Attributes.builder()
+                .attack((int)(val(pre.getGenAtt()) * rate))
+                .defense((int)(val(pre.getGenDef()) * rate))
+                .valor((int)(val(pre.getGenFor()) * rate))
+                .command((int)(val(pre.getGenLeader()) * rate))
+                .hp((int)(val(pre.getArmyLife()) * rate))
+                .mobility((int)(val(pre.getArmySp()) * rate))
+                .build();
+
+        String icon = (pre.getIconUrl() != null && !pre.getIconUrl().isEmpty())
+                ? pre.getIconUrl() : slotType.getIcon();
+
+        String desc = pre.getDescription() != null ? pre.getDescription() : pre.getName();
+
+        return Equipment.builder()
                 .id(equipmentId)
                 .userId(userId)
                 .name(pre.getName())
                 .slotType(slotType)
-                .level(pre.getLevel())
+                .level(pre.getNeedLevel())
                 .quality(quality)
                 .setInfo(setInfo)
                 .baseAttributes(baseAttributes)
                 .bonusAttributes(Equipment.Attributes.builder().build())
+                .qualityValue(equipQualityId)
+                .qualityAttributes(rawAttributes)
                 .source(Equipment.Source.builder()
-                        .type("CRAFT")
-                        .name("军械局制作")
-                        .detail(pre.getSetName() != null ? pre.getSetName() + "套装" : "手工制作")
+                        .type(sourceType)
+                        .name(sourceName)
+                        .detail(pre.getSuitName() != null ? pre.getSuitName() + "套装" : sourceName)
                         .build())
                 .equipped(false)
                 .equippedGeneralId(null)
-                .icon(slotType.getIcon())
-                .description(String.format("%s - %s级%s装备",
-                        pre.getSetName() != null ? pre.getSetName() + "套装" : "制作装备",
-                        pre.getLevel(), quality.getName()))
+                .icon(icon)
+                .description(desc)
                 .createTime(System.currentTimeMillis())
                 .updateTime(System.currentTimeMillis())
                 .build();
-
-        logger.info("用户 {} 在军械局制作装备: {} (preId={})", userId, pre.getName(), preId);
-        return equipmentRepository.save(equipment);
     }
+
+    private int val(Integer v) { return v != null ? v : 0; }
 
     /**
      * 军械局制作资源消耗（纸张/金属/银币/木材）

@@ -6,16 +6,18 @@
         <id property="itemId" column="item_id"/>
         <result property="itemName" column="item_name"/>
         <result property="quality" column="quality"/>
+        <result property="icon" column="icon"/>
+        <result property="description" column="description"/>
     </resultMap>
     
     <select id="findById" resultMap="ItemResultMap">
-        SELECT item_id, item_name, quality
+        SELECT item_id, item_name, quality, icon, description
         FROM item
         WHERE item_id = #{itemId}
     </select>
     
     <select id="findAll" resultMap="ItemResultMap">
-        SELECT item_id, item_name, quality
+        SELECT item_id, item_name, quality, icon, description
         FROM item
         ORDER BY item_id ASC
     </select>
