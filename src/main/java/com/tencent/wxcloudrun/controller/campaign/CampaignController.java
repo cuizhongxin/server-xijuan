@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Map;
 
@@ -17,10 +18,15 @@ import java.util.Map;
 public class CampaignController {
     
     private final CampaignService campaignService;
+
+    private String getUserId(HttpServletRequest request) {
+        return String.valueOf(request.getAttribute("userId"));
+    }
     
     @GetMapping("/list")
-    public ApiResponse<List<Map<String, Object>>> getCampaignList(@RequestHeader("X-User-ID") String odUserId) {
+    public ApiResponse<List<Map<String, Object>>> getCampaignList(HttpServletRequest request) {
         try {
+            String odUserId = getUserId(request);
             List<Map<String, Object>> campaigns = campaignService.getCampaignList(odUserId);
             return ApiResponse.success(campaigns);
         } catch (Exception e) {
@@ -31,9 +37,10 @@ public class CampaignController {
     
     @GetMapping("/detail/{campaignId}")
     public ApiResponse<Map<String, Object>> getCampaignDetail(
-            @RequestHeader("X-User-ID") String odUserId,
+            HttpServletRequest request,
             @PathVariable String campaignId) {
         try {
+            String odUserId = getUserId(request);
             Map<String, Object> detail = campaignService.getCampaignDetail(odUserId, campaignId);
             return ApiResponse.success(detail);
         } catch (Exception e) {
@@ -44,9 +51,10 @@ public class CampaignController {
     
     @PostMapping("/start")
     public ApiResponse<Map<String, Object>> startCampaign(
-            @RequestHeader("X-User-ID") String odUserId,
+            HttpServletRequest request,
             @RequestBody Map<String, String> body) {
         try {
+            String odUserId = getUserId(request);
             String campaignId = body.get("campaignId");
             String generalId = body.get("generalId");
             Map<String, Object> startResult = campaignService.startCampaign(odUserId, campaignId, generalId);
@@ -59,9 +67,10 @@ public class CampaignController {
     
     @PostMapping("/attack")
     public ApiResponse<CampaignProgress.BattleResult> attack(
-            @RequestHeader("X-User-ID") String odUserId,
+            HttpServletRequest request,
             @RequestBody Map<String, Object> body) {
         try {
+            String odUserId = getUserId(request);
             String campaignId = (String) body.get("campaignId");
             Boolean victory = (Boolean) body.get("victory");
             Integer troopsLost = body.get("troopsLost") != null ? ((Number) body.get("troopsLost")).intValue() : null;
@@ -82,9 +91,10 @@ public class CampaignController {
     
     @PostMapping("/replenish")
     public ApiResponse<Map<String, Object>> replenishTroops(
-            @RequestHeader("X-User-ID") String odUserId,
+            HttpServletRequest request,
             @RequestBody Map<String, String> body) {
         try {
+            String odUserId = getUserId(request);
             String campaignId = body.get("campaignId");
             Map<String, Object> replenishResult = campaignService.replenishTroops(odUserId, campaignId);
             return ApiResponse.success(replenishResult);
@@ -96,9 +106,10 @@ public class CampaignController {
     
     @PostMapping("/revive")
     public ApiResponse<Map<String, Object>> revive(
-            @RequestHeader("X-User-ID") String odUserId,
+            HttpServletRequest request,
             @RequestBody Map<String, String> body) {
         try {
+            String odUserId = getUserId(request);
             String campaignId = body.get("campaignId");
             Map<String, Object> reviveResult = campaignService.revive(odUserId, campaignId);
             return ApiResponse.success(reviveResult);
@@ -110,9 +121,10 @@ public class CampaignController {
     
     @PostMapping("/pause")
     public ApiResponse<Map<String, Object>> pauseCampaign(
-            @RequestHeader("X-User-ID") String odUserId,
+            HttpServletRequest request,
             @RequestBody Map<String, String> body) {
         try {
+            String odUserId = getUserId(request);
             String campaignId = body.get("campaignId");
             Map<String, Object> pauseResult = campaignService.pauseCampaign(odUserId, campaignId);
             return ApiResponse.success(pauseResult);
@@ -124,9 +136,10 @@ public class CampaignController {
     
     @PostMapping("/resume")
     public ApiResponse<Map<String, Object>> resumeCampaign(
-            @RequestHeader("X-User-ID") String odUserId,
+            HttpServletRequest request,
             @RequestBody Map<String, String> body) {
         try {
+            String odUserId = getUserId(request);
             String campaignId = body.get("campaignId");
             Map<String, Object> resumeResult = campaignService.resumeCampaign(odUserId, campaignId);
             return ApiResponse.success(resumeResult);
@@ -138,9 +151,10 @@ public class CampaignController {
     
     @PostMapping("/end")
     public ApiResponse<Map<String, Object>> endCampaign(
-            @RequestHeader("X-User-ID") String odUserId,
+            HttpServletRequest request,
             @RequestBody Map<String, String> body) {
         try {
+            String odUserId = getUserId(request);
             String campaignId = body.get("campaignId");
             Map<String, Object> endResult = campaignService.endCampaign(odUserId, campaignId);
             return ApiResponse.success(endResult);
@@ -152,9 +166,10 @@ public class CampaignController {
     
     @PostMapping("/sweep")
     public ApiResponse<CampaignProgress.SweepResult> sweep(
-            @RequestHeader("X-User-ID") String odUserId,
+            HttpServletRequest request,
             @RequestBody Map<String, Object> body) {
         try {
+            String odUserId = getUserId(request);
             String campaignId = (String) body.get("campaignId");
             Integer targetStage = body.get("targetStage") != null ? ((Number) body.get("targetStage")).intValue() : 7;
             CampaignProgress.SweepResult sweepResult = campaignService.sweep(odUserId, campaignId, targetStage);

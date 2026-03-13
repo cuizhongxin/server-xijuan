@@ -36,6 +36,7 @@ public class CampaignService {
     private final TacticsConfig tacticsConfig;
     private final UserTacticsMapper userTacticsMapper;
     private final com.tencent.wxcloudrun.service.herorank.PeerageService peerageService;
+    private final com.tencent.wxcloudrun.service.formation.FormationService formationService;
     
     // 战役配置
     private final Map<String, Campaign> campaignConfigs = new ConcurrentHashMap<>();
@@ -60,6 +61,43 @@ public class CampaignService {
     private static int factionIdx(String f) {
         for (int i = 0; i < FACTION_KEYS.length; i++) if (FACTION_KEYS[i].equals(f)) return i;
         return 3;
+    }
+
+    private static final Map<String, String> NPC_PORTRAIT = new HashMap<>();
+    static {
+        NPC_PORTRAIT.put("张角","images/generals/4331.jpg"); NPC_PORTRAIT.put("张梁","images/generals/4332.jpg"); NPC_PORTRAIT.put("张宝","images/generals/4333.jpg");
+        NPC_PORTRAIT.put("波才","images/generals/4334.jpg"); NPC_PORTRAIT.put("董卓","images/generals/1031.jpg"); NPC_PORTRAIT.put("吕布","images/generals/1001.jpg");
+        NPC_PORTRAIT.put("华雄","images/generals/2014.jpg"); NPC_PORTRAIT.put("李傕","images/generals/4341.jpg"); NPC_PORTRAIT.put("郭汜","images/generals/4342.jpg");
+        NPC_PORTRAIT.put("张济","images/generals/4343.jpg"); NPC_PORTRAIT.put("徐荣","images/generals/4344.jpg"); NPC_PORTRAIT.put("李儒","images/generals/2015.jpg");
+        NPC_PORTRAIT.put("胡轸","images/generals/4345.jpg"); NPC_PORTRAIT.put("牛辅","images/generals/4346.jpg"); NPC_PORTRAIT.put("樊稠","images/generals/4347.jpg");
+        NPC_PORTRAIT.put("高顺","images/generals/2016.jpg"); NPC_PORTRAIT.put("张辽","images/generals/1002.jpg"); NPC_PORTRAIT.put("陈宫","images/generals/2017.jpg");
+        NPC_PORTRAIT.put("袁绍","images/generals/1010.jpg"); NPC_PORTRAIT.put("颜良","images/generals/2001.jpg"); NPC_PORTRAIT.put("文丑","images/generals/2002.jpg");
+        NPC_PORTRAIT.put("张郃","images/generals/1011.jpg"); NPC_PORTRAIT.put("高览","images/generals/2003.jpg"); NPC_PORTRAIT.put("淳于琼","images/generals/2004.jpg");
+        NPC_PORTRAIT.put("审配","images/generals/3001.jpg"); NPC_PORTRAIT.put("逢纪","images/generals/3002.jpg"); NPC_PORTRAIT.put("袁谭","images/generals/3003.jpg");
+        NPC_PORTRAIT.put("高干","images/generals/3004.jpg"); NPC_PORTRAIT.put("蒋奇","images/generals/4351.jpg"); NPC_PORTRAIT.put("韩猛","images/generals/4352.jpg");
+        NPC_PORTRAIT.put("吕旷","images/generals/4353.jpg"); NPC_PORTRAIT.put("吕翔","images/generals/4354.jpg"); NPC_PORTRAIT.put("蒋义渠","images/generals/4355.jpg");
+        NPC_PORTRAIT.put("曹操","images/generals/1020.jpg"); NPC_PORTRAIT.put("曹仁","images/generals/1021.jpg"); NPC_PORTRAIT.put("曹洪","images/generals/2005.jpg");
+        NPC_PORTRAIT.put("夏侯惇","images/generals/1003.jpg"); NPC_PORTRAIT.put("夏侯渊","images/generals/1004.jpg"); NPC_PORTRAIT.put("张辽","images/generals/1002.jpg");
+        NPC_PORTRAIT.put("徐晃","images/generals/1005.jpg"); NPC_PORTRAIT.put("许褚","images/generals/1006.jpg"); NPC_PORTRAIT.put("典韦","images/generals/1007.jpg");
+        NPC_PORTRAIT.put("于禁","images/generals/2006.jpg"); NPC_PORTRAIT.put("李典","images/generals/2007.jpg"); NPC_PORTRAIT.put("乐进","images/generals/2008.jpg");
+        NPC_PORTRAIT.put("曹休","images/generals/2009.jpg"); NPC_PORTRAIT.put("曹真","images/generals/2010.jpg"); NPC_PORTRAIT.put("司马懿","images/generals/1022.jpg");
+        NPC_PORTRAIT.put("司马师","images/generals/2011.jpg"); NPC_PORTRAIT.put("夏侯尚","images/generals/3005.jpg");
+        NPC_PORTRAIT.put("马超","images/generals/1008.jpg"); NPC_PORTRAIT.put("蔡瑁","images/generals/3006.jpg"); NPC_PORTRAIT.put("张允","images/generals/3007.jpg");
+        NPC_PORTRAIT.put("蒋干","images/generals/3008.jpg");
+        NPC_PORTRAIT.put("宋宪","images/generals/4201.jpg"); NPC_PORTRAIT.put("魏续","images/generals/4202.jpg"); NPC_PORTRAIT.put("侯成","images/generals/4203.jpg");
+        NPC_PORTRAIT.put("曹性","images/generals/4204.jpg"); NPC_PORTRAIT.put("成廉","images/generals/4205.jpg"); NPC_PORTRAIT.put("薛兰","images/generals/4206.jpg");
+        NPC_PORTRAIT.put("臧霸","images/generals/2012.jpg"); NPC_PORTRAIT.put("郝萌","images/generals/4207.jpg"); NPC_PORTRAIT.put("秦宜禄","images/generals/4208.jpg");
+        NPC_PORTRAIT.put("张超","images/generals/4209.jpg");
+        NPC_PORTRAIT.put("孙权","images/generals/1023.jpg"); NPC_PORTRAIT.put("周瑜","images/generals/1024.jpg"); NPC_PORTRAIT.put("陆逊","images/generals/1025.jpg");
+        NPC_PORTRAIT.put("吕蒙","images/generals/1026.jpg"); NPC_PORTRAIT.put("甘宁","images/generals/1009.jpg"); NPC_PORTRAIT.put("太史慈","images/generals/2018.jpg");
+        NPC_PORTRAIT.put("黄盖","images/generals/2019.jpg"); NPC_PORTRAIT.put("程普","images/generals/2020.jpg"); NPC_PORTRAIT.put("鲁肃","images/generals/2021.jpg");
+        NPC_PORTRAIT.put("周泰","images/generals/2022.jpg"); NPC_PORTRAIT.put("韩当","images/generals/2023.jpg"); NPC_PORTRAIT.put("丁奉","images/generals/2024.jpg");
+        NPC_PORTRAIT.put("凌统","images/generals/2025.jpg"); NPC_PORTRAIT.put("步骘","images/generals/3009.jpg"); NPC_PORTRAIT.put("朱然","images/generals/3010.jpg");
+        NPC_PORTRAIT.put("马忠","images/generals/3011.jpg"); NPC_PORTRAIT.put("潘璋","images/generals/3012.jpg");
+    }
+    private static String getNpcPortrait(String name) {
+        String p = NPC_PORTRAIT.get(name);
+        return p != null ? p : "images/generals/g_nofind.jpg";
     }
 
     /**
@@ -170,6 +208,27 @@ public class CampaignService {
         if (maxLv <= 50) return new int[]{36,37,15,18,21,7,29,33};
         if (maxLv <= 100) return new int[]{2,38,16,19,22,8,29,30,34};
         return new int[0];
+    }
+
+    private static final Map<Integer, String> ITEM_NAME_MAP = new HashMap<>();
+    static {
+        ITEM_NAME_MAP.put(1,"1级强化石"); ITEM_NAME_MAP.put(2,"4级强化石");
+        ITEM_NAME_MAP.put(7,"初级招贤令"); ITEM_NAME_MAP.put(8,"中级招贤令");
+        ITEM_NAME_MAP.put(14,"初级粮食包"); ITEM_NAME_MAP.put(15,"中级粮食包"); ITEM_NAME_MAP.put(16,"高级粮食包");
+        ITEM_NAME_MAP.put(17,"初级木材包"); ITEM_NAME_MAP.put(18,"中级木材包"); ITEM_NAME_MAP.put(19,"高级木材包");
+        ITEM_NAME_MAP.put(20,"初级纸张包"); ITEM_NAME_MAP.put(21,"中级纸张包"); ITEM_NAME_MAP.put(22,"高级纸张包");
+        ITEM_NAME_MAP.put(28,"经验丹(小)"); ITEM_NAME_MAP.put(29,"经验丹(中)"); ITEM_NAME_MAP.put(30,"经验丹(大)");
+        ITEM_NAME_MAP.put(32,"初级声望符"); ITEM_NAME_MAP.put(33,"中级声望符"); ITEM_NAME_MAP.put(34,"高级声望符");
+        ITEM_NAME_MAP.put(36,"2级强化石"); ITEM_NAME_MAP.put(37,"3级强化石"); ITEM_NAME_MAP.put(38,"5级强化石");
+    }
+
+    private static String getEquipBoxNameByPreId(int equipPreId) {
+        for (Map.Entry<Integer, int[]> e : EQUIP_BOX_MAP.entrySet()) {
+            for (int id : e.getValue()) {
+                if (id == equipPreId) return EQUIP_BOX_NAME_MAP.getOrDefault(e.getKey(), "装备");
+            }
+        }
+        return "装备";
     }
 
     /**
@@ -375,16 +434,18 @@ public class CampaignService {
 
             if (equipPreIds.length > 0) {
                 int equipId = equipPreIds[rng.nextInt(equipPreIds.length)];
+                String eName = getEquipBoxNameByPreId(equipId);
                 drops.add(Campaign.StageDrop.builder()
                         .type("EQUIP_PRE").equipPreId(equipId)
-                        .itemId(String.valueOf(equipId)).itemName("装备")
+                        .itemId(String.valueOf(equipId)).itemName(eName)
                         .dropRate(isBoss ? 80 : Math.min(50, 10 + i * 2))
                         .minCount(1).maxCount(1).build());
                 if (isBoss && equipPreIds.length > 1) {
                     int equipId2 = equipPreIds[rng.nextInt(equipPreIds.length)];
+                    String eName2 = getEquipBoxNameByPreId(equipId2);
                     drops.add(Campaign.StageDrop.builder()
                             .type("EQUIP_PRE").equipPreId(equipId2)
-                            .itemId(String.valueOf(equipId2)).itemName("BOSS装备")
+                            .itemId(String.valueOf(equipId2)).itemName(eName2)
                             .dropRate(60).minCount(1).maxCount(1).build());
                 }
             }
@@ -395,8 +456,9 @@ public class CampaignService {
                 for (int n = 0; n < pick && picked.size() < itemDropIds.length; n++) {
                     int itemId = itemDropIds[rng.nextInt(itemDropIds.length)];
                     if (picked.add(itemId)) {
+                        String iName = ITEM_NAME_MAP.getOrDefault(itemId, "道具");
                         drops.add(Campaign.StageDrop.builder()
-                                .type("ITEM").itemId(String.valueOf(itemId))
+                                .type("ITEM").itemId(String.valueOf(itemId)).itemName(iName)
                                 .dropRate(isBoss ? 60 : 20 + rng.nextInt(20))
                                 .minCount(1).maxCount(isBoss ? 3 : 2).build());
                     }
@@ -407,7 +469,7 @@ public class CampaignService {
                     .id(prefix + "_stage_" + i).stageNum(i)
                     .name(isBoss ? "BOSS: " + mainGeneral : "第" + i + "关")
                     .enemyGeneralName(mainGeneral)
-                    .enemyGeneralIcon("/images/general/" + mainGeneral + ".png")
+                    .enemyGeneralIcon(getNpcPortrait(mainGeneral))
                     .enemyLevel(npcLevel).enemyTroops(npcSoldiers)
                     .enemyAttack(npcAtk).enemyDefense(npcDef)
                     .enemyValor(attrs[2]).enemyCommand(attrs[3])
@@ -552,11 +614,36 @@ public class CampaignService {
         // 获取武将信息设置兵力
         General general = generalService.getGeneralById(generalId);
         if (general == null) {
-            throw new BusinessException("武将不存在");
+            // generalId查不到时，尝试从阵型中取第一个武将
+            try {
+                List<String> fmIds = formationService.getFormationGeneralIds(odUserId);
+                for (String gid : fmIds) {
+                    General g = generalService.getGeneralById(gid);
+                    if (g != null) { general = g; break; }
+                }
+            } catch (Exception ignored) {}
+            if (general == null) {
+                // 最后尝试从用户武将列表中取第一个
+                List<General> all = generalService.getUserGenerals(odUserId);
+                if (!all.isEmpty()) general = all.get(0);
+            }
+            if (general == null) {
+                throw new BusinessException("武将不存在，请先招募武将");
+            }
         }
         
-        // 获取兵力
-        int troops = general.getSoldierCount() != null ? general.getSoldierCount() : 1000;
+        // 获取阵型中所有武将的总兵力
+        int troops = 0;
+        try {
+            List<String> fmIds = formationService.getFormationGeneralIds(odUserId);
+            for (String gid : fmIds) {
+                General g = generalService.getGeneralById(gid);
+                if (g != null && g.getSoldierCount() != null) troops += g.getSoldierCount();
+            }
+        } catch (Exception e) {
+            log.warn("计算阵型总兵力失败，使用单武将兵力", e);
+        }
+        if (troops <= 0) troops = general.getSoldierCount() != null ? general.getSoldierCount() : 1000;
         
         // 扣除精力
         resource.setStamina(resource.getStamina() - campaign.getStaminaCost());
