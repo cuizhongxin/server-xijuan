@@ -227,5 +227,10 @@ public class CampaignProgress {
          */
         @Builder.Default
         private Boolean isFirstClear = false;
+
+        /**
+         * 剩余重生次数
+         */
+        private Integer reviveCount;
     }
 }

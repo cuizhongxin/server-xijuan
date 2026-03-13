@@ -398,8 +398,14 @@ public class CampaignService {
                 npcSoldiers = (int)(npcSoldiers * 1.3);
             }
 
-            // 阵型
-            int npcCount = fullFormation ? 6 : Math.min(6, 1 + (i - 1) * 5 / Math.max(1, stageCount - 1));
+            // 阵型: 最少3个NPC，Boss关满编6个，中间关卡按进度递增
+            int npcCount;
+            if (fullFormation || isBoss) {
+                npcCount = 6;
+            } else {
+                npcCount = Math.min(6, 3 + (i - 1) * 3 / Math.max(1, stageCount - 1));
+                npcCount = Math.max(3, npcCount);
+            }
             List<Campaign.StageNpc> formation = new ArrayList<>();
             for (int pos = 0; pos < npcCount; pos++) {
                 String nm; String tt; int lv; boolean boss = false;
@@ -612,38 +618,50 @@ public class CampaignService {
         }
         
         // 获取武将信息设置兵力
+        log.info("startCampaign: odUserId={}, generalId={}", odUserId, generalId);
         General general = generalService.getGeneralById(generalId);
         if (general == null) {
-            // generalId查不到时，尝试从阵型中取第一个武将
+            log.warn("generalId直接查询失败: {}, 尝试从阵型获取", generalId);
             try {
                 List<String> fmIds = formationService.getFormationGeneralIds(odUserId);
+                log.info("阵型武将IDs: {}", fmIds);
                 for (String gid : fmIds) {
                     General g = generalService.getGeneralById(gid);
                     if (g != null) { general = g; break; }
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                log.warn("从阵型获取武将失败", e);
+            }
             if (general == null) {
-                // 最后尝试从用户武将列表中取第一个
                 List<General> all = generalService.getUserGenerals(odUserId);
+                log.info("用户全部武将数量: {}, userId={}", all.size(), odUserId);
                 if (!all.isEmpty()) general = all.get(0);
             }
             if (general == null) {
-                throw new BusinessException("武将不存在，请先招募武将");
+                throw new BusinessException("武将不存在(userId=" + odUserId + ",generalId=" + generalId + ")，请先招募武将");
             }
         }
         
-        // 获取阵型中所有武将的总兵力
+        // 获取阵型中所有武将的总兵力（使用soldierMaxCount，满编出征）
         int troops = 0;
         try {
             List<String> fmIds = formationService.getFormationGeneralIds(odUserId);
             for (String gid : fmIds) {
                 General g = generalService.getGeneralById(gid);
-                if (g != null && g.getSoldierCount() != null) troops += g.getSoldierCount();
+                if (g != null) {
+                    int maxC = g.getSoldierMaxCount() != null ? g.getSoldierMaxCount() : 100;
+                    int curC = g.getSoldierCount() != null ? g.getSoldierCount() : maxC;
+                    troops += Math.max(curC, maxC);
+                }
             }
         } catch (Exception e) {
             log.warn("计算阵型总兵力失败，使用单武将兵力", e);
         }
-        if (troops <= 0) troops = general.getSoldierCount() != null ? general.getSoldierCount() : 1000;
+        if (troops <= 0) {
+            int maxC = general.getSoldierMaxCount() != null ? general.getSoldierMaxCount() : 100;
+            int curC = general.getSoldierCount() != null ? general.getSoldierCount() : maxC;
+            troops = Math.max(curC, maxC);
+        }
         
         // 扣除精力
         resource.setStamina(resource.getStamina() - campaign.getStaminaCost());
@@ -702,6 +720,7 @@ public class CampaignService {
                 .remainingTroops(actualRemaining)
                 .troopsLost(actualLost)
                 .isLastStage(progress.getCurrentStage() >= campaign.getStages().size())
+                .reviveCount(progress.getReviveCount())
                 .build();
 
         if (victory) {
@@ -748,7 +767,9 @@ public class CampaignService {
             }
         } else {
             progress.setCurrentTroops(actualRemaining);
-            if (actualRemaining <= 0 && progress.getReviveCount() <= 0) {
+            progress.setReviveCount(Math.max(0, progress.getReviveCount() - 1));
+            result.setReviveCount(progress.getReviveCount());
+            if (progress.getReviveCount() <= 0) {
                 progress.setStatus("IDLE");
             }
         }

@@ -69,9 +69,11 @@ public class FormationService {
                     slotInfo.put("power", general.getAttrValor() != null ? general.getAttrValor() : 0);
                     slotInfo.put("troopType", general.getTroopType());
                     
-                    // 士兵信息
-                    slotInfo.put("soldierCount", general.getSoldierCount() != null ? general.getSoldierCount() : 0);
-                    slotInfo.put("maxSoldierCount", general.getSoldierMaxCount() != null ? general.getSoldierMaxCount() : 0);
+                    // 士兵信息（maxSoldierCount为null时用soldierCount或默认100）
+                    int sc = general.getSoldierCount() != null ? general.getSoldierCount() : 100;
+                    int msc = general.getSoldierMaxCount() != null ? general.getSoldierMaxCount() : Math.max(sc, 100);
+                    slotInfo.put("soldierCount", sc);
+                    slotInfo.put("maxSoldierCount", msc);
                     slotInfo.put("soldierTypeName", general.getTroopType());
                     slotInfo.put("soldierRank", general.getSoldierRank() != null ? general.getSoldierRank() : 1);
                     int soldierHp = 100;
@@ -86,9 +88,8 @@ public class FormationService {
                     
                     // 计算综合HP
                     int basePower = general.getAttrValor() != null ? general.getAttrValor() : 500;
-                    int soldierCount = general.getSoldierCount() != null ? general.getSoldierCount() : 0;
                     int soldierHpVal = (Integer) slotInfo.get("soldierHp");
-                    int totalHp = basePower * 10 + (soldierCount * soldierHpVal) / 10;
+                    int totalHp = basePower * 10 + (sc * soldierHpVal) / 10;
                     slotInfo.put("hp", totalHp);
                     slotInfo.put("maxHp", totalHp);
                     

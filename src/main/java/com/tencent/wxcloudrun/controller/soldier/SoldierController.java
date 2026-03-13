@@ -138,7 +138,7 @@ public class SoldierController {
         }
 
         general.setSoldierMaxCount(newMaxPeople);
-        general.setSoldierCount(Math.min(general.getSoldierCount() != null ? general.getSoldierCount() : 0, newMaxPeople));
+        general.setSoldierCount(newMaxPeople);
         general.setUpdateTime(System.currentTimeMillis());
         generalService.saveGeneral(general);
 
