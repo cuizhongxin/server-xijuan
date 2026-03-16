@@ -73,27 +73,27 @@ public class CampaignService {
         NPC_PORTRAIT.put("高顺","images/generals/2016.jpg"); NPC_PORTRAIT.put("张辽","images/generals/1002.jpg"); NPC_PORTRAIT.put("陈宫","images/generals/2017.jpg");
         NPC_PORTRAIT.put("袁绍","images/generals/1010.jpg"); NPC_PORTRAIT.put("颜良","images/generals/2001.jpg"); NPC_PORTRAIT.put("文丑","images/generals/2002.jpg");
         NPC_PORTRAIT.put("张郃","images/generals/1011.jpg"); NPC_PORTRAIT.put("高览","images/generals/2003.jpg"); NPC_PORTRAIT.put("淳于琼","images/generals/2004.jpg");
-        NPC_PORTRAIT.put("审配","images/generals/3001.jpg"); NPC_PORTRAIT.put("逢纪","images/generals/3002.jpg"); NPC_PORTRAIT.put("袁谭","images/generals/3003.jpg");
-        NPC_PORTRAIT.put("高干","images/generals/3004.jpg"); NPC_PORTRAIT.put("蒋奇","images/generals/4351.jpg"); NPC_PORTRAIT.put("韩猛","images/generals/4352.jpg");
+        NPC_PORTRAIT.put("审配","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("逢纪","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("袁谭","images/generals/g_nofind.jpg");
+        NPC_PORTRAIT.put("高干","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("蒋奇","images/generals/4351.jpg"); NPC_PORTRAIT.put("韩猛","images/generals/4352.jpg");
         NPC_PORTRAIT.put("吕旷","images/generals/4353.jpg"); NPC_PORTRAIT.put("吕翔","images/generals/4354.jpg"); NPC_PORTRAIT.put("蒋义渠","images/generals/4355.jpg");
         NPC_PORTRAIT.put("曹操","images/generals/1020.jpg"); NPC_PORTRAIT.put("曹仁","images/generals/1021.jpg"); NPC_PORTRAIT.put("曹洪","images/generals/2005.jpg");
         NPC_PORTRAIT.put("夏侯惇","images/generals/1003.jpg"); NPC_PORTRAIT.put("夏侯渊","images/generals/1004.jpg"); NPC_PORTRAIT.put("张辽","images/generals/1002.jpg");
         NPC_PORTRAIT.put("徐晃","images/generals/1005.jpg"); NPC_PORTRAIT.put("许褚","images/generals/1006.jpg"); NPC_PORTRAIT.put("典韦","images/generals/1007.jpg");
         NPC_PORTRAIT.put("于禁","images/generals/2006.jpg"); NPC_PORTRAIT.put("李典","images/generals/2007.jpg"); NPC_PORTRAIT.put("乐进","images/generals/2008.jpg");
         NPC_PORTRAIT.put("曹休","images/generals/2009.jpg"); NPC_PORTRAIT.put("曹真","images/generals/2010.jpg"); NPC_PORTRAIT.put("司马懿","images/generals/1022.jpg");
-        NPC_PORTRAIT.put("司马师","images/generals/2011.jpg"); NPC_PORTRAIT.put("夏侯尚","images/generals/3005.jpg");
-        NPC_PORTRAIT.put("马超","images/generals/1008.jpg"); NPC_PORTRAIT.put("蔡瑁","images/generals/3006.jpg"); NPC_PORTRAIT.put("张允","images/generals/3007.jpg");
-        NPC_PORTRAIT.put("蒋干","images/generals/3008.jpg");
-        NPC_PORTRAIT.put("宋宪","images/generals/4201.jpg"); NPC_PORTRAIT.put("魏续","images/generals/4202.jpg"); NPC_PORTRAIT.put("侯成","images/generals/4203.jpg");
-        NPC_PORTRAIT.put("曹性","images/generals/4204.jpg"); NPC_PORTRAIT.put("成廉","images/generals/4205.jpg"); NPC_PORTRAIT.put("薛兰","images/generals/4206.jpg");
-        NPC_PORTRAIT.put("臧霸","images/generals/2012.jpg"); NPC_PORTRAIT.put("郝萌","images/generals/4207.jpg"); NPC_PORTRAIT.put("秦宜禄","images/generals/4208.jpg");
-        NPC_PORTRAIT.put("张超","images/generals/4209.jpg");
+        NPC_PORTRAIT.put("司马师","images/generals/2011.jpg"); NPC_PORTRAIT.put("夏侯尚","images/generals/g_nofind.jpg");
+        NPC_PORTRAIT.put("马超","images/generals/1008.jpg"); NPC_PORTRAIT.put("蔡瑁","images/generals/4025.jpg"); NPC_PORTRAIT.put("张允","images/generals/g_nofind.jpg");
+        NPC_PORTRAIT.put("蒋干","images/generals/g_nofind.jpg");
+        NPC_PORTRAIT.put("宋宪","images/generals/4022.jpg"); NPC_PORTRAIT.put("魏续","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("侯成","images/generals/g_nofind.jpg");
+        NPC_PORTRAIT.put("曹性","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("成廉","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("薛兰","images/generals/g_nofind.jpg");
+        NPC_PORTRAIT.put("臧霸","images/generals/2012.jpg"); NPC_PORTRAIT.put("郝萌","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("秦宜禄","images/generals/g_nofind.jpg");
+        NPC_PORTRAIT.put("张超","images/generals/g_nofind.jpg");
         NPC_PORTRAIT.put("孙权","images/generals/1023.jpg"); NPC_PORTRAIT.put("周瑜","images/generals/1024.jpg"); NPC_PORTRAIT.put("陆逊","images/generals/1025.jpg");
         NPC_PORTRAIT.put("吕蒙","images/generals/1026.jpg"); NPC_PORTRAIT.put("甘宁","images/generals/1009.jpg"); NPC_PORTRAIT.put("太史慈","images/generals/2018.jpg");
         NPC_PORTRAIT.put("黄盖","images/generals/2019.jpg"); NPC_PORTRAIT.put("程普","images/generals/2020.jpg"); NPC_PORTRAIT.put("鲁肃","images/generals/2021.jpg");
         NPC_PORTRAIT.put("周泰","images/generals/2022.jpg"); NPC_PORTRAIT.put("韩当","images/generals/2023.jpg"); NPC_PORTRAIT.put("丁奉","images/generals/2024.jpg");
-        NPC_PORTRAIT.put("凌统","images/generals/2025.jpg"); NPC_PORTRAIT.put("步骘","images/generals/3009.jpg"); NPC_PORTRAIT.put("朱然","images/generals/3010.jpg");
-        NPC_PORTRAIT.put("马忠","images/generals/3011.jpg"); NPC_PORTRAIT.put("潘璋","images/generals/3012.jpg");
+        NPC_PORTRAIT.put("凌统","images/generals/2025.jpg"); NPC_PORTRAIT.put("步骘","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("朱然","images/generals/4334.jpg");
+        NPC_PORTRAIT.put("马忠","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("潘璋","images/generals/g_nofind.jpg");
     }
     private static String getNpcPortrait(String name) {
         String p = NPC_PORTRAIT.get(name);
@@ -201,6 +201,59 @@ public class CampaignService {
             }
         }
         return list;
+    }
+
+    /**
+     * APK MonsterShow_cfg.json BOSS掉落表
+     * 只有特定BOSS关才有装备掉落, 普通关不掉装备(只掉白银和道具)
+     * key: 章节order_关卡序号(从1开始), value: [装备包ID, 概率档位(0=默认高, 1=大概率, 2=小概率)]
+     */
+    private static final Map<String, int[]> APK_BOSS_DROP_MAP = new HashMap<>();
+    static {
+        // 第1章 黄巾之乱 (5关)
+        APK_BOSS_DROP_MAP.put("1_3", new int[]{15201, 0});   // 张宝 Lv5 → 黑铁装备
+        APK_BOSS_DROP_MAP.put("1_5", new int[]{15201, 0});   // 张角 Lv10 → 黑铁装备
+        // 第2章 江东诸侯战董卓 (7关)
+        APK_BOSS_DROP_MAP.put("2_3", new int[]{15201, 1});   // 徐荣 Lv13 → 黑铁装备 大概率
+        APK_BOSS_DROP_MAP.put("2_4", new int[]{15201, 1});   // 华雄 Lv15 → 黑铁装备 大概率
+        APK_BOSS_DROP_MAP.put("2_5", new int[]{15201, 1});   // 牛辅 Lv18 → 黑铁装备 大概率
+        APK_BOSS_DROP_MAP.put("2_7", new int[]{15202, 1});   // 董卓 Lv20 → 精钢装备 大概率
+        // 第3章 乱世群雄 (10关)
+        APK_BOSS_DROP_MAP.put("3_5",  new int[]{15201, 0});  // 陶谦 Lv25 → 黑铁装备
+        APK_BOSS_DROP_MAP.put("3_10", new int[]{15206, 0});  // 刘表 Lv30 → 宣武套装
+        // 第4章 威震中原 (15关)
+        APK_BOSS_DROP_MAP.put("4_8",  new int[]{15206, 0});  // 公孙续 Lv35 → 宣武套装
+        APK_BOSS_DROP_MAP.put("4_15", new int[]{15210, 0});  // 公孙瓒 Lv40 → 陷阵套装
+        // 第5章 西凉铁骑 (15关)
+        APK_BOSS_DROP_MAP.put("5_8",  new int[]{15203, 0});  // 庞德 Lv44 → 紫铜装备
+        APK_BOSS_DROP_MAP.put("5_12", new int[]{15207, 0});  // 马超 Lv47 → 折冲套装
+        APK_BOSS_DROP_MAP.put("5_15", new int[]{15211, 0});  // 马腾 Lv50 → 狂战套装
+        // 第6章 四世三公 (20关)
+        APK_BOSS_DROP_MAP.put("6_8",  new int[]{15204, 1});  // 麴义 Lv44 → 亮银装备 大概率
+        APK_BOSS_DROP_MAP.put("6_12", new int[]{15208, 2});  // 张颌 Lv50 → 骁勇套装 小概率
+        APK_BOSS_DROP_MAP.put("6_16", new int[]{15212, 2});  // 颜良 Lv55 → 天狼套装 小概率
+        APK_BOSS_DROP_MAP.put("6_20", new int[]{15213, 2});  // 袁绍 Lv60 → 破军套装 小概率
+        // 第7章 战神吕布 (20关)
+        APK_BOSS_DROP_MAP.put("7_6",  new int[]{15205, 1});  // 宋宪 Lv64 → 百炼装备 大概率
+        APK_BOSS_DROP_MAP.put("7_12", new int[]{15209, 2});  // 曹性 Lv69 → 破俘套装 小概率
+        APK_BOSS_DROP_MAP.put("7_16", new int[]{15214, 2});  // 张辽 Lv75 → 龙威套装 小概率
+        APK_BOSS_DROP_MAP.put("7_20", new int[]{15215, 2});  // 吕布 Lv80 → 战神套装 小概率
+        // 第8章 征讨乌桓 (20关)
+        APK_BOSS_DROP_MAP.put("8_10", new int[]{15221, 0});  // 丘力居 Lv90 → 征戎套装
+        APK_BOSS_DROP_MAP.put("8_20", new int[]{15222, 0});  // 蹋顿 Lv100 → 诛邪套装
+    }
+
+    /**
+     * 根据APK概率档位返回实际掉率
+     * 0=默认(70%), 1=大概率(55%), 2=小概率(20%)
+     */
+    private static int apkDropProbToRate(int prob) {
+        switch (prob) {
+            case 0: return 70;
+            case 1: return 55;
+            case 2: return 20;
+            default: return 50;
+        }
     }
 
     private static int[] getItemDropPool(int maxLv) {
@@ -328,7 +381,7 @@ public class CampaignService {
                 .requiredLevel(reqLv).order(order)
                 .stages(buildStages(generals, troopTypes, id.replace("campaign_", ""),
                         lvMin, lvMax, stageCount, fullFormation, faction,
-                        baseExp, baseSilver, equipIds, itemIds))
+                        baseExp, baseSilver, equipIds, itemIds, order))
                 .dropPreviews(dropPreviews)
                 .build();
         campaignConfigs.put(id, campaign);
@@ -365,6 +418,17 @@ public class CampaignService {
             boolean fullFormation, String faction,
             int baseExp, long baseSilver,
             int[] equipPreIds, int[] itemDropIds) {
+        return buildStages(generals, troopTypes, prefix, minLv, maxLv, stageCount,
+                fullFormation, faction, baseExp, baseSilver, equipPreIds, itemDropIds, 0);
+    }
+
+    private List<Campaign.Stage> buildStages(
+            String[] generals, String[] troopTypes, String prefix,
+            int minLv, int maxLv, int stageCount,
+            boolean fullFormation, String faction,
+            int baseExp, long baseSilver,
+            int[] equipPreIds, int[] itemDropIds,
+            int chapterOrder) {
 
         List<Campaign.Stage> stages = new ArrayList<>();
         int levelRange = maxLv - minLv;
@@ -432,29 +496,41 @@ public class CampaignService {
                         .hp(300 + lv * 100 + (boss ? lv * 50 : 0)).isBoss(boss).build());
             }
 
-            // 掉落: 白银 + equipment_pre装备 + item道具
+            // 掉落: 白银(所有关) + APK BOSS专属装备掉落 + item道具
             List<Campaign.StageDrop> drops = new ArrayList<>();
             drops.add(Campaign.StageDrop.builder()
                     .type("RESOURCE").itemId("silver").itemName("白银")
                     .dropRate(100).minCount(50 * i).maxCount(100 * i).build());
 
-            if (equipPreIds.length > 0) {
+            // APK风格: 只有特定BOSS才有装备掉落
+            String bossKey = chapterOrder + "_" + i;
+            int[] bossDrop = APK_BOSS_DROP_MAP.get(bossKey);
+            if (bossDrop != null) {
+                // 该关卡在APK中有装备掉落
+                int dropBoxId = bossDrop[0];
+                int dropProb = bossDrop[1];
+                int dropRate = apkDropProbToRate(dropProb);
+                String boxName = EQUIP_BOX_NAME_MAP.getOrDefault(dropBoxId, "装备");
+
+                // 从装备箱对应的equipment_pre中随机选一个
+                int[] boxPreIds = EQUIP_BOX_MAP.get(dropBoxId);
+                if (boxPreIds != null && boxPreIds.length > 0) {
+                    int equipId = boxPreIds[rng.nextInt(boxPreIds.length)];
+                    drops.add(Campaign.StageDrop.builder()
+                            .type("EQUIP_PRE").equipPreId(equipId)
+                            .itemId(String.valueOf(equipId)).itemName(boxName)
+                            .dropRate(dropRate).minCount(1).maxCount(1).build());
+                }
+            } else if (isBoss && equipPreIds.length > 0) {
+                // 非APK映射的BOSS关，使用原逻辑兜底
                 int equipId = equipPreIds[rng.nextInt(equipPreIds.length)];
                 String eName = getEquipBoxNameByPreId(equipId);
                 drops.add(Campaign.StageDrop.builder()
                         .type("EQUIP_PRE").equipPreId(equipId)
                         .itemId(String.valueOf(equipId)).itemName(eName)
-                        .dropRate(isBoss ? 80 : Math.min(50, 10 + i * 2))
-                        .minCount(1).maxCount(1).build());
-                if (isBoss && equipPreIds.length > 1) {
-                    int equipId2 = equipPreIds[rng.nextInt(equipPreIds.length)];
-                    String eName2 = getEquipBoxNameByPreId(equipId2);
-                    drops.add(Campaign.StageDrop.builder()
-                            .type("EQUIP_PRE").equipPreId(equipId2)
-                            .itemId(String.valueOf(equipId2)).itemName(eName2)
-                            .dropRate(60).minCount(1).maxCount(1).build());
-                }
+                        .dropRate(80).minCount(1).maxCount(1).build());
             }
+            // 注意: 普通关(无APK BOSS掉落映射)不再随机掉装备
 
             if (itemDropIds.length > 0) {
                 int pick = 1 + rng.nextInt(2);

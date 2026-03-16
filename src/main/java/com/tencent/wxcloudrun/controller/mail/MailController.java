@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/mail")
+@RequestMapping("/mail")
 public class MailController {
 
     private static final Logger logger = LoggerFactory.getLogger(MailController.class);

@@ -166,17 +166,21 @@ public class WarehouseService {
      */
     public Map<String, Object> getEquipments(String userId, int page, int pageSize) {
         Warehouse warehouse = getWarehouse(userId);
-        List<String> equipmentIds = warehouse.getEquipmentStorage().getEquipmentIds();
-        
-        // 获取装备详情
-        List<Equipment> allEquipments = new ArrayList<>();
-        for (String id : equipmentIds) {
-            Equipment equipment = equipmentRepository.findById(id);
-            if (equipment != null) {
-                allEquipments.add(equipment);
-            }
+
+        List<Equipment> allEquipments = equipmentRepository.findByUserId(userId);
+        if (allEquipments == null) allEquipments = new ArrayList<>();
+
+        // 同步 usedSlots
+        Warehouse.EquipmentStorage es = warehouse.getEquipmentStorage();
+        if (es.getUsedSlots() == null || es.getUsedSlots() != allEquipments.size()) {
+            es.setUsedSlots(allEquipments.size());
+            if (es.getEquipmentIds() == null) es.setEquipmentIds(new ArrayList<>());
+            List<String> ids = new ArrayList<>();
+            for (Equipment e : allEquipments) ids.add(e.getId());
+            es.setEquipmentIds(ids);
+            warehouseRepository.save(warehouse);
         }
-        
+
         // 分页
         int total = allEquipments.size();
         int start = page * pageSize;
@@ -188,8 +192,8 @@ public class WarehouseService {
         result.put("total", total);
         result.put("page", page);
         result.put("pageSize", pageSize);
-        result.put("capacity", warehouse.getEquipmentStorage().getCapacity());
-        result.put("used", warehouse.getEquipmentStorage().getUsedSlots());
+        result.put("capacity", es.getCapacity());
+        result.put("used", allEquipments.size());
         
         return result;
     }

@@ -467,4 +467,63 @@ public class GeneralService {
         result.put("newLevel", expResult.get("newLevel"));
         return result;
     }
+
+    /**
+     * 武将进阶
+     */
+    public Map<String, Object> advanceGeneral(String userId, String generalId) {
+        General general = generalRepository.findById(generalId);
+        if (general == null) throw new RuntimeException("武将不存在");
+        if (!general.getUserId().equals(userId)) throw new RuntimeException("无权操作");
+
+        int currentStar = general.getQualityStar() != null ? general.getQualityStar() : 0;
+        if (currentStar >= 5) throw new RuntimeException("已达最高星级");
+
+        int requiredLevel = (currentStar + 1) * 10;
+        if (general.getLevel() < requiredLevel) {
+            throw new RuntimeException("武将等级需达到" + requiredLevel + "级");
+        }
+
+        long goldCost = (currentStar + 1) * 500L;
+        boolean consumed = userResourceService.consumeGold(userId, goldCost);
+        if (!consumed) throw new RuntimeException("黄金不足，需要" + goldCost);
+
+        general.setQualityStar(currentStar + 1);
+        generalRepository.save(general);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("success", true);
+        result.put("generalId", generalId);
+        result.put("newStar", currentStar + 1);
+        result.put("cost", goldCost);
+        return result;
+    }
+
+    /**
+     * 获取武将进阶信息
+     */
+    public Map<String, Object> getAdvanceInfo(String userId, String generalId) {
+        General general = generalRepository.findById(generalId);
+        if (general == null) throw new RuntimeException("武将不存在");
+        if (!general.getUserId().equals(userId)) throw new RuntimeException("无权操作");
+
+        int currentStar = general.getQualityStar() != null ? general.getQualityStar() : 0;
+        boolean maxed = currentStar >= 5;
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("generalId", generalId);
+        result.put("currentStar", currentStar);
+        result.put("maxStar", 5);
+        result.put("maxed", maxed);
+
+        if (!maxed) {
+            int requiredLevel = (currentStar + 1) * 10;
+            long goldCost = (currentStar + 1) * 500L;
+            result.put("requiredLevel", requiredLevel);
+            result.put("goldCost", goldCost);
+            result.put("currentLevel", general.getLevel());
+            result.put("levelMet", general.getLevel() >= requiredLevel);
+        }
+        return result;
+    }
 }

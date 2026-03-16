@@ -267,6 +267,34 @@ public class TacticsService {
         return info;
     }
 
+    /**
+     * 获取武将已学习的兵法列表
+     */
+    public List<Map<String, Object>> getLearnedTactics(String userId, String generalId) {
+        List<Map<String, Object>> equipped = new ArrayList<>();
+        Map<String, Object> eq = getEquippedTactics(userId, generalId);
+        if (eq != null && eq.get("tactics") != null) {
+            Object t = eq.get("tactics");
+            if (t instanceof List) {
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> tList = (List<Map<String, Object>>) t;
+                equipped.addAll(tList);
+            } else if (t instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> tMap = (Map<String, Object>) t;
+                equipped.add(tMap);
+            }
+        }
+        return equipped;
+    }
+
+    /**
+     * 武将学习兵法
+     */
+    public Map<String, Object> learnTactic(String userId, String generalId, String tacticsId) {
+        return equipTactics(userId, generalId, tacticsId);
+    }
+
     private void checkAndDeductResources(UserResource resource, Map<String, Integer> cost, String userId) {
         int paperCost = cost.getOrDefault("paper", 0);
         int silverCost = cost.getOrDefault("silver", 0);

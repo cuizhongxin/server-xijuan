@@ -1,5 +1,6 @@
 package com.tencent.wxcloudrun.controller.alliance;
 
+import com.tencent.wxcloudrun.dto.ApiResponse;
 import com.tencent.wxcloudrun.model.AllianceWar;
 import com.tencent.wxcloudrun.model.AllianceWar.WarParticipant;
 import com.tencent.wxcloudrun.service.alliance.AllianceWarService;
@@ -7,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpServletRequest;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -21,173 +23,161 @@ public class AllianceWarController {
     
     private final AllianceWarService allianceWarService;
     
+    private String getUserId(HttpServletRequest request) {
+        return String.valueOf(request.getAttribute("userId"));
+    }
+    
     /**
      * 获取盟战状态
      */
     @GetMapping("/status")
-    public Map<String, Object> getWarStatus(@RequestHeader("X-User-ID") String odUserId) {
-        Map<String, Object> result = new HashMap<>();
+    public ApiResponse<Map<String, Object>> getWarStatus(HttpServletRequest request) {
         try {
-            Map<String, Object> status = allianceWarService.getWarStatus(odUserId);
-            result.put("success", true);
-            result.putAll(status);
+            String userId = getUserId(request);
+            Map<String, Object> status = allianceWarService.getWarStatus(userId);
+            return ApiResponse.success(status);
         } catch (Exception e) {
             log.error("获取战争状态异常", e);
-            result.put("success", false);
-            result.put("message", e.getMessage());
+            return ApiResponse.error(e.getMessage());
         }
-        return result;
     }
     
     /**
      * 报名参战
      */
     @PostMapping("/register")
-    public Map<String, Object> register(
-            @RequestHeader("X-User-ID") String odUserId,
+    public ApiResponse<Map<String, Object>> register(
+            HttpServletRequest request,
             @RequestBody Map<String, Object> body) {
-        Map<String, Object> result = new HashMap<>();
         try {
+            String userId = getUserId(request);
             String playerName = (String) body.get("playerName");
             Integer level = body.get("level") != null ? ((Number) body.get("level")).intValue() : 1;
             Long power = body.get("power") != null ? ((Number) body.get("power")).longValue() : 10000L;
             
-            WarParticipant participant = allianceWarService.register(odUserId, playerName, level, power);
+            WarParticipant participant = allianceWarService.register(userId, playerName, level, power);
             
-            result.put("success", true);
-            result.put("participant", participant);
-            result.put("message", "报名成功，您的编号是: " + participant.getPlayerNumber());
+            Map<String, Object> data = new HashMap<>();
+            data.put("participant", participant);
+            data.put("message", "报名成功，您的编号是: " + participant.getPlayerNumber());
+            return ApiResponse.success(data);
         } catch (Exception e) {
             log.error("报名联盟战异常", e);
-            result.put("success", false);
-            result.put("message", e.getMessage());
+            return ApiResponse.error(e.getMessage());
         }
-        return result;
     }
     
     /**
      * 取消报名
      */
     @PostMapping("/cancel")
-    public Map<String, Object> cancelRegister(@RequestHeader("X-User-ID") String odUserId) {
-        Map<String, Object> result = new HashMap<>();
+    public ApiResponse<Map<String, Object>> cancelRegister(HttpServletRequest request) {
         try {
-            allianceWarService.cancelRegister(odUserId);
-            result.put("success", true);
-            result.put("message", "已取消报名");
+            String userId = getUserId(request);
+            allianceWarService.cancelRegister(userId);
+            Map<String, Object> data = new HashMap<>();
+            data.put("message", "已取消报名");
+            return ApiResponse.success(data);
         } catch (Exception e) {
             log.error("取消报名异常", e);
-            result.put("success", false);
-            result.put("message", e.getMessage());
+            return ApiResponse.error(e.getMessage());
         }
-        return result;
     }
     
     /**
      * 获取参战玩家列表
      */
     @GetMapping("/participants")
-    public Map<String, Object> getParticipants() {
-        Map<String, Object> result = new HashMap<>();
+    public ApiResponse<Map<String, Object>> getParticipants() {
         try {
-            result.put("success", true);
-            result.put("participants", allianceWarService.getParticipants());
+            Map<String, Object> data = new HashMap<>();
+            data.put("participants", allianceWarService.getParticipants());
+            return ApiResponse.success(data);
         } catch (Exception e) {
             log.error("获取参战玩家列表异常", e);
-            result.put("success", false);
-            result.put("message", e.getMessage());
+            return ApiResponse.error(e.getMessage());
         }
-        return result;
     }
     
     /**
      * 获取对战记录
      */
     @GetMapping("/battles")
-    public Map<String, Object> getBattles(@RequestHeader("X-User-ID") String odUserId) {
-        Map<String, Object> result = new HashMap<>();
+    public ApiResponse<Map<String, Object>> getBattles(HttpServletRequest request) {
         try {
-            result.put("success", true);
-            result.put("myBattles", allianceWarService.getBattleHistory(odUserId));
-            result.put("allBattles", allianceWarService.getAllBattles());
+            String userId = getUserId(request);
+            Map<String, Object> data = new HashMap<>();
+            data.put("myBattles", allianceWarService.getBattleHistory(userId));
+            data.put("allBattles", allianceWarService.getAllBattles());
+            return ApiResponse.success(data);
         } catch (Exception e) {
             log.error("获取对战记录异常", e);
-            result.put("success", false);
-            result.put("message", e.getMessage());
+            return ApiResponse.error(e.getMessage());
         }
-        return result;
     }
     
     /**
      * 获取排名
      */
     @GetMapping("/rankings")
-    public Map<String, Object> getRankings() {
-        Map<String, Object> result = new HashMap<>();
+    public ApiResponse<Map<String, Object>> getRankings() {
         try {
             AllianceWar war = allianceWarService.getTodayWar();
-            result.put("success", true);
-            result.put("allianceRanks", war.getAllianceRanks());
-            result.put("playerRanks", war.getPlayerRanks());
+            Map<String, Object> data = new HashMap<>();
+            data.put("allianceRanks", war.getAllianceRanks());
+            data.put("playerRanks", war.getPlayerRanks());
+            return ApiResponse.success(data);
         } catch (Exception e) {
             log.error("获取排名异常", e);
-            result.put("success", false);
-            result.put("message", e.getMessage());
+            return ApiResponse.error(e.getMessage());
         }
-        return result;
     }
     
     /**
      * 手动触发报名（测试用）
      */
     @PostMapping("/trigger-registration")
-    public Map<String, Object> triggerRegistration() {
-        Map<String, Object> result = new HashMap<>();
+    public ApiResponse<Map<String, Object>> triggerRegistration() {
         try {
             allianceWarService.triggerWarStart();
-            result.put("success", true);
-            result.put("message", "已开启报名");
+            Map<String, Object> data = new HashMap<>();
+            data.put("message", "已开启报名");
+            return ApiResponse.success(data);
         } catch (Exception e) {
             log.error("触发报名异常", e);
-            result.put("success", false);
-            result.put("message", e.getMessage());
+            return ApiResponse.error(e.getMessage());
         }
-        return result;
     }
     
     /**
      * 手动触发战斗（测试用）
      */
     @PostMapping("/trigger-battle")
-    public Map<String, Object> triggerBattle() {
-        Map<String, Object> result = new HashMap<>();
+    public ApiResponse<Map<String, Object>> triggerBattle() {
         try {
             allianceWarService.triggerBattleStart();
-            result.put("success", true);
-            result.put("message", "战斗已开始");
+            Map<String, Object> data = new HashMap<>();
+            data.put("message", "战斗已开始");
+            return ApiResponse.success(data);
         } catch (Exception e) {
             log.error("触发战斗异常", e);
-            result.put("success", false);
-            result.put("message", e.getMessage());
+            return ApiResponse.error(e.getMessage());
         }
-        return result;
     }
     
     /**
      * 重置盟战（测试用）
      */
     @PostMapping("/reset")
-    public Map<String, Object> resetWar() {
-        Map<String, Object> result = new HashMap<>();
+    public ApiResponse<Map<String, Object>> resetWar() {
         try {
             allianceWarService.resetWar();
-            result.put("success", true);
-            result.put("message", "盟战已重置");
+            Map<String, Object> data = new HashMap<>();
+            data.put("message", "盟战已重置");
+            return ApiResponse.success(data);
         } catch (Exception e) {
             log.error("重置盟战异常", e);
-            result.put("success", false);
-            result.put("message", e.getMessage());
+            return ApiResponse.error(e.getMessage());
         }
-        return result;
     }
 }

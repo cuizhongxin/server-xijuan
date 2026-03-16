@@ -74,4 +74,21 @@ public class TacticsController {
         String userId = String.valueOf(request.getAttribute("userId"));
         return ApiResponse.success(tacticsService.getEquippedTactics(userId, generalId));
     }
+
+    @GetMapping("/learned")
+    public ApiResponse<List<Map<String, Object>>> getLearnedTactics(@RequestParam String generalId,
+                                                                      HttpServletRequest request) {
+        String userId = String.valueOf(request.getAttribute("userId"));
+        return ApiResponse.success(tacticsService.getLearnedTactics(userId, generalId));
+    }
+
+    @PostMapping("/learn")
+    public ApiResponse<Map<String, Object>> learnTactic(@RequestBody Map<String, Object> body,
+                                                          HttpServletRequest request) {
+        String userId = String.valueOf(request.getAttribute("userId"));
+        String generalId = (String) body.get("generalId");
+        String tacticsId = (String) body.get("tacticsId");
+        logger.info("用户 {} 武将 {} 学习兵法 {}", userId, generalId, tacticsId);
+        return ApiResponse.success(tacticsService.learnTactic(userId, generalId, tacticsId));
+    }
 }

@@ -24,7 +24,7 @@ public class FormationController {
     /**
      * 获取阵型
      */
-    @GetMapping("")
+    @GetMapping({"", "/info"})
     public ApiResponse<Map<String, Object>> getFormation(HttpServletRequest request) {
         String userId = String.valueOf(request.getAttribute("userId"));
         Map<String, Object> formation = formationService.getFormationDetail(userId);

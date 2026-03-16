@@ -25,7 +25,12 @@ public class WarehouseRepository {
      * 根据用户ID查找仓库
      */
     public Warehouse findByUserId(String userId) {
-        return warehouseMapper.findByUserId(userId);
+        Warehouse warehouse = warehouseMapper.findByUserId(userId);
+        if (warehouse != null) {
+            String idsStr = warehouseMapper.getEquipmentIdsStr(userId);
+            warehouse.setEquipmentIdsStr(idsStr);
+        }
+        return warehouse;
     }
     
     /**

@@ -177,6 +177,45 @@ public class GeneralController {
             return ApiResponse.error(400, e.getMessage());
         }
     }
+
+    /**
+     * 武将进阶
+     */
+    @PostMapping("/advance")
+    public ApiResponse<?> advanceGeneral(@RequestBody java.util.Map<String, Object> params,
+                                          HttpServletRequest request) {
+        String userId = String.valueOf(request.getAttribute("userId"));
+        String generalId = (String) params.get("generalId");
+
+        logger.info("武将进阶, userId: {}, generalId: {}", userId, generalId);
+
+        try {
+            java.util.Map<String, Object> result = generalService.advanceGeneral(userId, generalId);
+            return ApiResponse.success(result);
+        } catch (Exception e) {
+            logger.error("武将进阶异常", e);
+            return ApiResponse.error(400, e.getMessage());
+        }
+    }
+
+    /**
+     * 获取武将进阶信息
+     */
+    @GetMapping("/advance-info")
+    public ApiResponse<?> getAdvanceInfo(@RequestParam String generalId,
+                                          HttpServletRequest request) {
+        String userId = String.valueOf(request.getAttribute("userId"));
+
+        logger.info("获取进阶信息, userId: {}, generalId: {}", userId, generalId);
+
+        try {
+            java.util.Map<String, Object> result = generalService.getAdvanceInfo(userId, generalId);
+            return ApiResponse.success(result);
+        } catch (Exception e) {
+            logger.error("获取进阶信息异常", e);
+            return ApiResponse.error(400, e.getMessage());
+        }
+    }
 }
 
 

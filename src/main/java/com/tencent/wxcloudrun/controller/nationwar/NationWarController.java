@@ -1,9 +1,9 @@
 package com.tencent.wxcloudrun.controller.nationwar;
 
+import com.tencent.wxcloudrun.dto.ApiResponse;
 import com.tencent.wxcloudrun.model.NationWar;
 import com.tencent.wxcloudrun.service.nationwar.NationWarService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
@@ -25,7 +25,7 @@ public class NationWarController {
      * 获取国战地图
      */
     @GetMapping("/map")
-    public ResponseEntity<?> getWarMap(HttpServletRequest request) {
+    public ApiResponse<Map<String, Object>> getWarMap(HttpServletRequest request) {
         String odUserId = String.valueOf(request.getAttribute("userId"));
         
         NationWar.WarMap map = nationWarService.getWarMap();
@@ -39,14 +39,14 @@ public class NationWarController {
         result.put("playerMerit", playerMerit);
         result.put("attackableCities", attackableCities);
         
-        return ResponseEntity.ok(result);
+        return ApiResponse.success(result);
     }
     
     /**
      * 检查是否已选择国家
      */
     @GetMapping("/has-nation")
-    public ResponseEntity<?> hasNation(HttpServletRequest request) {
+    public ApiResponse<Map<String, Object>> hasNation(HttpServletRequest request) {
         String odUserId = String.valueOf(request.getAttribute("userId"));
         
         boolean hasNation = nationWarService.hasSelectedNation(odUserId);
@@ -64,27 +64,27 @@ public class NationWarController {
             }
         }
         
-        return ResponseEntity.ok(result);
+        return ApiResponse.success(result);
     }
     
     /**
      * 获取玩家可选国家列表（仅魏、蜀、吴；汉/群雄为NPC不在此列）
      */
     @GetMapping("/nations")
-    public ResponseEntity<?> getNations(HttpServletRequest request) {
+    public ApiResponse<Map<String, Object>> getNations(HttpServletRequest request) {
         List<NationWar.Nation> nations = nationWarService.getPlayerSelectableNations();
         
         Map<String, Object> result = new HashMap<>();
         result.put("nations", nations);
         
-        return ResponseEntity.ok(result);
+        return ApiResponse.success(result);
     }
     
     /**
      * 选择国家
      */
     @PostMapping("/select-nation")
-    public ResponseEntity<?> selectNation(
+    public ApiResponse<Map<String, Object>> selectNation(
             HttpServletRequest request,
             @RequestBody Map<String, String> body) {
         String odUserId = String.valueOf(request.getAttribute("userId"));
@@ -100,39 +100,39 @@ public class NationWarController {
         result.put("nationName", nation != null ? nation.getName() : nationId);
         result.put("message", "选择国家成功，欢迎加入" + (nation != null ? nation.getName() : nationId) + "国！");
         
-        return ResponseEntity.ok(result);
+        return ApiResponse.success(result);
     }
     
     /**
      * 检查是否可以转国
      */
     @GetMapping("/can-change-nation")
-    public ResponseEntity<?> canChangeNation(HttpServletRequest request) {
+    public ApiResponse<Map<String, Object>> canChangeNation(HttpServletRequest request) {
         String odUserId = String.valueOf(request.getAttribute("userId"));
         
         Map<String, Object> result = nationWarService.checkCanChangeNation(odUserId);
-        return ResponseEntity.ok(result);
+        return ApiResponse.success(result);
     }
     
     /**
      * 转国
      */
     @PostMapping("/change-nation")
-    public ResponseEntity<?> changeNation(
+    public ApiResponse<Map<String, Object>> changeNation(
             HttpServletRequest request,
             @RequestBody Map<String, String> body) {
         String odUserId = String.valueOf(request.getAttribute("userId"));
         String newNationId = body.get("nationId");
         
         Map<String, Object> result = nationWarService.changeNation(odUserId, newNationId);
-        return ResponseEntity.ok(result);
+        return ApiResponse.success(result);
     }
     
     /**
      * 报名国战
      */
     @PostMapping("/signup")
-    public ResponseEntity<?> signUp(
+    public ApiResponse<Map<String, Object>> signUp(
             HttpServletRequest request,
             @RequestBody Map<String, Object> body) {
         String odUserId = String.valueOf(request.getAttribute("userId"));
@@ -144,14 +144,14 @@ public class NationWarController {
         Map<String, Object> result = nationWarService.signUp(
             odUserId, playerName, level, power, targetCityId);
         
-        return ResponseEntity.ok(result);
+        return ApiResponse.success(result);
     }
     
     /**
      * 获取城市国战状态
      */
     @GetMapping("/city/{cityId}/status")
-    public ResponseEntity<?> getCityWarStatus(
+    public ApiResponse<Map<String, Object>> getCityWarStatus(
             HttpServletRequest request,
             @PathVariable String cityId) {
         NationWar war = nationWarService.getTodayWar(cityId);
@@ -166,39 +166,39 @@ public class NationWarController {
             result.put("hasWar", false);
         }
         
-        return ResponseEntity.ok(result);
+        return ApiResponse.success(result);
     }
     
     /**
      * 获取国战详情
      */
     @GetMapping("/war/{warId}")
-    public ResponseEntity<?> getWarDetail(
+    public ApiResponse<Map<String, Object>> getWarDetail(
             HttpServletRequest request,
             @PathVariable String warId) {
         Map<String, Object> result = nationWarService.getWarStatus(warId);
-        return ResponseEntity.ok(result);
+        return ApiResponse.success(result);
     }
     
     /**
      * 获取活跃国战列表
      */
     @GetMapping("/active")
-    public ResponseEntity<?> getActiveWars(HttpServletRequest request) {
+    public ApiResponse<Map<String, Object>> getActiveWars(HttpServletRequest request) {
         List<NationWar> wars = nationWarService.getActiveWars();
         
         Map<String, Object> result = new HashMap<>();
         result.put("wars", wars);
         result.put("count", wars.size());
         
-        return ResponseEntity.ok(result);
+        return ApiResponse.success(result);
     }
     
     /**
      * 获取国战历史
      */
     @GetMapping("/history")
-    public ResponseEntity<?> getWarHistory(
+    public ApiResponse<Map<String, Object>> getWarHistory(
             HttpServletRequest request,
             @RequestParam(defaultValue = "20") int limit) {
         List<NationWar> history = nationWarService.getWarHistory(limit);
@@ -207,14 +207,14 @@ public class NationWarController {
         result.put("history", history);
         result.put("count", history.size());
         
-        return ResponseEntity.ok(result);
+        return ApiResponse.success(result);
     }
     
     /**
      * 获取玩家军功
      */
     @GetMapping("/merit")
-    public ResponseEntity<?> getPlayerMerit(HttpServletRequest request) {
+    public ApiResponse<Map<String, Object>> getPlayerMerit(HttpServletRequest request) {
         String odUserId = String.valueOf(request.getAttribute("userId"));
         
         int merit = nationWarService.getPlayerMerit(odUserId);
@@ -237,35 +237,32 @@ public class NationWarController {
         result.put("exchangeRate", exchangeRate);
         result.put("silverPerMerit", (int)(10 * exchangeRate));
         
-        return ResponseEntity.ok(result);
+        return ApiResponse.success(result);
     }
     
     /**
      * 军功兑换白银
      */
     @PostMapping("/exchange")
-    public ResponseEntity<?> exchangeMerit(
+    public ApiResponse<Map<String, Object>> exchangeMerit(
             HttpServletRequest request,
             @RequestBody Map<String, Integer> body) {
         String odUserId = String.valueOf(request.getAttribute("userId"));
         Integer meritAmount = body.get("meritAmount");
         
         if (meritAmount == null || meritAmount <= 0) {
-            Map<String, Object> error = new HashMap<>();
-            error.put("success", false);
-            error.put("message", "兑换数量无效");
-            return ResponseEntity.badRequest().body(error);
+            return ApiResponse.error(400, "兑换数量无效");
         }
         
         Map<String, Object> result = nationWarService.exchangeMerit(odUserId, meritAmount);
-        return ResponseEntity.ok(result);
+        return ApiResponse.success(result);
     }
     
     /**
      * 手动触发国战开始（测试用）
      */
     @PostMapping("/start/{warId}")
-    public ResponseEntity<?> startWar(
+    public ApiResponse<Map<String, Object>> startWar(
             HttpServletRequest request,
             @PathVariable String warId) {
         nationWarService.startWarBattle(warId);
@@ -274,6 +271,6 @@ public class NationWarController {
         result.put("success", true);
         result.put("message", "国战已开始");
         
-        return ResponseEntity.ok(result);
+        return ApiResponse.success(result);
     }
 }

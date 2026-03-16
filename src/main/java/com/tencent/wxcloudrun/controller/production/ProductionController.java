@@ -1,5 +1,6 @@
 package com.tencent.wxcloudrun.controller.production;
 
+import com.tencent.wxcloudrun.dto.ApiResponse;
 import com.tencent.wxcloudrun.model.Production;
 import com.tencent.wxcloudrun.model.Production.Recipe;
 import com.tencent.wxcloudrun.model.UserResource;
@@ -9,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpServletRequest;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,143 +27,171 @@ public class ProductionController {
     private final ProductionService productionService;
     private final UserResourceService userResourceService;
     
+    private String getUserId(HttpServletRequest request) {
+        return String.valueOf(request.getAttribute("userId"));
+    }
+    
     /**
      * 获取生产数据
      */
     @GetMapping("/info")
-    public Map<String, Object> getProductionInfo(@RequestHeader("X-User-ID") String odUserId) {
-        Map<String, Object> result = new HashMap<>();
+    public ApiResponse<Map<String, Object>> getProductionInfo(HttpServletRequest request) {
         try {
-            Production production = productionService.getProduction(odUserId);
-            UserResource resource = userResourceService.getUserResource(odUserId);
+            String userId = getUserId(request);
+            Production production = productionService.getProduction(userId);
+            UserResource resource = userResourceService.getUserResource(userId);
             
-            result.put("success", true);
-            result.put("production", production);
-            result.put("resource", resource);
+            Map<String, Object> data = new HashMap<>();
+            data.put("production", production);
+            data.put("resource", resource);
+
+            // 前端兼容: facilities数组 + resources对象
+            List<Map<String, Object>> facilities = new java.util.ArrayList<>();
+            String[][] facilityDefs = {{"silver", "白银矿"}, {"metal", "金属矿"}, {"food", "农场"}, {"paper", "造纸坊"}};
+            for (String[] fd : facilityDefs) {
+                Production.Facility fac = getFacility(production, fd[0]);
+                if (fac != null) {
+                    Map<String, Object> fm = new HashMap<>();
+                    fm.put("type", fd[0]);
+                    fm.put("label", fd[1]);
+                    fm.put("level", fac.getLevel());
+                    fm.put("outputPerTime", fac.getOutputPerTime());
+                    fm.put("dailyLimit", fac.getDailyLimit());
+                    fm.put("usedToday", fac.getUsedToday());
+                    facilities.add(fm);
+                }
+            }
+            data.put("facilities", facilities);
+
+            Map<String, Object> resources = new HashMap<>();
+            resources.put("silver", resource.getSilver());
+            resources.put("metal", resource.getMetal());
+            resources.put("food", resource.getFood());
+            resources.put("paper", resource.getPaper());
+            data.put("resources", resources);
+
+            data.put("playerLevel", productionService.getPlayerLevel(userId));
+
+            return ApiResponse.success(data);
         } catch (Exception e) {
             log.error("获取生产信息异常", e);
-            result.put("success", false);
-            result.put("message", e.getMessage());
+            return ApiResponse.error(e.getMessage());
         }
-        return result;
+    }
+
+    private Production.Facility getFacility(Production production, String type) {
+        switch (type) {
+            case "silver": return production.getSilverMine();
+            case "metal": return production.getMetalMine();
+            case "food": return production.getFarm();
+            case "paper": return production.getPaperMill();
+            default: return null;
+        }
     }
     
     /**
      * 生产资源
      */
     @PostMapping("/produce")
-    public Map<String, Object> produce(
-            @RequestHeader("X-User-ID") String odUserId,
+    public ApiResponse<Map<String, Object>> produce(
+            HttpServletRequest request,
             @RequestBody Map<String, Object> body) {
-        Map<String, Object> result = new HashMap<>();
         try {
+            String userId = getUserId(request);
             String facilityType = (String) body.get("facilityType");
-            Map<String, Object> produceResult = productionService.produce(odUserId, facilityType);
+            Map<String, Object> produceResult = productionService.produce(userId, facilityType);
             
-            result.put("success", true);
-            result.putAll(produceResult);
-            result.put("message", "生产成功，获得 " + produceResult.get("output") + " 资源");
+            produceResult.put("message", "生产成功，获得 " + produceResult.get("output") + " 资源");
+            return ApiResponse.success(produceResult);
         } catch (Exception e) {
             log.error("生产异常", e);
-            result.put("success", false);
-            result.put("message", e.getMessage());
+            return ApiResponse.error(e.getMessage());
         }
-        return result;
     }
     
     /**
      * 升级生产设施
      */
     @PostMapping("/upgrade-facility")
-    public Map<String, Object> upgradeFacility(
-            @RequestHeader("X-User-ID") String odUserId,
+    public ApiResponse<Map<String, Object>> upgradeFacility(
+            HttpServletRequest request,
             @RequestBody Map<String, Object> body) {
-        Map<String, Object> result = new HashMap<>();
         try {
+            String userId = getUserId(request);
             String facilityType = (String) body.get("facilityType");
-            Map<String, Object> upgradeResult = productionService.upgradeFacility(odUserId, facilityType);
+            Map<String, Object> upgradeResult = productionService.upgradeFacility(userId, facilityType);
             
-            result.put("success", true);
-            result.putAll(upgradeResult);
-            result.put("message", "升级成功");
+            upgradeResult.put("message", "升级成功");
+            return ApiResponse.success(upgradeResult);
         } catch (Exception e) {
             log.error("升级生产设施异常", e);
-            result.put("success", false);
-            result.put("message", e.getMessage());
+            return ApiResponse.error(e.getMessage());
         }
-        return result;
     }
     
     /**
      * 升级制造设施
      */
     @PostMapping("/upgrade-manufacture")
-    public Map<String, Object> upgradeManufactureFacility(
-            @RequestHeader("X-User-ID") String odUserId,
+    public ApiResponse<Map<String, Object>> upgradeManufactureFacility(
+            HttpServletRequest request,
             @RequestBody Map<String, Object> body) {
-        Map<String, Object> result = new HashMap<>();
         try {
+            String userId = getUserId(request);
             String facilityType = (String) body.get("facilityType");
-            Map<String, Object> upgradeResult = productionService.upgradeManufactureFacility(odUserId, facilityType);
+            Map<String, Object> upgradeResult = productionService.upgradeManufactureFacility(userId, facilityType);
             
-            result.put("success", true);
-            result.putAll(upgradeResult);
-            result.put("message", "升级成功");
+            upgradeResult.put("message", "升级成功");
+            return ApiResponse.success(upgradeResult);
         } catch (Exception e) {
             log.error("升级制造设施异常", e);
-            result.put("success", false);
-            result.put("message", e.getMessage());
+            return ApiResponse.error(e.getMessage());
         }
-        return result;
     }
     
     /**
      * 获取配方列表
      */
     @GetMapping("/recipes/{facilityType}")
-    public Map<String, Object> getRecipes(
-            @RequestHeader("X-User-ID") String odUserId,
+    public ApiResponse<Map<String, Object>> getRecipes(
+            HttpServletRequest request,
             @PathVariable String facilityType) {
-        Map<String, Object> result = new HashMap<>();
         try {
-            Production production = productionService.getProduction(odUserId);
+            String userId = getUserId(request);
+            Production production = productionService.getProduction(userId);
             Integer facilityLevel = getFacilityLevel(production, facilityType);
             List<Recipe> recipes = productionService.getRecipes(facilityType, facilityLevel);
-            UserResource resource = userResourceService.getUserResource(odUserId);
+            UserResource resource = userResourceService.getUserResource(userId);
             
-            result.put("success", true);
-            result.put("recipes", recipes);
-            result.put("facilityLevel", facilityLevel);
-            result.put("resource", resource);
+            Map<String, Object> data = new HashMap<>();
+            data.put("recipes", recipes);
+            data.put("playerLevel", productionService.getPlayerLevel(userId));
+            data.put("resource", resource);
+            return ApiResponse.success(data);
         } catch (Exception e) {
             log.error("获取配方列表异常", e);
-            result.put("success", false);
-            result.put("message", e.getMessage());
+            return ApiResponse.error(e.getMessage());
         }
-        return result;
     }
     
     /**
      * 制造物品
      */
     @PostMapping("/manufacture")
-    public Map<String, Object> manufacture(
-            @RequestHeader("X-User-ID") String odUserId,
+    public ApiResponse<Map<String, Object>> manufacture(
+            HttpServletRequest request,
             @RequestBody Map<String, Object> body) {
-        Map<String, Object> result = new HashMap<>();
         try {
+            String userId = getUserId(request);
             String recipeId = (String) body.get("recipeId");
-            Map<String, Object> manufactureResult = productionService.manufacture(odUserId, recipeId);
+            Map<String, Object> manufactureResult = productionService.manufacture(userId, recipeId);
             
-            result.put("success", true);
-            result.putAll(manufactureResult);
-            result.put("message", "制造成功");
+            manufactureResult.put("message", "制造成功");
+            return ApiResponse.success(manufactureResult);
         } catch (Exception e) {
             log.error("制造物品异常", e);
-            result.put("success", false);
-            result.put("message", e.getMessage());
+            return ApiResponse.error(e.getMessage());
         }
-        return result;
     }
     
     private Integer getFacilityLevel(Production production, String type) {

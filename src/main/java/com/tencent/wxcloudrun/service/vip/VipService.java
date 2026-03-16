@@ -233,6 +233,7 @@ public class VipService {
     private void addItems(String userId, List<String> rewards, String itemId, String name, int count) {
         Warehouse.WarehouseItem item = Warehouse.WarehouseItem.builder()
                 .itemId(itemId).itemType("item").name(name)
+                .icon(getIcon(itemId, name))
                 .quality(getQuality(itemId)).count(count).maxStack(9999)
                 .usable(true).build();
         warehouseService.addItem(userId, item);
@@ -255,6 +256,33 @@ public class VipService {
                 .description(setName + "套装·" + slot + " Lv." + setLevel)
                 .usable(false).build();
         warehouseService.addItem(userId, equip);
+    }
+
+    private String getIcon(String itemId, String name) {
+        switch (itemId) {
+            case "12": return "11012.jpg";  // 银锭
+            case "13": return "11013.jpg";  // 银砖
+            case "14": return "11053.jpg";  // 初级粮食包
+            case "15": return "15033.jpg";  // 中级粮食包
+            case "16": return "15034.jpg";  // 高级粮食包
+            case "17": return "11052.jpg";  // 初级木材包
+            case "18": return "11052.jpg";  // 中级木材包
+            case "19": return "11052.jpg";  // 高级木材包
+            case "20": return "11054.jpg";  // 初级纸张包
+            case "21": return "11054.jpg";  // 中级纸张包
+            case "22": return "11054.jpg";  // 高级纸张包
+            case "32": return "11001.jpg";  // 初级声望符
+            case "33": return "11002.jpg";  // 中级声望符
+            case "34": return "11002.jpg";  // 高级声望符
+            case "9":  return "15013.jpg";  // 高级招贤令
+            case "101": return "15216.jpg"; // 鹰扬宝箱
+            case "102": return "15217.jpg"; // 虎啸宝箱
+            case "103": return "15213.jpg"; // 凤鸣宝箱
+            case "104": return "15216.jpg"; // 鹰扬自选券
+            case "105": return "15217.jpg"; // 虎啸自选券
+            case "106": return "15213.jpg"; // 凤鸣自选券
+            default: return null;
+        }
     }
 
     private String getQuality(String itemId) {
