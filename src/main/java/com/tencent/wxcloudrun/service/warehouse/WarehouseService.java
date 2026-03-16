@@ -432,8 +432,36 @@ public class WarehouseService {
                 break;
                 
             default:
-                effect.put("type", "unknown");
-                effect.put("message", "使用了" + item.getName() + "x" + count);
+                // 按具体道具ID处理效果
+                String effItemId = item.getItemId();
+                if (effItemId != null) {
+                    switch (effItemId) {
+                        case "14001": // 1级强化石
+                            resource.setEnhanceStone1(resource.getEnhanceStone1() + count);
+                            resourceRepository.save(resource);
+                            effect.put("type", "enhance_stone");
+                            effect.put("message", "获得" + count + "个1级强化石");
+                            break;
+                        case "15011": // 初级令牌
+                            resource.setJuniorToken(resource.getJuniorToken() + count);
+                            resourceRepository.save(resource);
+                            effect.put("type", "token");
+                            effect.put("message", "获得" + count + "个初级令牌");
+                            break;
+                        case "15001": // 合成卷轴
+                            resource.setMergeScroll(resource.getMergeScroll() + count);
+                            resourceRepository.save(resource);
+                            effect.put("type", "merge_scroll");
+                            effect.put("message", "获得" + count + "个合成卷轴");
+                            break;
+                        default:
+                            effect.put("type", "generic");
+                            effect.put("message", "使用了" + item.getName() + "x" + count);
+                    }
+                } else {
+                    effect.put("type", "unknown");
+                    effect.put("message", "使用了" + item.getName() + "x" + count);
+                }
         }
         
         return effect;

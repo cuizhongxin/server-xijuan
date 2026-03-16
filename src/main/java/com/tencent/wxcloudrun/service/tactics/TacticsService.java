@@ -258,7 +258,10 @@ public class TacticsService {
             info.put("effectValue", Math.round(effectValue * 10.0) / 10.0);
             info.put("triggerRate", TacticsConfig.calcTriggerRate(t, level));
             if (level < 10) {
-                info.put("nextEffect", Math.round(TacticsConfig.calcEffect(t, level + 1) * 10.0) / 10.0);
+                double nextVal = Math.round(TacticsConfig.calcEffect(t, level + 1) * 10.0) / 10.0;
+                info.put("nextEffect", nextVal);
+                info.put("nextEffectValue", nextVal);
+                info.put("nextEffectDesc", t.getEffectDesc());
                 info.put("upgradeCost", TacticsConfig.calcUpgradeCost(t, level));
             }
         } else {

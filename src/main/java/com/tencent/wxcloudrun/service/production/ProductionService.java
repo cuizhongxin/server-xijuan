@@ -7,6 +7,7 @@ import com.tencent.wxcloudrun.model.Production;
 import com.tencent.wxcloudrun.model.Production.*;
 import com.tencent.wxcloudrun.model.UserLevel;
 import com.tencent.wxcloudrun.model.UserResource;
+import com.tencent.wxcloudrun.model.Warehouse;
 import com.tencent.wxcloudrun.repository.EquipmentRepository;
 import com.tencent.wxcloudrun.service.UserResourceService;
 import com.tencent.wxcloudrun.service.level.LevelService;
@@ -40,6 +41,12 @@ public class ProductionService {
 
     @Autowired @Lazy
     private WarehouseService warehouseService;
+
+    @Autowired
+    private com.tencent.wxcloudrun.dao.UserTacticsMapper userTacticsMapper;
+
+    @Autowired
+    private com.tencent.wxcloudrun.config.TacticsConfig tacticsConfig;
     
     // 制造配方（只读配置，保留内存）
     private final List<Recipe> recipes = new ArrayList<>();
@@ -297,15 +304,39 @@ public class ProductionService {
                 break;
             case "item":
                 addItemToResource(resource, recipe.getResultId(), recipe.getResultCount());
+                addItemToWarehouse(odUserId, recipe.getResultId(), recipe.getResultName(),
+                        recipe.getResultCount(), recipe.getQuality(), recipe.getIcon());
                 result.put("itemId", recipe.getResultId());
                 result.put("itemCount", recipe.getResultCount());
+                result.put("itemName", recipe.getResultName());
                 log.info("用户 {} 制造了道具: {} x{}", odUserId, recipe.getResultName(), recipe.getResultCount());
                 break;
             case "tactics":
-                addItemToResource(resource, recipe.getResultId(), recipe.getResultCount());
-                result.put("itemId", recipe.getResultId());
-                result.put("itemCount", recipe.getResultCount());
-                log.info("用户 {} 制造了兵法: {} x{}", odUserId, recipe.getResultName(), recipe.getResultCount());
+                if ("warbook_random".equals(recipe.getResultId())) {
+                    // 兵法秘卷: 随机获得10种基础兵法之一
+                    String[] rolled = rollRandomWarbook();
+                    String wbId = rolled[0], wbName = rolled[1], wbType = rolled[2], wbArmy = rolled[3];
+                    // 1. 加入仓库的"兵法"Tab（itemType=tactics）
+                    addTacticsToWarehouse(odUserId, wbId, wbName, "蓝",
+                            "images/item/" + wbId + ".jpg", wbType + " · " + wbArmy);
+                    // 2. 同步到 user_tactics 表（初始等级1），让将领系统能看到
+                    syncToUserTactics(odUserId, wbId);
+                    result.put("itemId", wbId);
+                    result.put("itemCount", 1);
+                    result.put("itemName", wbName);
+                    result.put("warbookType", wbType);
+                    result.put("warbookArmy", wbArmy);
+                    log.info("用户 {} 使用兵法秘卷获得兵法: {} ({}·{})", odUserId, wbName, wbArmy, wbType);
+                } else {
+                    // 具体兵法升级道具（三十六计/鬼谷兵法等）— 放入"普通"Tab
+                    addItemToResource(resource, recipe.getResultId(), recipe.getResultCount());
+                    addItemToWarehouse(odUserId, recipe.getResultId(), recipe.getResultName(),
+                            recipe.getResultCount(), recipe.getQuality(), recipe.getIcon());
+                    result.put("itemId", recipe.getResultId());
+                    result.put("itemCount", recipe.getResultCount());
+                    result.put("itemName", recipe.getResultName());
+                    log.info("用户 {} 制造了兵法道具: {} x{}", odUserId, recipe.getResultName(), recipe.getResultCount());
+                }
                 break;
         }
         
@@ -455,6 +486,81 @@ public class ProductionService {
             case "warbook_random": log.info("获得随机兵法秘卷 x{}", count); break;
             default: log.info("添加道具: {} x{}", itemId, count);
         }
+    }
+
+    /**
+     * 将制造的道具/兵法加入仓库
+     */
+    private void addItemToWarehouse(String userId, String itemId, String name, int count, String quality, String icon) {
+        try {
+            Warehouse.WarehouseItem item = Warehouse.WarehouseItem.builder()
+                    .itemId(itemId).itemType("item").name(name)
+                    .icon(icon).quality(quality).count(count)
+                    .maxStack(9999).usable(true).build();
+            warehouseService.addItem(userId, item);
+            log.info("道具 {} x{} 已加入用户 {} 仓库", name, count, userId);
+        } catch (Exception e) {
+            log.warn("道具加入仓库失败: {} - {}", name, e.getMessage());
+        }
+    }
+
+    /**
+     * 将兵法加入仓库的"将领兵法"Tab (itemType=tactics)
+     */
+    private void addTacticsToWarehouse(String userId, String tacticsId, String name, String quality, String icon, String desc) {
+        try {
+            Warehouse.WarehouseItem item = Warehouse.WarehouseItem.builder()
+                    .itemId(tacticsId).itemType("tactics").name(name)
+                    .icon(icon).quality(quality).count(1)
+                    .maxStack(1).usable(false).build();
+            warehouseService.addItem(userId, item);
+            log.info("兵法 {} 已加入用户 {} 仓库(兵法Tab)", name, userId);
+        } catch (Exception e) {
+            log.warn("兵法加入仓库失败: {} - {}", name, e.getMessage());
+        }
+    }
+
+    /**
+     * 同步兵法到 user_tactics 表，让将领系统可以装备
+     * @param apkTacticsId APK兵法ID，如 "33001"
+     */
+    private void syncToUserTactics(String userId, String apkTacticsId) {
+        try {
+            // 将 APK ID (33001) 转换为内部 ID (t_archer_1)
+            com.tencent.wxcloudrun.config.TacticsConfig.TacticsTemplate template = tacticsConfig.getByApkIconId(apkTacticsId);
+            if (template == null) {
+                log.warn("未找到APK兵法ID {} 对应的兵法配置，跳过同步", apkTacticsId);
+                return;
+            }
+            String internalId = template.getId();
+            userTacticsMapper.upsert(userId, internalId, 1, System.currentTimeMillis());
+            log.info("兵法 {} (内部ID={}) 已同步到用户 {} 的 user_tactics 表", template.getName(), internalId, userId);
+        } catch (Exception e) {
+            log.warn("兵法同步到user_tactics失败: {} - {}", apkTacticsId, e.getMessage());
+        }
+    }
+
+    // ========== APK 10种基础兵法 (WarBookShow_cfg.json) ==========
+    private static final String[][] WARBOOK_POOL = {
+        // {id, name, type, armyType}
+        {"33001", "连射",     "连击", "弓兵"},
+        {"33002", "长虹贯日", "穿透", "弓兵"},
+        {"33003", "落月弓",   "强击", "弓兵"},
+        {"33004", "声东击西", "偷袭", "骑兵"},
+        {"33005", "铁骑冲锋", "强袭", "骑兵"},
+        {"33006", "以逸待劳", "伏击", "骑兵"},
+        {"33007", "方圆阵",   "防御", "步兵"},
+        {"33008", "偃月阵",   "防御", "步兵"},
+        {"33009", "长蛇阵",   "防御", "步兵"},
+        {"33010", "雁行阵",   "闪避", "全兵种"}
+    };
+
+    /**
+     * 随机获得一种基础兵法
+     * @return {id, name, type, armyType}
+     */
+    private String[] rollRandomWarbook() {
+        return WARBOOK_POOL[new Random().nextInt(WARBOOK_POOL.length)];
     }
     
     public int getPlayerLevel(String odUserId) {

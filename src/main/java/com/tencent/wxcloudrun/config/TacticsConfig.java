@@ -158,6 +158,16 @@ public class TacticsConfig {
         return templates.get(id);
     }
 
+    /**
+     * 按 APK 图标ID (如 "33001") 查找兵法模板
+     */
+    public TacticsTemplate getByApkIconId(String apkIconId) {
+        for (TacticsTemplate t : templates.values()) {
+            if (apkIconId.equals(t.getApkIconId())) return t;
+        }
+        return null;
+    }
+
     public List<TacticsTemplate> getByTroopType(String troopType) {
         List<TacticsTemplate> result = new ArrayList<>();
         for (TacticsTemplate t : templates.values()) {
