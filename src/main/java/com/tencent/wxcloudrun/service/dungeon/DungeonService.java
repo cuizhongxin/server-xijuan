@@ -49,6 +49,9 @@ public class DungeonService {
     
     @Autowired
     private EquipmentService equipmentService;
+
+    @Autowired
+    private com.tencent.wxcloudrun.service.SuitConfigService suitConfigService;
     
     private final Random random = new Random();
     
@@ -234,7 +237,15 @@ public class DungeonService {
     private BattleResult executeBattle(General player, DungeonNpc npc) {
         // 简化的战斗逻辑
         // 基于双方战力计算胜率
-        int playerPower = player.getAttrValor() != null ? player.getAttrValor() : player.getLevel() * 500;
+        Map<String, Integer> eqBonus = suitConfigService.calculateTotalEquipBonus(player.getId());
+        int baseAtk = player.getAttrAttack() != null ? player.getAttrAttack() : 0;
+        int baseDef = player.getAttrDefense() != null ? player.getAttrDefense() : 0;
+        int baseVal = player.getAttrValor() != null ? player.getAttrValor() : 0;
+        int totalAtk = baseAtk + eqBonus.getOrDefault("attack", 0);
+        int totalDef = baseDef + eqBonus.getOrDefault("defense", 0);
+        int totalVal = baseVal + eqBonus.getOrDefault("valor", 0);
+        int playerPower = totalAtk + totalDef + totalVal;
+        if (playerPower <= 0) playerPower = player.getLevel() * 500;
         int npcPower = npc.getPower();
         
         // 战力差距影响胜率

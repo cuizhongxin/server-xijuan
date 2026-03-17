@@ -37,6 +37,7 @@ public class CampaignService {
     private final UserTacticsMapper userTacticsMapper;
     private final com.tencent.wxcloudrun.service.herorank.PeerageService peerageService;
     private final com.tencent.wxcloudrun.service.formation.FormationService formationService;
+    private final com.tencent.wxcloudrun.service.SuitConfigService suitConfigService;
     
     // 战役配置
     private final Map<String, Campaign> campaignConfigs = new ConcurrentHashMap<>();
@@ -249,10 +250,10 @@ public class CampaignService {
      */
     private static int apkDropProbToRate(int prob) {
         switch (prob) {
-            case 0: return 70;
-            case 1: return 55;
-            case 2: return 20;
-            default: return 50;
+            case 0: return 30;
+            case 1: return 30;
+            case 2: return 15;
+            default: return 25;
         }
     }
 
@@ -490,7 +491,7 @@ public class CampaignService {
                 if (boss) fs = (int)(fs * 1.3);
 
                 formation.add(Campaign.StageNpc.builder()
-                        .position(pos).name(nm).avatar(nm + ".png")
+                        .position(pos).name(nm).avatar(getNpcPortrait(nm))
                         .level(lv).troopType(tt).soldierCount(fs).soldierTier(ft)
                         .attack(fa).defense(fd).valor(a[2]).command(a[3]).dodge(a[4]).mobility(a[5])
                         .hp(300 + lv * 100 + (boss ? lv * 50 : 0)).isBoss(boss).build());
@@ -521,16 +522,8 @@ public class CampaignService {
                             .itemId(String.valueOf(equipId)).itemName(boxName)
                             .dropRate(dropRate).minCount(1).maxCount(1).build());
                 }
-            } else if (isBoss && equipPreIds.length > 0) {
-                // 非APK映射的BOSS关，使用原逻辑兜底
-                int equipId = equipPreIds[rng.nextInt(equipPreIds.length)];
-                String eName = getEquipBoxNameByPreId(equipId);
-                drops.add(Campaign.StageDrop.builder()
-                        .type("EQUIP_PRE").equipPreId(equipId)
-                        .itemId(String.valueOf(equipId)).itemName(eName)
-                        .dropRate(80).minCount(1).maxCount(1).build());
             }
-            // 注意: 普通关(无APK BOSS掉落映射)不再随机掉装备
+            // 非APK配置的关卡（包括BOSS关）不掉落装备
 
             if (itemDropIds.length > 0) {
                 int pick = 1 + rng.nextInt(2);
@@ -541,7 +534,7 @@ public class CampaignService {
                         String iName = ITEM_NAME_MAP.getOrDefault(itemId, "道具");
                         drops.add(Campaign.StageDrop.builder()
                                 .type("ITEM").itemId(String.valueOf(itemId)).itemName(iName)
-                                .dropRate(isBoss ? 60 : 20 + rng.nextInt(20))
+                                .dropRate(isBoss ? 25 : 10)
                                 .minCount(1).maxCount(isBoss ? 3 : 2).build());
                     }
                 }
@@ -882,16 +875,17 @@ public class CampaignService {
             throw new BusinessException("武将不存在");
         }
         
-        // 构建玩家战斗单元
+        Map<String, Integer> eqBonus = suitConfigService.calculateTotalEquipBonus(general.getId());
+
         BattleCalculator.BattleUnit player = new BattleCalculator.BattleUnit();
         player.name = general.getName();
         player.level = general.getLevel() != null ? general.getLevel() : 1;
-        player.attack = (general.getAttrAttack() != null ? general.getAttrAttack() : 100);
-        player.defense = (general.getAttrDefense() != null ? general.getAttrDefense() : 50);
-        player.valor = general.getAttrValor() != null ? general.getAttrValor() : 10;
-        player.command = general.getAttrCommand() != null ? general.getAttrCommand() : 10;
-        player.dodge = general.getAttrDodge() != null ? (int) Math.round(general.getAttrDodge()) : 5;
-        player.mobility = general.getAttrMobility() != null ? general.getAttrMobility() : 15;
+        player.attack = (general.getAttrAttack() != null ? general.getAttrAttack() : 100) + eqBonus.getOrDefault("attack", 0);
+        player.defense = (general.getAttrDefense() != null ? general.getAttrDefense() : 50) + eqBonus.getOrDefault("defense", 0);
+        player.valor = (general.getAttrValor() != null ? general.getAttrValor() : 10) + eqBonus.getOrDefault("valor", 0);
+        player.command = (general.getAttrCommand() != null ? general.getAttrCommand() : 10) + eqBonus.getOrDefault("command", 0);
+        player.dodge = (general.getAttrDodge() != null ? (int) Math.round(general.getAttrDodge()) : 5) + eqBonus.getOrDefault("dodge", 0);
+        player.mobility = (general.getAttrMobility() != null ? general.getAttrMobility() : 15) + eqBonus.getOrDefault("mobility", 0);
         player.troopType = BattleCalculator.parseTroopType(general.getTroopType());
         player.soldierCount = progress.getCurrentTroops();
         // 兵阶
@@ -1096,8 +1090,12 @@ public class CampaignService {
      */
     public Map<String, Object> replenishTroops(String odUserId, String campaignId) {
         CampaignProgress progress = campaignRepository.findByUserIdAndCampaignId(odUserId, campaignId);
-        if (progress == null || !"IN_PROGRESS".equals(progress.getStatus())) {
+        if (progress == null) {
             throw new BusinessException("战役未开始");
+        }
+        String pStatus = progress.getStatus();
+        if (!"IN_PROGRESS".equals(pStatus) && !"PAUSED".equals(pStatus)) {
+            throw new BusinessException("战役未开始(当前状态:" + pStatus + ")");
         }
         
         UserResource resource = userResourceService.getUserResource(odUserId);

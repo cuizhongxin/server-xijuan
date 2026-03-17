@@ -31,6 +31,9 @@ public class FormationService {
     
     @Autowired
     private EquipmentRepository equipmentRepository;
+
+    @Autowired
+    private com.tencent.wxcloudrun.service.SuitConfigService suitConfigService;
     
     /**
      * 获取用户阵型
@@ -293,40 +296,7 @@ public class FormationService {
      * 计算武将的装备加成
      */
     private Map<String, Integer> calculateEquipmentBonus(String generalId) {
-        Map<String, Integer> bonus = new HashMap<>();
-        bonus.put("attack", 0);
-        bonus.put("defense", 0);
-        bonus.put("valor", 0);
-        bonus.put("command", 0);
-        bonus.put("mobility", 0);
-        bonus.put("hp", 0);
-        
-        // 获取武将已装备的装备
-        List<Equipment> equipments = equipmentRepository.findEquippedByGeneralId(generalId);
-        
-        for (Equipment equipment : equipments) {
-            if (equipment.getBaseAttributes() != null) {
-                Equipment.Attributes base = equipment.getBaseAttributes();
-                bonus.put("attack", bonus.get("attack") + (base.getAttack() != null ? base.getAttack() : 0));
-                bonus.put("defense", bonus.get("defense") + (base.getDefense() != null ? base.getDefense() : 0));
-                bonus.put("valor", bonus.get("valor") + (base.getValor() != null ? base.getValor() : 0));
-                bonus.put("command", bonus.get("command") + (base.getCommand() != null ? base.getCommand() : 0));
-                bonus.put("mobility", bonus.get("mobility") + (base.getMobility() != null ? base.getMobility() : 0));
-                bonus.put("hp", bonus.get("hp") + (base.getHp() != null ? base.getHp() : 0));
-            }
-            
-            if (equipment.getBonusAttributes() != null) {
-                Equipment.Attributes bonusAttr = equipment.getBonusAttributes();
-                bonus.put("attack", bonus.get("attack") + (bonusAttr.getAttack() != null ? bonusAttr.getAttack() : 0));
-                bonus.put("defense", bonus.get("defense") + (bonusAttr.getDefense() != null ? bonusAttr.getDefense() : 0));
-                bonus.put("valor", bonus.get("valor") + (bonusAttr.getValor() != null ? bonusAttr.getValor() : 0));
-                bonus.put("command", bonus.get("command") + (bonusAttr.getCommand() != null ? bonusAttr.getCommand() : 0));
-                bonus.put("mobility", bonus.get("mobility") + (bonusAttr.getMobility() != null ? bonusAttr.getMobility() : 0));
-                bonus.put("hp", bonus.get("hp") + (bonusAttr.getHp() != null ? bonusAttr.getHp() : 0));
-            }
-        }
-        
-        return bonus;
+        return suitConfigService.calculateTotalEquipBonus(generalId);
     }
     
     /**

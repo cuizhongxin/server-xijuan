@@ -2,14 +2,18 @@ package com.tencent.wxcloudrun.controller.general;
 
 import com.tencent.wxcloudrun.dto.ApiResponse;
 import com.tencent.wxcloudrun.model.General;
+import com.tencent.wxcloudrun.model.Equipment;
 import com.tencent.wxcloudrun.service.general.GeneralService;
+import com.tencent.wxcloudrun.service.equipment.EquipmentService;
+import com.tencent.wxcloudrun.service.SuitConfigService;
+import com.tencent.wxcloudrun.repository.EquipmentRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
-import java.util.List;
+import java.util.*;
 
 /**
  * 武将控制器
@@ -22,6 +26,15 @@ public class GeneralController {
     
     @Autowired
     private GeneralService generalService;
+
+    @Autowired
+    private EquipmentRepository equipmentRepository;
+
+    @Autowired
+    private EquipmentService equipmentService;
+
+    @Autowired
+    private SuitConfigService suitConfigService;
     
     /**
      * 获取用户武将列表
@@ -54,12 +67,22 @@ public class GeneralController {
             return ApiResponse.error(404, "武将不存在");
         }
         
-        // 验证武将是否属于当前用户
         if (!general.getUserId().equals(userId)) {
             return ApiResponse.error(403, "无权访问该武将");
         }
-        
+
+        applyEquipmentBonus(general);
         return ApiResponse.success(general);
+    }
+
+    private void applyEquipmentBonus(General general) {
+        Map<String, Integer> bonus = suitConfigService.calculateTotalEquipBonus(general.getId());
+        general.setAttrAttack((general.getAttrAttack() != null ? general.getAttrAttack() : 0) + bonus.getOrDefault("attack", 0));
+        general.setAttrDefense((general.getAttrDefense() != null ? general.getAttrDefense() : 0) + bonus.getOrDefault("defense", 0));
+        general.setAttrMobility((general.getAttrMobility() != null ? general.getAttrMobility() : 0) + bonus.getOrDefault("mobility", 0));
+        general.setAttrValor((general.getAttrValor() != null ? general.getAttrValor() : 0) + bonus.getOrDefault("valor", 0));
+        general.setAttrCommand((general.getAttrCommand() != null ? general.getAttrCommand() : 0) + bonus.getOrDefault("command", 0));
+        general.setAttrDodge((general.getAttrDodge() != null ? general.getAttrDodge() : 0) + bonus.getOrDefault("dodge", 0));
     }
     
     /**

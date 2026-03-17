@@ -6,6 +6,7 @@ import com.tencent.wxcloudrun.model.Equipment;
 import com.tencent.wxcloudrun.model.UserResource;
 import com.tencent.wxcloudrun.service.equipment.EquipmentService;
 import com.tencent.wxcloudrun.service.UserResourceService;
+import com.tencent.wxcloudrun.service.warehouse.WarehouseService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,41 +29,75 @@ public class RefineService {
     @Autowired
     private UserResourceService userResourceService;
 
-    // 强化等级上限
-    private static final int MAX_ENHANCE_LEVEL = 10;
+    @Autowired
+    private WarehouseService warehouseService;
 
-    // 强化成功率（按等级）
+    private static final int MAX_ENHANCE_LEVEL = 20;
+
+    // 强化石 item_id 基础值: 14000 + 等级 = item_id
+    private static final int ENHANCE_STONE_BASE_ID = 14000;
+    // 品质石 item_id 基础值: 14030 + 阶数 = item_id
+    private static final int QUALITY_STONE_BASE_ID = 14030;
+
     private static final double[] ENHANCE_SUCCESS_RATE = {
-        1.0,   // 0 -> 1: 100%
-        0.95,  // 1 -> 2: 95%
-        0.90,  // 2 -> 3: 90%
-        0.80,  // 3 -> 4: 80%
-        0.70,  // 4 -> 5: 70%
-        0.60,  // 5 -> 6: 60%
-        0.50,  // 6 -> 7: 50%
-        0.40,  // 7 -> 8: 40%
-        0.30,  // 8 -> 9: 30%
-        0.20   // 9 -> 10: 20%
+        1.0,   // 0→1
+        0.95,  // 1→2
+        0.90,  // 2→3
+        0.80,  // 3→4
+        0.70,  // 4→5
+        0.60,  // 5→6
+        0.50,  // 6→7
+        0.40,  // 7→8
+        0.30,  // 8→9
+        0.20,  // 9→10
+        0.15,  // 10→11
+        0.12,  // 11→12
+        0.10,  // 12→13
+        0.08,  // 13→14
+        0.06,  // 14→15
+        0.05,  // 15→16
+        0.04,  // 16→17
+        0.03,  // 17→18
+        0.02,  // 18→19
+        0.01   // 19→20
     };
 
-    // 强化消耗银币（按等级）
     private static final int[] ENHANCE_SILVER_COST = {
-        1000,   // 0 -> 1
-        2000,   // 1 -> 2
-        4000,   // 2 -> 3
-        8000,   // 3 -> 4
-        15000,  // 4 -> 5
-        25000,  // 5 -> 6
-        40000,  // 6 -> 7
-        60000,  // 7 -> 8
-        80000,  // 8 -> 9
-        100000  // 9 -> 10
+        1000,    // 0→1
+        2000,    // 1→2
+        4000,    // 2→3
+        8000,    // 3→4
+        15000,   // 4→5
+        25000,   // 5→6
+        40000,   // 6→7
+        60000,   // 7→8
+        80000,   // 8→9
+        100000,  // 9→10
+        150000,  // 10→11
+        200000,  // 11→12
+        300000,  // 12→13
+        400000,  // 13→14
+        500000,  // 14→15
+        700000,  // 15→16
+        900000,  // 16→17
+        1200000, // 17→18
+        1500000, // 18→19
+        2000000  // 19→20
     };
 
-    // 强化消耗强化石等级（按装备强化等级）
-    private static final int[] ENHANCE_STONE_LEVEL = {
-        1, 1, 2, 2, 3, 3, 4, 4, 5, 6
-    };
+    private static int getNeededStoneLevel(int currentEnhanceLevel) {
+        return currentEnhanceLevel + 1;
+    }
+
+    /**
+     * 根据装备强化等级确定所需品质石阶数
+     * 1-19→1阶, 20-29→2阶, 30-39→3阶, ..., 100+→10阶
+     */
+    private static int getQualityStoneTier(int enhanceLevel) {
+        if (enhanceLevel < 20) return 1;
+        if (enhanceLevel >= 100) return 10;
+        return (enhanceLevel / 10);
+    }
 
     // 强化属性加成（每级百分比）
     private static final double ENHANCE_BONUS_PER_LEVEL = 0.05; // 每级5%
@@ -130,10 +165,12 @@ public class RefineService {
         info.put("currentBonus", calculateEnhanceBonus(equipment, currentLevel));
         
         if (currentLevel < MAX_ENHANCE_LEVEL) {
+            int stoneLevel = getNeededStoneLevel(currentLevel);
             info.put("canEnhance", true);
             info.put("successRate", (int)(ENHANCE_SUCCESS_RATE[currentLevel] * 100));
             info.put("silverCost", ENHANCE_SILVER_COST[currentLevel]);
-            info.put("stoneLevel", ENHANCE_STONE_LEVEL[currentLevel]);
+            info.put("stoneLevel", stoneLevel);
+            info.put("stoneItemId", String.valueOf(ENHANCE_STONE_BASE_ID + stoneLevel));
             info.put("stoneCost", 1);
             info.put("nextBonus", calculateEnhanceBonus(equipment, currentLevel + 1));
         } else {
@@ -162,24 +199,24 @@ public class RefineService {
         // 检查资源
         UserResource resource = userResourceService.getUserResource(odUserId);
         int silverCost = ENHANCE_SILVER_COST[currentLevel];
-        int stoneLevel = ENHANCE_STONE_LEVEL[currentLevel];
+        int stoneLevel = getNeededStoneLevel(currentLevel);
+        String stoneItemId = String.valueOf(ENHANCE_STONE_BASE_ID + stoneLevel);
         
         if (resource.getSilver() < silverCost) {
             throw new BusinessException(400, "银币不足");
         }
         
-        int stoneCount = getEnhanceStoneCount(resource, stoneLevel);
+        int stoneCount = warehouseService.getItemCount(odUserId, stoneItemId);
         if (stoneCount < 1) {
             throw new BusinessException(400, stoneLevel + "级强化石不足");
         }
 
-        // 扣除资源
+        // 扣除银两和强化石
         resource.setSilver(resource.getSilver() - silverCost);
-        deductEnhanceStone(resource, stoneLevel, 1);
+        warehouseService.consumeItem(odUserId, stoneItemId, 1);
         
         // 保护符消耗
         if (useProtect && currentLevel >= 5) {
-            // 检查保护符
             int scrollLevel = currentLevel >= 8 ? 3 : (currentLevel >= 6 ? 2 : 1);
             int scrollCount = getEnhanceScrollCount(resource, scrollLevel);
             if (scrollCount < 1) {
@@ -257,12 +294,16 @@ public class RefineService {
 
         if (currentQualityId < 5) {
             EquipmentConfig.EquipQualityLevel next = EquipmentConfig.getEquipQualityLevel(currentQualityId + 1);
+            int enhLv = equipment.getEnhanceLevel() != null ? equipment.getEnhanceLevel() : 0;
+            int qsTier = getQualityStoneTier(enhLv);
             info.put("canUpgrade", true);
             info.put("silverCost", ql.needSilver);
             info.put("successRate", ql.increaseRate);
             info.put("successRateDesc", (ql.increaseRate / 100.0) + "%");
             info.put("nextQualityName", next.name);
             info.put("nextAttrRate", next.attrRate);
+            info.put("qualityStoneTier", qsTier);
+            info.put("qualityStoneItemId", String.valueOf(QUALITY_STONE_BASE_ID + qsTier));
         } else {
             info.put("canUpgrade", false);
             info.put("message", "已达完美品质");
@@ -294,7 +335,16 @@ public class RefineService {
             throw new BusinessException(400, "银币不足，需要" + ql.needSilver);
         }
 
+        int enhLv = equipment.getEnhanceLevel() != null ? equipment.getEnhanceLevel() : 0;
+        int qsTier = getQualityStoneTier(enhLv);
+        String qsItemId = String.valueOf(QUALITY_STONE_BASE_ID + qsTier);
+        int qsCount = warehouseService.getItemCount(odUserId, qsItemId);
+        if (qsCount < 1) {
+            throw new BusinessException(400, qsTier + "阶品质石不足");
+        }
+
         resource.setSilver(resource.getSilver() - ql.needSilver);
+        warehouseService.consumeItem(odUserId, qsItemId, 1);
 
         boolean success = new Random().nextInt(10000) < ql.increaseRate;
 
@@ -564,28 +614,7 @@ public class RefineService {
         return EquipmentConfig.getEquipQualityName(qualityId);
     }
 
-    private int getEnhanceStoneCount(UserResource resource, int level) {
-        switch (level) {
-            case 1: return resource.getEnhanceStone1() != null ? resource.getEnhanceStone1() : 0;
-            case 2: return resource.getEnhanceStone2() != null ? resource.getEnhanceStone2() : 0;
-            case 3: return resource.getEnhanceStone3() != null ? resource.getEnhanceStone3() : 0;
-            case 4: return resource.getEnhanceStone4() != null ? resource.getEnhanceStone4() : 0;
-            case 5: return resource.getEnhanceStone5() != null ? resource.getEnhanceStone5() : 0;
-            case 6: return resource.getEnhanceStone6() != null ? resource.getEnhanceStone6() : 0;
-            default: return 0;
-        }
-    }
-
-    private void deductEnhanceStone(UserResource resource, int level, int count) {
-        switch (level) {
-            case 1: resource.setEnhanceStone1(resource.getEnhanceStone1() - count); break;
-            case 2: resource.setEnhanceStone2(resource.getEnhanceStone2() - count); break;
-            case 3: resource.setEnhanceStone3(resource.getEnhanceStone3() - count); break;
-            case 4: resource.setEnhanceStone4(resource.getEnhanceStone4() - count); break;
-            case 5: resource.setEnhanceStone5(resource.getEnhanceStone5() - count); break;
-            case 6: resource.setEnhanceStone6(resource.getEnhanceStone6() - count); break;
-        }
-    }
+    // 强化石和品质石已改为从仓库(warehouse_item)扣除，不再使用 user_resource 字段
 
     private int getEnhanceScrollCount(UserResource resource, int level) {
         switch (level) {

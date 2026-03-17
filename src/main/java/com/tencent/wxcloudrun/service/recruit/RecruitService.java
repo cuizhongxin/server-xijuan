@@ -35,9 +35,9 @@ public class RecruitService {
     
     private static final Logger logger = LoggerFactory.getLogger(RecruitService.class);
     
-    private static final String JUNIOR_TOKEN_ITEM_ID = "7";
-    private static final String INTERMEDIATE_TOKEN_ITEM_ID = "8";
-    private static final String SENIOR_TOKEN_ITEM_ID = "9";
+    private static final String JUNIOR_TOKEN_ITEM_ID = "15011";
+    private static final String INTERMEDIATE_TOKEN_ITEM_ID = "15012";
+    private static final String SENIOR_TOKEN_ITEM_ID = "15013";
     
     /** 将魂召唤橙将所需点数 */
     private static final int SOUL_SUMMON_COST = 200;
@@ -95,17 +95,25 @@ public class RecruitService {
         }
     }
     
+    private static final Map<String, Set<String>> TOKEN_ALIAS_MAP = new HashMap<>();
+    static {
+        TOKEN_ALIAS_MAP.put("JUNIOR", new HashSet<>(Arrays.asList("15011", "7")));
+        TOKEN_ALIAS_MAP.put("INTERMEDIATE", new HashSet<>(Arrays.asList("15012", "8", "item_8")));
+        TOKEN_ALIAS_MAP.put("SENIOR", new HashSet<>(Arrays.asList("15013", "9", "item_9")));
+    }
+
     private int getWarehouseTokenCount(String userId, String tokenType) {
-        String itemId = getTokenItemId(tokenType);
+        Set<String> aliases = TOKEN_ALIAS_MAP.getOrDefault(tokenType.toUpperCase(), Collections.emptySet());
         Warehouse warehouse = warehouseService.getWarehouse(userId);
         List<Warehouse.WarehouseItem> items = warehouse.getItemStorage().getItems();
         if (items == null) return 0;
+        int total = 0;
         for (Warehouse.WarehouseItem item : items) {
-            if (itemId.equals(item.getItemId())) {
-                return item.getCount() != null ? item.getCount() : 0;
+            if (aliases.contains(item.getItemId())) {
+                total += item.getCount() != null ? item.getCount() : 0;
             }
         }
-        return 0;
+        return total;
     }
     
     private void addWarehouseTokens(String userId, String tokenType, int count) {
@@ -113,26 +121,42 @@ public class RecruitService {
         String name, icon, quality, description;
         switch (tokenType.toUpperCase()) {
             case "JUNIOR":
-                name = "初级招贤令"; icon = "📜"; quality = "green";
+                name = "初级招贤令"; icon = "images/item/15011.jpg"; quality = "2";
                 description = "可进行一次初级招募"; break;
             case "INTERMEDIATE":
-                name = "中级招贤令"; icon = "📃"; quality = "blue";
+                name = "中级招贤令"; icon = "images/item/15012.jpg"; quality = "3";
                 description = "可进行一次中级招募"; break;
             case "SENIOR":
-                name = "高级招贤令"; icon = "📋"; quality = "purple";
+                name = "高级招贤令"; icon = "images/item/15013.jpg"; quality = "4";
                 description = "可进行一次高级招募"; break;
             default: throw new BusinessException(400, "无效的招贤令类型");
         }
         Warehouse.WarehouseItem item = Warehouse.WarehouseItem.builder()
-                .itemId(itemId).itemType("token").name(name).icon(icon)
+                .itemId(itemId).itemType("consumable").name(name).icon(icon)
                 .quality(quality).count(count).maxStack(9999)
                 .description(description).usable(false).build();
         warehouseService.addItem(userId, item);
     }
     
     private void removeWarehouseTokens(String userId, String tokenType, int count) {
-        String itemId = getTokenItemId(tokenType);
-        if (!warehouseService.removeItem(userId, itemId, count)) {
+        Set<String> aliases = TOKEN_ALIAS_MAP.getOrDefault(tokenType.toUpperCase(), Collections.emptySet());
+        Warehouse warehouse = warehouseService.getWarehouse(userId);
+        List<Warehouse.WarehouseItem> items = warehouse.getItemStorage().getItems();
+        int remaining = count;
+        if (items != null) {
+            for (Warehouse.WarehouseItem item : items) {
+                if (remaining <= 0) break;
+                if (aliases.contains(item.getItemId())) {
+                    int available = item.getCount() != null ? item.getCount() : 0;
+                    int toRemove = Math.min(available, remaining);
+                    if (toRemove > 0) {
+                        warehouseService.removeItem(userId, item.getItemId(), toRemove);
+                        remaining -= toRemove;
+                    }
+                }
+            }
+        }
+        if (remaining > 0) {
             throw new BusinessException(400, "招贤令数量不足");
         }
     }

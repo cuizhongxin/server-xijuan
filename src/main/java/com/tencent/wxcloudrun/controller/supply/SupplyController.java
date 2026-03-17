@@ -68,9 +68,8 @@ public class SupplyController {
                                                  HttpServletRequest request) {
         long transportId = body.get("transportId") != null
                 ? Long.parseLong(String.valueOf(body.get("transportId"))) : 0;
-        String generalId = (String) body.get("generalId");
         logger.info("抢夺军需, userId={}, transportId={}", getUserId(request), transportId);
-        return ApiResponse.success(supplyService.robTransport(getUserId(request), transportId, generalId));
+        return ApiResponse.success(supplyService.robTransport(getUserId(request), transportId));
     }
 
     @PostMapping("/buy-token")
@@ -85,5 +84,12 @@ public class SupplyController {
             @RequestParam(defaultValue = "attack") String type,
             HttpServletRequest request) {
         return ApiResponse.success(supplyService.getRecords(getUserId(request), type));
+    }
+
+    @GetMapping("/defender-formation")
+    public ApiResponse<Map<String, Object>> getDefenderFormation(
+            @RequestParam String defenderId,
+            HttpServletRequest request) {
+        return ApiResponse.success(supplyService.getDefenderFormation(defenderId));
     }
 }

@@ -184,6 +184,8 @@ public class SecretRealmService {
         }
 
         List<Map<String, Object>> resultItems = new ArrayList<>();
+        List<Equipment> pendingEquipments = new ArrayList<>();
+        Map<String, Warehouse.WarehouseItem> pendingItems = new LinkedHashMap<>();
         Random random = new Random();
 
         for (int i = 0; i < count; i++) {
@@ -193,25 +195,18 @@ public class SecretRealmService {
 
             boolean shouldDropEquip = false;
 
-            // 保底判定: 达到保底次数必出装备
             if (pityCount > 0 && countSinceEquip >= pityCount && !equipPool.isEmpty()) {
                 shouldDropEquip = true;
-                logger.info("用户 {} 在秘境 {} 触发保底(连续{}次未出装备)", userId, realmId, countSinceEquip);
-            }
-            // 常规概率判定
-            else if (random.nextDouble() < equipBaseRate && !equipPool.isEmpty()) {
+            } else if (random.nextDouble() < equipBaseRate && !equipPool.isEmpty()) {
                 shouldDropEquip = true;
             }
 
             Map<String, Object> itemInfo;
 
             if (shouldDropEquip) {
-                // 按权重随机选择装备
                 Map<String, Object> eqRow = selectByWeight(equipPool, equipTotalWeight, random);
-
                 Equipment equipment = createEquipmentFromRow(userId, eqRow, minLevel);
-                equipmentRepository.save(equipment);
-                warehouseService.addEquipment(userId, equipment.getId());
+                pendingEquipments.add(equipment);
 
                 itemInfo = new LinkedHashMap<>();
                 itemInfo.put("id", "equip_" + getInt(eqRow, "equip_pre_id", 0));
@@ -231,7 +226,6 @@ public class SecretRealmService {
             } else {
                 if (itemPool.isEmpty()) continue;
 
-                // 按权重随机选择道具
                 Map<String, Object> itRow = selectByWeight(itemPool, itemTotalWeight, random);
 
                 String itemId = getString(itRow, "item_id", "");
@@ -240,7 +234,6 @@ public class SecretRealmService {
                 String subType = getString(itRow, "item_sub_type", "material");
                 int quality = getInt(itRow, "quality", 1);
                 String desc = getString(itRow, "description", "秘境探索获得的物品");
-
                 int itemPreId = getInt(itRow, "item_pre_id", 0);
 
                 itemInfo = new LinkedHashMap<>();
@@ -254,20 +247,32 @@ public class SecretRealmService {
                 itemInfo.put("itemPreId", itemPreId);
                 itemInfo.put("count", 1);
 
-                Warehouse.WarehouseItem wItem = new Warehouse.WarehouseItem();
-                wItem.setItemId(itemId);
-                wItem.setName(name);
-                wItem.setIcon(icon);
-                wItem.setItemType(subType);
-                wItem.setQuality(qualityName(quality));
-                wItem.setCount(1);
-                wItem.setMaxStack(99);
-                wItem.setUsable(!"material".equals(subType));
-                wItem.setDescription(desc);
-                warehouseService.addItem(userId, wItem);
+                if (pendingItems.containsKey(itemId)) {
+                    pendingItems.get(itemId).setCount(pendingItems.get(itemId).getCount() + 1);
+                } else {
+                    Warehouse.WarehouseItem wItem = new Warehouse.WarehouseItem();
+                    wItem.setItemId(itemId);
+                    wItem.setName(name);
+                    wItem.setIcon(icon);
+                    wItem.setItemType(subType);
+                    wItem.setQuality(String.valueOf(quality));
+                    wItem.setCount(1);
+                    wItem.setMaxStack(99);
+                    wItem.setUsable(!"material".equals(subType));
+                    wItem.setDescription(desc);
+                    pendingItems.put(itemId, wItem);
+                }
             }
 
             resultItems.add(itemInfo);
+        }
+
+        for (Equipment eq : pendingEquipments) {
+            equipmentRepository.save(eq);
+            warehouseService.addEquipment(userId, eq.getId());
+        }
+        for (Warehouse.WarehouseItem wItem : pendingItems.values()) {
+            warehouseService.addItem(userId, wItem);
         }
 
         // 保存保底计数
@@ -313,12 +318,20 @@ public class SecretRealmService {
         Equipment equipment = new Equipment();
         equipment.setId(UUID.randomUUID().toString());
         equipment.setUserId(userId);
-        equipment.setName(getString(eqRow, "name", ""));
+
+        int qualityValueId = com.tencent.wxcloudrun.config.EquipmentConfig.rollEquipQuality();
+        com.tencent.wxcloudrun.config.EquipmentConfig.EquipQualityLevel ql =
+                com.tencent.wxcloudrun.config.EquipmentConfig.getEquipQualityLevel(qualityValueId);
+        double attrRate = ql.attrRate / 10000.0;
+
+        String baseName = getString(eqRow, "name", "");
+        equipment.setName(ql.name + "的" + baseName);
         equipment.setIcon(getString(eqRow, "icon", "⚔️"));
         equipment.setLevel(level);
         equipment.setEquipped(false);
         equipment.setCreateTime(System.currentTimeMillis());
         equipment.setUpdateTime(System.currentTimeMillis());
+        equipment.setQualityValue(qualityValueId);
 
         String position = getString(eqRow, "position", "武器");
         Equipment.SlotType slotType = new Equipment.SlotType();
@@ -335,17 +348,36 @@ public class SecretRealmService {
         equipment.setQuality(quality);
 
         String setName = getString(eqRow, "set_name", "");
+        String setEffect3 = getString(eqRow, "set_effect_3", "");
+        String setEffect6 = getString(eqRow, "set_effect_6", "");
+
         Equipment.SetInfo setInfo = new Equipment.SetInfo();
         setInfo.setSetId(setName);
         setInfo.setSetName(setName + "套装");
         setInfo.setSetLevel(level);
+        setInfo.setThreeSetEffect(setEffect3);
+        setInfo.setSixSetEffect(setEffect6);
+        setInfo.setThreeSetBonus(parseEffectText(setEffect3));
+        setInfo.setSixSetBonus(parseEffectText(setEffect6));
         equipment.setSetInfo(setInfo);
 
+        int rawAtk = getInt(eqRow, "attack", 0);
+        int rawDef = getInt(eqRow, "defense", 0);
+        int rawHp = getInt(eqRow, "soldier_hp", 0);
+        int rawMob = getInt(eqRow, "mobility", 0);
+
+        Equipment.Attributes rawAttrs = new Equipment.Attributes();
+        rawAttrs.setAttack(rawAtk);
+        rawAttrs.setDefense(rawDef);
+        rawAttrs.setHp(rawHp);
+        rawAttrs.setMobility(rawMob);
+        equipment.setQualityAttributes(rawAttrs);
+
         Equipment.Attributes attrs = new Equipment.Attributes();
-        attrs.setAttack(getInt(eqRow, "attack", 0));
-        attrs.setDefense(getInt(eqRow, "defense", 0));
-        attrs.setHp(getInt(eqRow, "soldier_hp", 0));
-        attrs.setMobility(getInt(eqRow, "mobility", 0));
+        attrs.setAttack((int)(rawAtk * attrRate));
+        attrs.setDefense((int)(rawDef * attrRate));
+        attrs.setHp((int)(rawHp * attrRate));
+        attrs.setMobility((int)(rawMob * attrRate));
         equipment.setBaseAttributes(attrs);
 
         Equipment.Source source = new Equipment.Source();
@@ -354,9 +386,7 @@ public class SecretRealmService {
         source.setDetail(setName + "套 - " + position);
         equipment.setSource(source);
 
-        String setEffect3 = getString(eqRow, "set_effect_3", "");
-        String setEffect6 = getString(eqRow, "set_effect_6", "");
-        equipment.setDescription(setName + "套 - " + position + " [3件:" + setEffect3 + " 6件:" + setEffect6 + "]");
+        equipment.setDescription(ql.name + "的" + baseName + " [" + setName + "套 3件:" + setEffect3 + " 6件:" + setEffect6 + "]");
         equipment.setBound(true);
 
         return equipment;
@@ -400,6 +430,29 @@ public class SecretRealmService {
         return result;
     }
 
+    private Equipment.Attributes parseEffectText(String text) {
+        Equipment.Attributes a = new Equipment.Attributes();
+        if (text == null || text.isEmpty()) return a;
+        for (String part : text.split("[，,]")) {
+            part = part.trim();
+            if (part.contains("攻击")) a.setAttack(extractNumber(part));
+            else if (part.contains("防御")) a.setDefense(extractNumber(part));
+            else if (part.contains("士兵生命") || part.contains("兵命")) a.setHp(extractNumber(part));
+            else if (part.contains("统御")) a.setCommand(extractNumber(part));
+            else if (part.contains("机动")) a.setMobility(extractNumber(part));
+            else if (part.contains("武力") || part.contains("勇武")) a.setValor(extractNumber(part));
+        }
+        return a;
+    }
+
+    private int extractNumber(String s) {
+        StringBuilder sb = new StringBuilder();
+        for (char c : s.toCharArray()) {
+            if (c >= '0' && c <= '9') sb.append(c);
+        }
+        return sb.length() > 0 ? Integer.parseInt(sb.toString()) : 0;
+    }
+
     private String qualityName(int q) {
         switch (q) {
             case 1: return "普通"; case 2: return "优秀"; case 3: return "精良";
@@ -410,8 +463,8 @@ public class SecretRealmService {
 
     private String qualityColor(int q) {
         switch (q) {
-            case 1: return "#aaaaaa"; case 2: return "#55ff55"; case 3: return "#5599ff";
-            case 4: return "#ff4444"; case 5: return "#cc77ff"; case 6: return "#ff9933";
+            case 1: return "#aaaaaa"; case 2: return "#44dd44"; case 3: return "#4488ff";
+            case 4: return "#ff4444"; case 5: return "#cc44ff"; case 6: return "#ff8800";
             default: return "#aaaaaa";
         }
     }

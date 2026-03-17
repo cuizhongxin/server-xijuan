@@ -8,6 +8,7 @@ import com.tencent.wxcloudrun.model.SecretRealm;
 import com.tencent.wxcloudrun.model.CraftMaterial;
 import com.tencent.wxcloudrun.service.equipment.EquipmentService;
 import com.tencent.wxcloudrun.service.general.GeneralService;
+import com.tencent.wxcloudrun.service.SuitConfigService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,6 +36,9 @@ public class EquipmentController {
     
     @Autowired
     private GeneralService generalService;
+
+    @Autowired
+    private SuitConfigService suitConfigService;
     
     // ==================== 装备查询 ====================
     
@@ -77,6 +81,7 @@ public class EquipmentController {
         logger.info("获取武将装备, userId: {}, generalId: {}", userId, generalId);
         
         List<Equipment> equipments = equipmentService.getGeneralEquipments(generalId);
+        suitConfigService.fixSetDescriptions(equipments);
         Map<String, Object> setBonus = equipmentService.calculateSetBonus(generalId);
         
         Map<String, Object> result = new HashMap<>();

@@ -109,7 +109,7 @@ public class GeneralConfig {
             String name = (String) row.get("name");
             String faction = (String) row.get("faction");
             Object sid = row.get("slotId");
-            String avatar = (String) row.get("avatar");
+            String avatar = stripInvisibleChars((String) row.get("avatar"));
             String qualityCode = (String) row.get("qualityCode");
             String type = (String) row.get("type");
             String troopType = (String) row.get("troopType");
@@ -219,5 +219,13 @@ public class GeneralConfig {
             this.type = type;
             this.value = value;
         }
+    }
+
+    private static final java.util.regex.Pattern INVISIBLE_CHARS =
+            java.util.regex.Pattern.compile("[\\u200B-\\u200F\\u202A-\\u202E\\uFEFF\\u00AD]");
+
+    private static String stripInvisibleChars(String s) {
+        if (s == null) return null;
+        return INVISIBLE_CHARS.matcher(s).replaceAll("");
     }
 }

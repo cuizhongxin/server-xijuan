@@ -68,6 +68,10 @@ public class UserResourceController {
         summary.put("generalCount", resource.getGeneralCount());
         summary.put("maxGeneral", resource.getMaxGeneral());
         summary.put("vipLevel", resource.getVipLevel());
+        summary.put("metal", resource.getMetal() != null ? resource.getMetal() : 0L);
+        summary.put("food", resource.getFood() != null ? resource.getFood() : 0L);
+        summary.put("paper", resource.getPaper() != null ? resource.getPaper() : 0L);
+        summary.put("wood", resource.getWood() != null ? resource.getWood() : 0L);
         
         // 挑战剩余次数
         try {

@@ -383,12 +383,27 @@ public class EquipmentService {
         Equipment.Quality quality = equipmentConfig.getQuality(qualityId);
 
         Equipment.SetInfo setInfo = null;
+        String suitShortName = null;
         if (pre.getSuitId() != null && pre.getSuitId() > 0 && pre.getSuitName() != null) {
-            setInfo = Equipment.SetInfo.builder()
-                    .setId("SET_" + pre.getSuitId())
-                    .setName(pre.getSuitName())
-                    .setLevel(pre.getNeedLevel())
-                    .build();
+            suitShortName = pre.getSuitName().replace("套装", "");
+            Equipment.SetInfo configSet = equipmentConfig.getEquipmentSet(suitShortName);
+            if (configSet != null) {
+                setInfo = Equipment.SetInfo.builder()
+                        .setId(suitShortName)
+                        .setName(pre.getSuitName())
+                        .setLevel(pre.getNeedLevel())
+                        .threeSetEffect(configSet.getThreeSetEffect())
+                        .sixSetEffect(configSet.getSixSetEffect())
+                        .threeSetBonus(configSet.getThreeSetBonus())
+                        .sixSetBonus(configSet.getSixSetBonus())
+                        .build();
+            } else {
+                setInfo = Equipment.SetInfo.builder()
+                        .setId(suitShortName)
+                        .setName(pre.getSuitName())
+                        .setLevel(pre.getNeedLevel())
+                        .build();
+            }
         }
 
         // Raw template attributes (100% = 完美品质)
@@ -421,10 +436,12 @@ public class EquipmentService {
 
         String desc = pre.getDescription() != null ? pre.getDescription() : pre.getName();
 
+        String displayName = ql.name + "的" + pre.getName();
+
         return Equipment.builder()
                 .id(equipmentId)
                 .userId(userId)
-                .name(pre.getName())
+                .name(displayName)
                 .slotType(slotType)
                 .level(pre.getNeedLevel())
                 .quality(quality)
@@ -436,12 +453,12 @@ public class EquipmentService {
                 .source(Equipment.Source.builder()
                         .type(sourceType)
                         .name(sourceName)
-                        .detail(pre.getSuitName() != null ? pre.getSuitName() + "套装" : sourceName)
+                        .detail(suitShortName != null ? suitShortName + "套装" : sourceName)
                         .build())
                 .equipped(false)
                 .equippedGeneralId(null)
                 .icon(icon)
-                .description(desc)
+                .description(ql.name + "的" + (desc != null ? desc : pre.getName()))
                 .createTime(System.currentTimeMillis())
                 .updateTime(System.currentTimeMillis())
                 .build();
@@ -638,11 +655,18 @@ public class EquipmentService {
         Equipment.Attributes totalBonus = Equipment.Attributes.builder().build();
         List<Map<String, Object>> activeSetEffects = new ArrayList<>();
         
+        Map<String, Equipment.SetInfo> setInfoMap = new HashMap<>();
+        for (Equipment equipment : equippedList) {
+            if (equipment.getSetInfo() != null && equipment.getSetInfo().getSetId() != null) {
+                setInfoMap.putIfAbsent(equipment.getSetInfo().getSetId(), equipment.getSetInfo());
+            }
+        }
+
         for (Map.Entry<String, Integer> entry : setCount.entrySet()) {
             String setId = entry.getKey();
             int count = entry.getValue();
             Equipment.SetInfo setInfo = equipmentConfig.getEquipmentSet(setId);
-            
+            if (setInfo == null) setInfo = setInfoMap.get(setId);
             if (setInfo == null) continue;
             
             Map<String, Object> setEffect = new HashMap<>();
@@ -651,14 +675,12 @@ public class EquipmentService {
             setEffect.put("count", count);
             
             if (count >= 3) {
-                // 3件套效果
                 addAttributes(totalBonus, setInfo.getThreeSetBonus());
                 setEffect.put("threeSetActive", true);
                 setEffect.put("threeSetEffect", setInfo.getThreeSetEffect());
             }
             
             if (count >= 6) {
-                // 6件套效果
                 addAttributes(totalBonus, setInfo.getSixSetBonus());
                 setEffect.put("sixSetActive", true);
                 setEffect.put("sixSetEffect", setInfo.getSixSetEffect());
@@ -724,20 +746,26 @@ public class EquipmentService {
         Equipment.Quality quality = equipmentConfig.getQuality(qualityId);
         Equipment.SetInfo setInfo = setId != null ? equipmentConfig.getEquipmentSet(setId) : null;
         
-        // 生成装备名称
-        String name = generateEquipmentName(slotTypeId, level, quality);
+        int eqQualityId = EquipmentConfig.rollEquipQuality();
+        EquipmentConfig.EquipQualityLevel ql = EquipmentConfig.getEquipQualityLevel(eqQualityId);
+        double attrRate = ql.attrRate / 10000.0;
         
-        // 计算基础属性
-        Equipment.Attributes baseAttributes = calculateBaseAttributes(slotType, level, quality);
+        String baseName = generateEquipmentName(slotTypeId, level, quality);
+        String name = ql.name + "的" + baseName;
         
-        // 计算附加属性（随机）
+        Equipment.Attributes rawAttributes = calculateBaseAttributes(slotType, level, quality);
+        Equipment.Attributes baseAttributes = Equipment.Attributes.builder()
+            .attack(rawAttributes.getAttack() != null ? (int)(rawAttributes.getAttack() * attrRate) : 0)
+            .defense(rawAttributes.getDefense() != null ? (int)(rawAttributes.getDefense() * attrRate) : 0)
+            .valor(rawAttributes.getValor() != null ? (int)(rawAttributes.getValor() * attrRate) : 0)
+            .command(rawAttributes.getCommand() != null ? (int)(rawAttributes.getCommand() * attrRate) : 0)
+            .hp(rawAttributes.getHp() != null ? (int)(rawAttributes.getHp() * attrRate) : 0)
+            .mobility(rawAttributes.getMobility() != null ? (int)(rawAttributes.getMobility() * attrRate) : 0)
+            .build();
+        
         Equipment.Attributes bonusAttributes = calculateBonusAttributes(level, quality);
-        
-        // 装备图标
         String icon = slotType.getIcon();
-        
-        // 装备描述
-        String description = generateDescription(slotType, level, quality, source);
+        String description = ql.name + "的" + generateDescription(slotType, level, quality, source);
         
         return Equipment.builder()
             .id(equipmentId)
@@ -749,6 +777,8 @@ public class EquipmentService {
             .setInfo(setInfo)
             .baseAttributes(baseAttributes)
             .bonusAttributes(bonusAttributes)
+            .qualityValue(eqQualityId)
+            .qualityAttributes(rawAttributes)
             .source(source)
             .equipped(false)
             .equippedGeneralId(null)

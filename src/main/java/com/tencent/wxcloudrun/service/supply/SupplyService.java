@@ -12,6 +12,7 @@ import com.tencent.wxcloudrun.repository.UserResourceRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
@@ -37,6 +38,7 @@ public class SupplyService {
     @Autowired private SupplyRobberyMapper robberyMapper;
     @Autowired private UserResourceRepository userResourceRepository;
     @Autowired private GeneralRepository generalRepository;
+    @Autowired @Lazy private com.tencent.wxcloudrun.service.formation.FormationService formationService;
 
     private List<Map<String, Object>> gradeConfigs = new ArrayList<>();
 
@@ -332,7 +334,7 @@ public class SupplyService {
 
     // ======================== 抢夺军需 ========================
 
-    public Map<String, Object> robTransport(String userId, long transportId, String generalId) {
+    public Map<String, Object> robTransport(String userId, long transportId) {
         Map<String, Object> sd = getOrInitData(userId);
         int todayRobbery = parseIntSafe(sd.get("todayRobbery"), 0);
         if (todayRobbery >= DAILY_ROBBERY_LIMIT) {
@@ -354,12 +356,14 @@ public class SupplyService {
             throw new BusinessException(400, "该军需已被抢夺" + MAX_ROBBED_PER_TRANSPORT + "次，无法再次抢夺");
         }
 
-        General general = generalRepository.findById(generalId);
-        if (general == null) throw new BusinessException(400, "武将不存在");
-
         UserResource myRes = userResourceRepository.findByUserId(userId);
         int myLevel = myRes != null && myRes.getLevel() != null ? myRes.getLevel() : 1;
-        int playerPower = general.getAttrValor() != null ? general.getAttrValor() : myLevel * 500;
+
+        List<General> myGenerals = formationService.getBattleOrder(userId);
+        int playerPower = myGenerals.stream()
+                .mapToInt(g -> g.getAttrValor() != null ? g.getAttrValor() : myLevel * 400)
+                .sum();
+        if (playerPower == 0) playerPower = myLevel * 500;
 
         List<General> defGenerals = generalRepository.findByUserId(defenderId);
         int defPower = defGenerals.stream()
@@ -466,6 +470,17 @@ public class SupplyService {
         Map<String, Object> result = new HashMap<>();
         result.put("records", records);
         return result;
+    }
+
+    // ======================== 获取防守方阵型 ========================
+
+    public Map<String, Object> getDefenderFormation(String defenderId) {
+        try {
+            return formationService.getFormationDetail(defenderId);
+        } catch (Exception e) {
+            logger.warn("获取防守方阵型失败 defenderId={}: {}", defenderId, e.getMessage());
+            return new HashMap<>();
+        }
     }
 
     // ======================== 辅助方法 ========================

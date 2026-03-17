@@ -115,6 +115,16 @@ public class General {
     
     private Long createTime;
     private Long updateTime;
+
+    private static final java.util.regex.Pattern INVISIBLE_CHARS =
+            java.util.regex.Pattern.compile("[\\u200B-\\u200F\\u202A-\\u202E\\uFEFF\\u00AD]");
+
+    public String getAvatar() {
+        if (avatar != null && INVISIBLE_CHARS.matcher(avatar).find()) {
+            avatar = INVISIBLE_CHARS.matcher(avatar).replaceAll("");
+        }
+        return avatar;
+    }
     
     // ====== JSON 辅助（MyBatis列映射） ======
     

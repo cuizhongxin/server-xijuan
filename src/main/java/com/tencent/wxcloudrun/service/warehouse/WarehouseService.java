@@ -167,19 +167,16 @@ public class WarehouseService {
     public Map<String, Object> getEquipments(String userId, int page, int pageSize) {
         Warehouse warehouse = getWarehouse(userId);
 
-        List<Equipment> allEquipments = equipmentRepository.findByUserId(userId);
+        List<Equipment> allEquipments = equipmentRepository.findUnequippedByUserId(userId);
         if (allEquipments == null) allEquipments = new ArrayList<>();
 
-        // 同步 usedSlots
         Warehouse.EquipmentStorage es = warehouse.getEquipmentStorage();
-        if (es.getUsedSlots() == null || es.getUsedSlots() != allEquipments.size()) {
-            es.setUsedSlots(allEquipments.size());
-            if (es.getEquipmentIds() == null) es.setEquipmentIds(new ArrayList<>());
-            List<String> ids = new ArrayList<>();
-            for (Equipment e : allEquipments) ids.add(e.getId());
-            es.setEquipmentIds(ids);
-            warehouseRepository.save(warehouse);
-        }
+        es.setUsedSlots(allEquipments.size());
+        if (es.getEquipmentIds() == null) es.setEquipmentIds(new ArrayList<>());
+        List<String> ids = new ArrayList<>();
+        for (Equipment e : allEquipments) ids.add(e.getId());
+        es.setEquipmentIds(ids);
+        warehouseRepository.save(warehouse);
 
         // 分页
         int total = allEquipments.size();
@@ -268,6 +265,44 @@ public class WarehouseService {
         return false;
     }
     
+    /**
+     * 查询仓库中某物品的数量
+     */
+    public int getItemCount(String userId, String itemId) {
+        Warehouse warehouse = getWarehouse(userId);
+        for (Warehouse.WarehouseItem item : warehouse.getItemStorage().getItems()) {
+            if (item.getItemId().equals(itemId)) {
+                return item.getCount();
+            }
+        }
+        return 0;
+    }
+
+    /**
+     * 从仓库扣除指定数量的物品（不触发效果）
+     */
+    public boolean consumeItem(String userId, String itemId, int count) {
+        Warehouse warehouse = getWarehouse(userId);
+        Warehouse.ItemStorage storage = warehouse.getItemStorage();
+        for (int i = 0; i < storage.getItems().size(); i++) {
+            Warehouse.WarehouseItem item = storage.getItems().get(i);
+            if (item.getItemId().equals(itemId)) {
+                if (item.getCount() < count) {
+                    return false;
+                }
+                if (item.getCount() > count) {
+                    item.setCount(item.getCount() - count);
+                } else {
+                    storage.getItems().remove(i);
+                    storage.setUsedSlots(Math.max(0, storage.getUsedSlots() - 1));
+                }
+                warehouseRepository.save(warehouse);
+                return true;
+            }
+        }
+        return false;
+    }
+
     /**
      * 添加物品到仓库
      */
