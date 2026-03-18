@@ -48,6 +48,23 @@ public class RefineService {
     // 品质石 item_id 基础值: 14030 + 阶数 = item_id
     private static final int QUALITY_STONE_BASE_ID = 14030;
 
+    // APK EquipDecompose_cfg.json
+    private static final int DECOMPOSE_SCROLL_ID = 15041;
+    private static final Map<Integer, int[]> DECOMPOSE_TIERS = new LinkedHashMap<>();
+    static {
+        // [qualityStoneID, needSilver]
+        DECOMPOSE_TIERS.put(1, new int[]{14031, 300});
+        DECOMPOSE_TIERS.put(2, new int[]{14032, 1000});
+        DECOMPOSE_TIERS.put(3, new int[]{14033, 2000});
+        DECOMPOSE_TIERS.put(4, new int[]{14034, 3000});
+        DECOMPOSE_TIERS.put(5, new int[]{14035, 5000});
+        DECOMPOSE_TIERS.put(6, new int[]{14036, 10000});
+        DECOMPOSE_TIERS.put(7, new int[]{14037, 20000});
+        DECOMPOSE_TIERS.put(8, new int[]{14038, 30000});
+        DECOMPOSE_TIERS.put(9, new int[]{14039, 40000});
+        DECOMPOSE_TIERS.put(10, new int[]{14040, 50000});
+    }
+
     // APK equipStrength_cfg: needSilver per target level (index = targetLevel - 1)
     private static final int[] ENHANCE_SILVER_COST = {
         300, 600, 1000, 2000, 4000, 8000, 10000, 15000, 20000, 30000,
@@ -87,10 +104,10 @@ public class RefineService {
         return currentEnhanceLevel + 1;
     }
 
-    private static int getQualityStoneTier(int enhanceLevel) {
-        if (enhanceLevel < 20) return 1;
-        if (enhanceLevel >= 100) return 10;
-        return (enhanceLevel / 10);
+    private static int getQualityStoneTier(int equipLevel) {
+        if (equipLevel < 20) return 1;
+        if (equipLevel >= 100) return 10;
+        return (equipLevel / 10);
     }
 
 
@@ -212,16 +229,17 @@ public class RefineService {
 
         if (currentQualityId < 5) {
             EquipmentConfig.EquipQualityLevel next = EquipmentConfig.getEquipQualityLevel(currentQualityId + 1);
-            int enhLv = equipment.getEnhanceLevel() != null ? equipment.getEnhanceLevel() : 0;
-            int qsTier = getQualityStoneTier(enhLv);
+            int equipLv = equipment.getLevel() != null ? equipment.getLevel() : 1;
+            int qsTier = getQualityStoneTier(equipLv);
             info.put("canUpgrade", true);
             info.put("silverCost", ql.needSilver);
             info.put("successRate", ql.increaseRate);
-            info.put("successRateDesc", (ql.increaseRate / 100.0) + "%");
+            info.put("successRateDesc", String.format("%.2f%%", ql.increaseRate / 100.0));
             info.put("nextQualityName", next.name);
             info.put("nextAttrRate", next.attrRate);
             info.put("qualityStoneTier", qsTier);
             info.put("qualityStoneItemId", String.valueOf(QUALITY_STONE_BASE_ID + qsTier));
+            info.put("equipLevel", equipLv);
         } else {
             info.put("canUpgrade", false);
             info.put("message", "已达完美品质");
@@ -253,8 +271,8 @@ public class RefineService {
             throw new BusinessException(400, "银币不足，需要" + ql.needSilver);
         }
 
-        int enhLv = equipment.getEnhanceLevel() != null ? equipment.getEnhanceLevel() : 0;
-        int qsTier = getQualityStoneTier(enhLv);
+        int equipLv = equipment.getLevel() != null ? equipment.getLevel() : 1;
+        int qsTier = getQualityStoneTier(equipLv);
         String qsItemId = String.valueOf(QUALITY_STONE_BASE_ID + qsTier);
         int qsCount = warehouseService.getItemCount(odUserId, qsItemId);
         if (qsCount < 1) {
@@ -288,17 +306,21 @@ public class RefineService {
                     .build());
             }
 
+            String oldName = equipment.getName() != null ? equipment.getName() : "";
+            String baseName = oldName.replaceFirst("^(粗糙|普通|优良|无暇|完美)的", "");
+            equipment.setName(newQl.name + "的" + baseName);
+
             result.put("success", true);
             result.put("newQuality", newQualityId);
             result.put("newQualityName", newQl.name);
             result.put("newAttrRate", newQl.attrRate);
             result.put("newAttributes", equipment.getBaseAttributes());
-            logger.info("洗练成功: {} {} -> {}", equipment.getName(), ql.name, newQl.name);
+            logger.info("品质提升成功: {} {} -> {}", equipment.getName(), ql.name, newQl.name);
         } else {
             result.put("success", false);
             result.put("newQuality", currentQualityId);
             result.put("newQualityName", ql.name);
-            logger.info("洗练失败: {} {}", equipment.getName(), ql.name);
+            logger.info("品质提升失败: {} {}", equipment.getName(), ql.name);
         }
 
         result.put("silverCost", ql.needSilver);
@@ -476,57 +498,117 @@ public class RefineService {
     }
 
     /**
-     * 装备分解
+     * 装备分解 (APK EquipDecompose_cfg: 消耗分解符+银两, 产出品质石)
      */
     public Map<String, Object> decomposeEquipments(String odUserId, List<String> equipmentIds) {
         if (equipmentIds == null || equipmentIds.isEmpty()) {
             throw new BusinessException(400, "请选择要分解的装备");
         }
 
-        int totalQualityStone = 0;
-        int totalSilver = 0;
+        int scrollCount = warehouseService.getItemCount(odUserId, String.valueOf(DECOMPOSE_SCROLL_ID));
+        if (scrollCount < equipmentIds.size()) {
+            throw new BusinessException(400, "分解符不足，需要" + equipmentIds.size() + "个，当前" + scrollCount + "个");
+        }
+
+        List<Equipment> toDecompose = new ArrayList<>();
+        long totalSilverCost = 0;
 
         for (String id : equipmentIds) {
             Equipment eq = equipmentService.getEquipment(odUserId, id);
-            if (eq == null) {
-                continue;
-            }
+            if (eq == null) continue;
             if (eq.getEquipped() != null && eq.getEquipped()) {
                 throw new BusinessException(400, "已装备的装备不能分解: " + eq.getName());
             }
             if (eq.getLocked() != null && eq.getLocked()) {
                 throw new BusinessException(400, "已锁定的装备不能分解: " + eq.getName());
             }
-
-            // 计算分解产出
-            int qualityId = eq.getQuality() != null && eq.getQuality().getId() != null ? eq.getQuality().getId() : 1;
-            int level = eq.getLevel() != null ? eq.getLevel() : 20;
-            
-            // 品质石 = 品质等级 * 1-3
-            totalQualityStone += qualityId * (1 + (int)(Math.random() * 3));
-            // 银币 = 等级 * 50-100
-            totalSilver += level * (50 + (int)(Math.random() * 50));
-
-            // 删除装备
-            equipmentService.deleteEquipment(odUserId, id);
+            int tier = getDecomposeTier(eq);
+            int[] cfg = DECOMPOSE_TIERS.getOrDefault(tier, DECOMPOSE_TIERS.get(1));
+            totalSilverCost += cfg[1];
+            toDecompose.add(eq);
         }
 
-        // 发放资源
+        if (toDecompose.isEmpty()) {
+            throw new BusinessException(400, "没有可分解的装备");
+        }
+
         UserResource resource = userResourceService.getUserResource(odUserId);
-        resource.setSilver(resource.getSilver() + totalSilver);
-        int currentQualityStone = resource.getQualityStone() != null ? resource.getQualityStone() : 0;
-        resource.setQualityStone(currentQualityStone + totalQualityStone);
+        if (resource.getSilver() < totalSilverCost) {
+            throw new BusinessException(400, "银两不足，需要" + totalSilverCost);
+        }
+
+        warehouseService.consumeItem(odUserId, String.valueOf(DECOMPOSE_SCROLL_ID), toDecompose.size());
+        resource.setSilver(resource.getSilver() - totalSilverCost);
+
+        Map<Integer, Integer> stoneGained = new LinkedHashMap<>();
+        for (Equipment eq : toDecompose) {
+            int tier = getDecomposeTier(eq);
+            int[] cfg = DECOMPOSE_TIERS.getOrDefault(tier, DECOMPOSE_TIERS.get(1));
+            int stoneId = cfg[0];
+            stoneGained.merge(stoneId, 1, Integer::sum);
+            equipmentService.deleteEquipment(odUserId, eq.getId());
+        }
+
+        Map<String, String> stoneNameMap = new LinkedHashMap<>();
+        for (Map.Entry<Integer, Integer> entry : stoneGained.entrySet()) {
+            String stoneItemId = String.valueOf(entry.getKey());
+            String stoneName = ITEM_NAMES.getOrDefault(entry.getKey(), stoneItemId + "品质石");
+            stoneNameMap.put(stoneItemId, stoneName);
+            int tier = 1;
+            for (Map.Entry<Integer, int[]> te : DECOMPOSE_TIERS.entrySet()) {
+                if (te.getValue()[0] == entry.getKey()) { tier = te.getKey(); break; }
+            }
+            Warehouse.WarehouseItem stoneItem = Warehouse.WarehouseItem.builder()
+                    .itemId(stoneItemId)
+                    .itemType("material")
+                    .name(stoneName)
+                    .icon(stoneItemId + ".jpg")
+                    .quality(String.valueOf(Math.min(tier, 5)))
+                    .count(entry.getValue())
+                    .maxStack(999)
+                    .description(stoneName + " - 用于提升装备品质")
+                    .usable(false)
+                    .bound(false)
+                    .build();
+            try {
+                warehouseService.addItem(odUserId, stoneItem);
+                logger.info("品质石已加入仓库: userId={}, item={}, count={}", odUserId, stoneName, entry.getValue());
+            } catch (Exception e) {
+                logger.error("品质石加入仓库失败: userId={}, item={}, error={}", odUserId, stoneName, e.getMessage(), e);
+            }
+        }
+
         userResourceService.saveUserResource(resource);
 
         Map<String, Object> result = new HashMap<>();
         result.put("success", true);
-        result.put("qualityStoneGained", totalQualityStone);
-        result.put("silverGained", totalSilver);
-        result.put("decomposedCount", equipmentIds.size());
+        result.put("decomposedCount", toDecompose.size());
+        result.put("silverCost", totalSilverCost);
+        result.put("stoneGained", stoneGained);
+        result.put("stoneNames", stoneNameMap);
+        result.put("scrollsConsumed", toDecompose.size());
 
-        logger.info("装备分解: {} 件, 获得品质石 {}, 银币 {}", equipmentIds.size(), totalQualityStone, totalSilver);
+        logger.info("装备分解: {} 件, 消耗银两 {}, 分解符 {}, 获得品质石 {}",
+                toDecompose.size(), totalSilverCost, toDecompose.size(), stoneGained);
 
         return result;
+    }
+
+    private int getDecomposeTier(Equipment eq) {
+        int qualityId = 1;
+        if (eq.getQuality() != null && eq.getQuality().getId() != null) {
+            qualityId = eq.getQuality().getId();
+        }
+        return Math.max(1, Math.min(10, qualityId));
+    }
+
+    private static final Map<Integer, String> ITEM_NAMES = new HashMap<>();
+    static {
+        ITEM_NAMES.put(14031, "1阶品质石"); ITEM_NAMES.put(14032, "2阶品质石");
+        ITEM_NAMES.put(14033, "3阶品质石"); ITEM_NAMES.put(14034, "4阶品质石");
+        ITEM_NAMES.put(14035, "5阶品质石"); ITEM_NAMES.put(14036, "6阶品质石");
+        ITEM_NAMES.put(14037, "7阶品质石"); ITEM_NAMES.put(14038, "8阶品质石");
+        ITEM_NAMES.put(14039, "9阶品质石"); ITEM_NAMES.put(14040, "10阶品质石");
     }
 
     // ==================== 辅助方法 ====================

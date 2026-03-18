@@ -39,19 +39,32 @@ public class EnhanceController {
     }
     
     /**
+     * 查询转移费用信息
+     */
+    @PostMapping("/transferInfo")
+    public ApiResponse<Map<String, Object>> getTransferInfo(@RequestBody Map<String, Object> body,
+                                                            HttpServletRequest request) {
+        String userId = String.valueOf(request.getAttribute("userId"));
+        String sourceEquipmentId = body.get("sourceEquipmentId") != null ? body.get("sourceEquipmentId").toString() : null;
+        String targetEquipmentId = body.get("targetEquipmentId") != null ? body.get("targetEquipmentId").toString() : null;
+        Map<String, Object> result = enhanceService.getTransferInfo(userId, sourceEquipmentId, targetEquipmentId);
+        return ApiResponse.success(result);
+    }
+
+    /**
      * 转移强化
      */
     @PostMapping("/transfer")
     public ApiResponse<Map<String, Object>> transferEnhance(@RequestBody Map<String, Object> body,
                                                            HttpServletRequest request) {
         String userId = String.valueOf(request.getAttribute("userId"));
-        
-        String fromEquipmentId = (String) body.get("fromEquipmentId");
-        String toEquipmentId = (String) body.get("toEquipmentId");
-        
-        logger.info("转移强化, userId: {}, from: {}, to: {}", userId, fromEquipmentId, toEquipmentId);
-        
-        Map<String, Object> result = enhanceService.transferEnhance(userId, fromEquipmentId, toEquipmentId);
+
+        String sourceEquipmentId = body.get("sourceEquipmentId") != null ? body.get("sourceEquipmentId").toString() : null;
+        String targetEquipmentId = body.get("targetEquipmentId") != null ? body.get("targetEquipmentId").toString() : null;
+
+        logger.info("转移强化, userId: {}, from: {}, to: {}", userId, sourceEquipmentId, targetEquipmentId);
+
+        Map<String, Object> result = enhanceService.transferEnhance(userId, sourceEquipmentId, targetEquipmentId);
         return ApiResponse.success(result);
     }
     

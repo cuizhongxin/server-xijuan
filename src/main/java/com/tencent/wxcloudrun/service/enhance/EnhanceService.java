@@ -5,12 +5,14 @@ import com.tencent.wxcloudrun.model.Equipment;
 import com.tencent.wxcloudrun.model.UserResource;
 import com.tencent.wxcloudrun.repository.EquipmentRepository;
 import com.tencent.wxcloudrun.service.UserResourceService;
+import com.tencent.wxcloudrun.service.warehouse.WarehouseService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -26,7 +28,36 @@ public class EnhanceService {
     
     @Autowired
     private UserResourceService userResourceService;
-    
+
+    @Autowired
+    private WarehouseService warehouseService;
+
+    // ── APK equipStrnghTrans_cgf.json 强化转移费用表 ──
+    private static final Map<Integer, int[]> TRANSFER_COST = new LinkedHashMap<>();
+    static {
+        // [stoneID, stoneNum, silver]
+        TRANSFER_COST.put(1,  new int[]{15046, 1, 1000});
+        TRANSFER_COST.put(2,  new int[]{15046, 1, 2000});
+        TRANSFER_COST.put(3,  new int[]{15046, 1, 3000});
+        TRANSFER_COST.put(4,  new int[]{15046, 1, 3000});
+        TRANSFER_COST.put(5,  new int[]{15043, 1, 6000});
+        TRANSFER_COST.put(6,  new int[]{15043, 1, 9000});
+        TRANSFER_COST.put(7,  new int[]{15043, 1, 9000});
+        TRANSFER_COST.put(8,  new int[]{15043, 1, 18000});
+        TRANSFER_COST.put(9,  new int[]{15043, 1, 27000});
+        TRANSFER_COST.put(10, new int[]{15043, 1, 27000});
+        TRANSFER_COST.put(11, new int[]{15043, 1, 54000});
+        TRANSFER_COST.put(12, new int[]{15043, 1, 81000});
+        TRANSFER_COST.put(13, new int[]{15043, 1, 81000});
+        TRANSFER_COST.put(14, new int[]{15043, 1, 162000});
+        TRANSFER_COST.put(15, new int[]{15043, 1, 243000});
+        TRANSFER_COST.put(16, new int[]{15043, 1, 243000});
+        TRANSFER_COST.put(17, new int[]{15043, 1, 486000});
+        TRANSFER_COST.put(18, new int[]{15043, 1, 729000});
+        TRANSFER_COST.put(19, new int[]{15043, 1, 729000});
+        TRANSFER_COST.put(20, new int[]{15043, 1, 1458000});
+    }
+
     // 强化等级对应的机动性加成
     private static final Map<Integer, Integer> MOBILITY_BONUS = new HashMap<>();
     static {
@@ -139,69 +170,119 @@ public class EnhanceService {
     }
     
     /**
+     * 查询转移费用信息
+     */
+    public Map<String, Object> getTransferInfo(String userId, String fromEquipmentId, String toEquipmentId) {
+        Equipment fromEquipment = equipmentRepository.findById(fromEquipmentId);
+        if (fromEquipment == null || !fromEquipment.getUserId().equals(userId)) {
+            throw new BusinessException(400, "源装备不存在");
+        }
+
+        int fromLevel = fromEquipment.getEnhanceLevel() != null ? fromEquipment.getEnhanceLevel() : 0;
+        if (fromLevel == 0) {
+            throw new BusinessException(400, "源装备未强化");
+        }
+
+        int[] cost = TRANSFER_COST.getOrDefault(fromLevel, TRANSFER_COST.get(20));
+        int stoneId = cost[0];
+        int stoneNum = cost[1];
+        long silver = cost[2];
+
+        String stoneName = stoneId == 15046 ? "初级强化转移符" : "高级强化转移符";
+        int stoneCount = warehouseService.getItemCount(userId, String.valueOf(stoneId));
+
+        UserResource resource = userResourceService.getUserResource(userId);
+        long curSilver = resource.getSilver();
+
+        Map<String, Object> info = new HashMap<>();
+        info.put("fromLevel", fromLevel);
+        info.put("stoneId", stoneId);
+        info.put("stoneName", stoneName);
+        info.put("stoneNum", stoneNum);
+        info.put("stoneHave", stoneCount);
+        info.put("silver", silver);
+        info.put("curSilver", curSilver);
+        info.put("canTransfer", stoneCount >= stoneNum && curSilver >= silver);
+
+        if (toEquipmentId != null) {
+            Equipment toEquipment = equipmentRepository.findById(toEquipmentId);
+            if (toEquipment != null) {
+                int toLevel = toEquipment.getEnhanceLevel() != null ? toEquipment.getEnhanceLevel() : 0;
+                info.put("toLevel", toLevel);
+                if (toLevel > 0) {
+                    info.put("warning", "目标装备已有强化(+" + toLevel + ")，转移后将被覆盖");
+                }
+            }
+        }
+        return info;
+    }
+
+    /**
      * 转移强化（将强化等级转移到另一件装备）
+     * APK 规则：1~4级用初级强化转移符(15046)，5级以上用高级强化转移符(15043)
+     * 转移符和白银从仓库/资源扣除
      */
     public Map<String, Object> transferEnhance(String userId, String fromEquipmentId, String toEquipmentId) {
         Equipment fromEquipment = equipmentRepository.findById(fromEquipmentId);
         Equipment toEquipment = equipmentRepository.findById(toEquipmentId);
-        
+
         if (fromEquipment == null || !fromEquipment.getUserId().equals(userId)) {
             throw new BusinessException(400, "源装备不存在或不属于该用户");
         }
         if (toEquipment == null || !toEquipment.getUserId().equals(userId)) {
             throw new BusinessException(400, "目标装备不存在或不属于该用户");
         }
-        
+        if (fromEquipmentId.equals(toEquipmentId)) {
+            throw new BusinessException(400, "不能转移给同一件装备");
+        }
+
         int fromLevel = fromEquipment.getEnhanceLevel() != null ? fromEquipment.getEnhanceLevel() : 0;
         if (fromLevel == 0) {
             throw new BusinessException(400, "源装备未强化");
         }
-        
-        int toLevel = toEquipment.getEnhanceLevel() != null ? toEquipment.getEnhanceLevel() : 0;
-        if (toLevel > 0) {
-            throw new BusinessException(400, "目标装备已有强化，请先清除");
+
+        int[] cost = TRANSFER_COST.getOrDefault(fromLevel, TRANSFER_COST.get(20));
+        int stoneId = cost[0];
+        int stoneNum = cost[1];
+        long silverCost = cost[2];
+
+        String stoneName = stoneId == 15046 ? "初级强化转移符" : "高级强化转移符";
+        int stoneHave = warehouseService.getItemCount(userId, String.valueOf(stoneId));
+        if (stoneHave < stoneNum) {
+            throw new BusinessException(400, stoneName + "不足，需要" + stoneNum + "个");
         }
-        
-        // 确定需要的强化符
-        String scrollType;
-        if (fromLevel >= 8) {
-            scrollType = "advanced";
-        } else if (fromLevel >= 6) {
-            scrollType = "medium";
-        } else {
-            scrollType = "basic";
-        }
-        
-        // 检查并消耗强化符
+
         UserResource resource = userResourceService.getUserResource(userId);
-        int scrollCount = getEnhanceScrollCount(resource, scrollType);
-        if (scrollCount < 1) {
-            throw new BusinessException(400, "强化符不足，需要" + getScrollName(scrollType));
+        if (resource.getSilver() < silverCost) {
+            throw new BusinessException(400, "银两不足，需要" + silverCost);
         }
-        
-        consumeEnhanceScroll(resource, scrollType, 1);
+
+        warehouseService.consumeItem(userId, String.valueOf(stoneId), stoneNum);
+        resource.setSilver(resource.getSilver() - silverCost);
         userResourceService.saveUserResource(resource);
-        
-        // 转移强化
+
         toEquipment.setEnhanceLevel(fromLevel);
         toEquipment.setEnhanceAttributes(calculateEnhanceAttributes(fromLevel, toEquipment));
         toEquipment.setUpdateTime(System.currentTimeMillis());
-        
+
         fromEquipment.setEnhanceLevel(0);
         fromEquipment.setEnhanceAttributes(null);
         fromEquipment.setUpdateTime(System.currentTimeMillis());
-        
+
         equipmentRepository.update(fromEquipment);
         equipmentRepository.update(toEquipment);
-        
-        logger.info("用户 {} 将装备 {} 的强化 +{} 转移到 {}", userId, fromEquipment.getName(), fromLevel, toEquipment.getName());
-        
+
+        logger.info("用户 {} 将装备 {} 的强化 +{} 转移到 {}，消耗 {} ×{} + 白银 {}",
+                userId, fromEquipment.getName(), fromLevel, toEquipment.getName(), stoneName, stoneNum, silverCost);
+
         Map<String, Object> result = new HashMap<>();
         result.put("fromEquipment", fromEquipment);
         result.put("toEquipment", toEquipment);
         result.put("transferredLevel", fromLevel);
-        result.put("consumedScroll", scrollType);
-        
+        result.put("stoneId", stoneId);
+        result.put("stoneName", stoneName);
+        result.put("silverCost", silverCost);
+        result.put("remainingSilver", resource.getSilver());
         return result;
     }
     
@@ -279,12 +360,7 @@ public class EnhanceService {
             attributes.setMobility(MOBILITY_BONUS.get(enhanceLevel));
         }
         
-        // 套装奖励增强（每级+2%）
-        if (equipment.getSetInfo() != null) {
-            // 套装属性也会被强化影响
-            double setMultiplier = 1.0 + enhanceLevel * 0.02;
-            // 这里可以进一步处理套装属性
-        }
+        // 套装奖励增强预留
         
         return attributes;
     }
@@ -323,29 +399,4 @@ public class EnhanceService {
         }
     }
     
-    private int getEnhanceScrollCount(UserResource resource, String type) {
-        switch (type) {
-            case "basic": return resource.getEnhanceScrollBasic() != null ? resource.getEnhanceScrollBasic() : 0;
-            case "medium": return resource.getEnhanceScrollMedium() != null ? resource.getEnhanceScrollMedium() : 0;
-            case "advanced": return resource.getEnhanceScrollAdvanced() != null ? resource.getEnhanceScrollAdvanced() : 0;
-            default: return 0;
-        }
-    }
-    
-    private void consumeEnhanceScroll(UserResource resource, String type, int count) {
-        switch (type) {
-            case "basic": resource.setEnhanceScrollBasic((resource.getEnhanceScrollBasic() != null ? resource.getEnhanceScrollBasic() : 0) - count); break;
-            case "medium": resource.setEnhanceScrollMedium((resource.getEnhanceScrollMedium() != null ? resource.getEnhanceScrollMedium() : 0) - count); break;
-            case "advanced": resource.setEnhanceScrollAdvanced((resource.getEnhanceScrollAdvanced() != null ? resource.getEnhanceScrollAdvanced() : 0) - count); break;
-        }
-    }
-    
-    private String getScrollName(String type) {
-        switch (type) {
-            case "basic": return "初级强化符";
-            case "medium": return "中级强化符";
-            case "advanced": return "高级强化符";
-            default: return "强化符";
-        }
-    }
 }

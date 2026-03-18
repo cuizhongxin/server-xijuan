@@ -309,12 +309,20 @@ public class WarehouseService {
     public boolean addItem(String userId, Warehouse.WarehouseItem item) {
         Warehouse warehouse = getWarehouse(userId);
         Warehouse.ItemStorage storage = warehouse.getItemStorage();
+
+        if (storage.getItems() == null) {
+            storage.setItems(new java.util.ArrayList<>());
+        }
+
+        // 过滤掉MyBatis LEFT JOIN可能产生的空项
+        storage.getItems().removeIf(i -> i == null || i.getItemId() == null);
         
         // 检查是否可以堆叠
         for (Warehouse.WarehouseItem existingItem : storage.getItems()) {
             if (existingItem.getItemId().equals(item.getItemId())) {
+                int maxStack = existingItem.getMaxStack() != null ? existingItem.getMaxStack() : 9999;
                 int newCount = existingItem.getCount() + item.getCount();
-                if (newCount <= existingItem.getMaxStack()) {
+                if (newCount <= maxStack) {
                     existingItem.setCount(newCount);
                     warehouseRepository.save(warehouse);
                     return true;
