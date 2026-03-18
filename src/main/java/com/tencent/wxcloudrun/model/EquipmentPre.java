@@ -35,21 +35,10 @@ public class EquipmentPre {
     private Integer armyMis;      // 闪避
 
     /**
-     * APK type -> slotTypeId 映射
-     * APK: 1=武器, 2=戒指, 3=项链, 4=铠甲, 5=头盔, 6=靴子
-     * 系统: 1=武器, 2=头盔, 3=铠甲, 4=戒指, 5=鞋子, 6=项链
+     * 系统已对齐 APK 部位映射: 1=武器, 2=戒指, 3=项链, 4=铠甲, 5=头盔, 6=靴子
      */
     public Integer getSlotTypeId() {
-        if (type == null) return 1;
-        switch (type) {
-            case 1: return 1; // 武器
-            case 2: return 4; // 戒指
-            case 3: return 6; // 项链
-            case 4: return 3; // 铠甲
-            case 5: return 2; // 头盔
-            case 6: return 5; // 靴子(鞋子)
-            default: return 1;
-        }
+        return type != null ? type : 1;
     }
 
     /**

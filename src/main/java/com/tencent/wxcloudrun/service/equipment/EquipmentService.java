@@ -140,7 +140,18 @@ public class EquipmentService {
     }
     
     /**
-     * 保存装备
+     * 创建新装备（用于融合、掉落等场景，直接 insert）
+     */
+    public Equipment createEquipment(String userId, Equipment equipment) {
+        if (equipment == null) {
+            throw new BusinessException(400, "装备不能为空");
+        }
+        equipment.setUserId(userId);
+        return equipmentRepository.save(equipment);
+    }
+
+    /**
+     * 保存装备（更新已有装备）
      */
     public Equipment saveEquipment(String userId, Equipment equipment) {
         if (equipment == null) {

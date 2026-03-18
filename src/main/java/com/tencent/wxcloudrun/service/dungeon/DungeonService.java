@@ -478,11 +478,11 @@ public class DungeonService {
         List<String> names;
         switch (slotTypeId) {
             case 1: names = WEAPON_NAMES.getOrDefault(level, Arrays.asList("武器")); break;
-            case 2: names = HELMET_NAMES.getOrDefault(level, Arrays.asList("头盔")); break;
-            case 3: names = ARMOR_NAMES.getOrDefault(level, Arrays.asList("铠甲")); break;
-            case 4: names = RING_NAMES.getOrDefault(level, Arrays.asList("戒指")); break;
-            case 5: names = SHOES_NAMES.getOrDefault(level, Arrays.asList("鞋子")); break;
-            case 6: names = NECKLACE_NAMES.getOrDefault(level, Arrays.asList("项链")); break;
+            case 2: names = RING_NAMES.getOrDefault(level, Arrays.asList("戒指")); break;
+            case 3: names = NECKLACE_NAMES.getOrDefault(level, Arrays.asList("项链")); break;
+            case 4: names = ARMOR_NAMES.getOrDefault(level, Arrays.asList("铠甲")); break;
+            case 5: names = HELMET_NAMES.getOrDefault(level, Arrays.asList("头盔")); break;
+            case 6: names = SHOES_NAMES.getOrDefault(level, Arrays.asList("靴子")); break;
             default: names = Arrays.asList("装备");
         }
         
@@ -504,31 +504,32 @@ public class DungeonService {
         Equipment.Attributes.AttributesBuilder builder = Equipment.Attributes.builder();
         
         switch (slotType.getId()) {
-            case 1:
+            case 1: // 武器 - 主攻击
                 builder.attack((int)(baseValue * 2 * multiplier));
                 builder.valor((int)(baseValue * 0.5 * multiplier));
                 builder.critRate(quality.getId() * 1.0);
                 break;
-            case 2:
-                builder.defense((int)(baseValue * 1.5 * multiplier));
-                builder.hp((int)(baseValue * 10 * multiplier));
+            case 2: // 戒指 - 主攻击
+                builder.attack((int)(baseValue * 1.5 * multiplier));
+                builder.critDamage(quality.getId() * 5.0);
                 break;
-            case 3:
+            case 3: // 项链 - 主攻击/统御
+                builder.attack((int)(baseValue * multiplier));
+                builder.command((int)(baseValue * 0.5 * multiplier));
+                builder.valor((int)(baseValue * 0.5 * multiplier));
+                break;
+            case 4: // 铠甲 - 主防御
                 builder.defense((int)(baseValue * 2 * multiplier));
                 builder.hp((int)(baseValue * 15 * multiplier));
                 builder.dodge(quality.getId() * 0.5);
                 break;
-            case 4:
-                builder.attack((int)(baseValue * 1.5 * multiplier));
-                builder.critDamage(quality.getId() * 5.0);
+            case 5: // 头盔 - 主防御
+                builder.defense((int)(baseValue * 1.5 * multiplier));
+                builder.hp((int)(baseValue * 10 * multiplier));
                 break;
-            case 5:
-                builder.mobility((int)(baseValue * 1.5 * multiplier));
+            case 6: // 靴子 - 主防御
+                builder.defense((int)(baseValue * multiplier));
                 builder.dodge(quality.getId() * 1.0);
-                break;
-            case 6:
-                builder.command((int)(baseValue * 1.5 * multiplier));
-                builder.valor((int)(baseValue * 0.5 * multiplier));
                 break;
         }
         

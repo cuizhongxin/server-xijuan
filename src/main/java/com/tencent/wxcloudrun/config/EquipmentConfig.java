@@ -46,18 +46,19 @@ public class EquipmentConfig {
      * 初始化槽位类型
      */
     private void initSlotTypes() {
+        // APK equipment_pre.type 映射
         slotTypes.put(1, Equipment.SlotType.builder()
-            .id(1).name("主武器").icon("⚔️").mainAttribute("attack").build());
+            .id(1).name("武器").icon("⚔️").mainAttribute("attack").build());
         slotTypes.put(2, Equipment.SlotType.builder()
-            .id(2).name("头盔").icon("🪖").mainAttribute("defense").build());
+            .id(2).name("戒指").icon("💍").mainAttribute("attack").build());
         slotTypes.put(3, Equipment.SlotType.builder()
-            .id(3).name("铠甲").icon("🛡️").mainAttribute("defense").build());
+            .id(3).name("项链").icon("📿").mainAttribute("attack").build());
         slotTypes.put(4, Equipment.SlotType.builder()
-            .id(4).name("戒指").icon("💍").mainAttribute("attack").build());
+            .id(4).name("铠甲").icon("🛡️").mainAttribute("defense").build());
         slotTypes.put(5, Equipment.SlotType.builder()
-            .id(5).name("鞋子").icon("👢").mainAttribute("mobility").build());
+            .id(5).name("头盔").icon("🪖").mainAttribute("defense").build());
         slotTypes.put(6, Equipment.SlotType.builder()
-            .id(6).name("项链").icon("📿").mainAttribute("command").build());
+            .id(6).name("靴子").icon("👢").mainAttribute("defense").build());
     }
     
     /**
@@ -83,130 +84,55 @@ public class EquipmentConfig {
      * 从20级开始每20级一套
      */
     private void initEquipmentSets() {
-        // 20级套装 - 新兵套装
-        equipmentSets.put("SET_20_RECRUIT", Equipment.SetInfo.builder()
-            .setId("SET_20_RECRUIT")
-            .setName("新兵套装")
-            .setLevel(20)
-            .threeSetEffect("攻击力+5%, 防御力+5%")
-            .threeSetBonus(Equipment.Attributes.builder().attack(50).defense(50).build())
-            .sixSetEffect("全属性+8%, 暴击率+3%")
-            .sixSetBonus(Equipment.Attributes.builder().attack(80).defense(80).valor(40).command(40).mobility(20).critRate(3.0).build())
-            .build());
-        
-        // 40级套装 - 精锐套装
-        equipmentSets.put("SET_40_ELITE", Equipment.SetInfo.builder()
-            .setId("SET_40_ELITE")
-            .setName("精锐套装")
-            .setLevel(40)
-            .threeSetEffect("攻击力+10%, 武勇+8%")
-            .threeSetBonus(Equipment.Attributes.builder().attack(120).valor(60).build())
-            .sixSetEffect("全属性+15%, 暴击伤害+20%")
-            .sixSetBonus(Equipment.Attributes.builder().attack(180).defense(150).valor(100).command(80).mobility(40).critDamage(20.0).build())
-            .build());
-        
-        // 60级套装 - 将军套装
-        equipmentSets.put("SET_60_GENERAL", Equipment.SetInfo.builder()
-            .setId("SET_60_GENERAL")
-            .setName("将军套装")
-            .setLevel(60)
-            .threeSetEffect("统御+12%, 防御力+12%")
-            .threeSetBonus(Equipment.Attributes.builder().command(150).defense(200).build())
-            .sixSetEffect("全属性+20%, 闪避率+5%")
-            .sixSetBonus(Equipment.Attributes.builder().attack(280).defense(280).valor(180).command(180).mobility(80).dodge(5.0).build())
-            .build());
-        
-        // 80级套装 - 名将套装
-        equipmentSets.put("SET_80_FAMOUS", Equipment.SetInfo.builder()
-            .setId("SET_80_FAMOUS")
-            .setName("名将套装")
-            .setLevel(80)
-            .threeSetEffect("攻击力+15%, 暴击率+8%")
-            .threeSetBonus(Equipment.Attributes.builder().attack(350).critRate(8.0).build())
-            .sixSetEffect("全属性+25%, 暴击伤害+30%")
-            .sixSetBonus(Equipment.Attributes.builder().attack(500).defense(450).valor(300).command(300).mobility(150).critDamage(30.0).build())
-            .build());
-        
-        // 100级套装 - 战神套装
-        equipmentSets.put("SET_100_WARGOD", Equipment.SetInfo.builder()
-            .setId("SET_100_WARGOD")
-            .setName("战神套装")
-            .setLevel(100)
-            .threeSetEffect("攻击力+20%, 武勇+15%")
-            .threeSetBonus(Equipment.Attributes.builder().attack(600).valor(400).build())
-            .sixSetEffect("全属性+35%, 暴击率+15%, 暴击伤害+50%")
-            .sixSetBonus(Equipment.Attributes.builder().attack(900).defense(800).valor(600).command(600).mobility(300).critRate(15.0).critDamage(50.0).build())
-            .build());
-        
-        // ==================== APK 套装 (suit_config 对齐) ====================
-        // 3件效果 = 主属性(攻/防), 6件效果 = 副属性(武力/统帅/士兵生命/闪避等)
-        // 集齐3件激活第一个效果, 集齐6件激活所有效果(两个都生效)
-
-        // suit_id=2 宣武 Lv.20: genAtt=60, armyLife=20
+        // APK suit_config 套装效果 (集齐6件全部生效)
         equipmentSets.put("宣武", Equipment.SetInfo.builder().setId("宣武").setName("宣武套装").setLevel(20)
             .threeSetEffect("攻击+60").threeSetBonus(Equipment.Attributes.builder().attack(60).build())
             .sixSetEffect("士兵生命+20").sixSetBonus(Equipment.Attributes.builder().hp(20).build()).build());
-        // suit_id=3 折冲 Lv.30: genAtt=100, armyLife=30
         equipmentSets.put("折冲", Equipment.SetInfo.builder().setId("折冲").setName("折冲套装").setLevel(30)
             .threeSetEffect("攻击+100").threeSetBonus(Equipment.Attributes.builder().attack(100).build())
             .sixSetEffect("士兵生命+30").sixSetBonus(Equipment.Attributes.builder().hp(30).build()).build());
-        // suit_id=4 骁勇 Lv.40: genAtt=140, armyLife=40
         equipmentSets.put("骁勇", Equipment.SetInfo.builder().setId("骁勇").setName("骁勇套装").setLevel(40)
             .threeSetEffect("攻击+140").threeSetBonus(Equipment.Attributes.builder().attack(140).build())
             .sixSetEffect("士兵生命+40").sixSetBonus(Equipment.Attributes.builder().hp(40).build()).build());
-        // suit_id=5 破俘 Lv.55: genAtt=180, armyLife=50
         equipmentSets.put("破俘", Equipment.SetInfo.builder().setId("破俘").setName("破俘套装").setLevel(55)
             .threeSetEffect("攻击+180").threeSetBonus(Equipment.Attributes.builder().attack(180).build())
             .sixSetEffect("士兵生命+50").sixSetBonus(Equipment.Attributes.builder().hp(50).build()).build());
-        // suit_id=6 陷阵 Lv.50: genAtt=200, genFor=10
         equipmentSets.put("陷阵", Equipment.SetInfo.builder().setId("陷阵").setName("陷阵套装").setLevel(50)
             .threeSetEffect("攻击+200").threeSetBonus(Equipment.Attributes.builder().attack(200).build())
             .sixSetEffect("武力+10").sixSetBonus(Equipment.Attributes.builder().valor(10).build()).build());
-        // suit_id=7 狂战 Lv.60: genAtt=260, genFor=20
         equipmentSets.put("狂战", Equipment.SetInfo.builder().setId("狂战").setName("狂战套装").setLevel(60)
             .threeSetEffect("攻击+260").threeSetBonus(Equipment.Attributes.builder().attack(260).build())
             .sixSetEffect("武力+20").sixSetBonus(Equipment.Attributes.builder().valor(20).build()).build());
-        // suit_id=8 天狼 Lv.70: genAtt=500, genFor=20
         equipmentSets.put("天狼", Equipment.SetInfo.builder().setId("天狼").setName("天狼套装").setLevel(70)
             .threeSetEffect("攻击+500").threeSetBonus(Equipment.Attributes.builder().attack(500).build())
             .sixSetEffect("武力+20").sixSetBonus(Equipment.Attributes.builder().valor(20).build()).build());
-        // suit_id=9 破军 Lv.80: genAtt=550, genFor=20
         equipmentSets.put("破军", Equipment.SetInfo.builder().setId("破军").setName("破军套装").setLevel(80)
             .threeSetEffect("攻击+550").threeSetBonus(Equipment.Attributes.builder().attack(550).build())
             .sixSetEffect("武力+20").sixSetBonus(Equipment.Attributes.builder().valor(20).build()).build());
-        // suit_id=10 龙威 Lv.90: genAtt=550, genFor=20, genLeader=20
         equipmentSets.put("龙威", Equipment.SetInfo.builder().setId("龙威").setName("龙威套装").setLevel(90)
             .threeSetEffect("攻击+550").threeSetBonus(Equipment.Attributes.builder().attack(550).build())
             .sixSetEffect("武力+20, 统帅+20").sixSetBonus(Equipment.Attributes.builder().valor(20).command(20).build()).build());
-        // suit_id=11 战神 Lv.99: genAtt=600, genFor=20, genLeader=20
         equipmentSets.put("战神", Equipment.SetInfo.builder().setId("战神").setName("战神套装").setLevel(99)
             .threeSetEffect("攻击+600").threeSetBonus(Equipment.Attributes.builder().attack(600).build())
             .sixSetEffect("武力+20, 统帅+20").sixSetBonus(Equipment.Attributes.builder().valor(20).command(20).build()).build());
-        // suit_id=12 鹰扬 Lv.75: genAtt=400, genLeader=20
         equipmentSets.put("鹰扬", Equipment.SetInfo.builder().setId("鹰扬").setName("鹰扬套装").setLevel(75)
             .threeSetEffect("攻击+400").threeSetBonus(Equipment.Attributes.builder().attack(400).build())
             .sixSetEffect("统帅+20").sixSetBonus(Equipment.Attributes.builder().command(20).build()).build());
-        // suit_id=13 虎啸 Lv.85: genDef=400, genLeader=20, armyMis=10
         equipmentSets.put("虎啸", Equipment.SetInfo.builder().setId("虎啸").setName("虎啸套装").setLevel(85)
             .threeSetEffect("防御+400").threeSetBonus(Equipment.Attributes.builder().defense(400).build())
             .sixSetEffect("统帅+20, 闪避+10").sixSetBonus(Equipment.Attributes.builder().command(20).dodge(10.0).build()).build());
-        // suit_id=14 地煞 Lv.82: genAtt=200, genDef=240, armyMis=5
         equipmentSets.put("地煞", Equipment.SetInfo.builder().setId("地煞").setName("地煞套装").setLevel(82)
             .threeSetEffect("攻击+200, 防御+240").threeSetBonus(Equipment.Attributes.builder().attack(200).defense(240).build())
             .sixSetEffect("闪避+5").sixSetBonus(Equipment.Attributes.builder().dodge(5.0).build()).build());
-        // suit_id=15 天诛 Lv.98: genAtt=900
         equipmentSets.put("天诛", Equipment.SetInfo.builder().setId("天诛").setName("天诛套装").setLevel(98)
             .threeSetEffect("攻击+900").threeSetBonus(Equipment.Attributes.builder().attack(900).build())
             .sixSetEffect("").sixSetBonus(Equipment.Attributes.builder().build()).build());
-        // suit_id=16 幽冥 Lv.83: genAtt=240, genDef=200, armySp=5
         equipmentSets.put("幽冥", Equipment.SetInfo.builder().setId("幽冥").setName("幽冥套装").setLevel(83)
             .threeSetEffect("攻击+240, 防御+200").threeSetBonus(Equipment.Attributes.builder().attack(240).defense(200).build())
             .sixSetEffect("速度+5").sixSetBonus(Equipment.Attributes.builder().mobility(5).build()).build());
-        // suit_id=17 征戎 Lv.62: genAtt=280, armyLife=80
         equipmentSets.put("征戎", Equipment.SetInfo.builder().setId("征戎").setName("征戎套装").setLevel(62)
             .threeSetEffect("攻击+280").threeSetBonus(Equipment.Attributes.builder().attack(280).build())
             .sixSetEffect("士兵生命+80").sixSetBonus(Equipment.Attributes.builder().hp(80).build()).build());
-        // suit_id=18 诛邪 Lv.100: genAtt=700, genFor=25, genLeader=25
         equipmentSets.put("诛邪", Equipment.SetInfo.builder().setId("诛邪").setName("诛邪套装").setLevel(100)
             .threeSetEffect("攻击+700").threeSetBonus(Equipment.Attributes.builder().attack(700).build())
             .sixSetEffect("武力+25, 统帅+25").sixSetBonus(Equipment.Attributes.builder().valor(25).command(25).build()).build());

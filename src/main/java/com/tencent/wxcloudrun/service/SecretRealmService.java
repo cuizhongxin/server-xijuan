@@ -1,8 +1,10 @@
 package com.tencent.wxcloudrun.service;
 
 import com.tencent.wxcloudrun.model.Equipment;
+import com.tencent.wxcloudrun.model.EquipmentPre;
 import com.tencent.wxcloudrun.model.Warehouse;
 import com.tencent.wxcloudrun.model.UserResource;
+import com.tencent.wxcloudrun.dao.EquipmentPreMapper;
 import com.tencent.wxcloudrun.repository.EquipmentRepository;
 import com.tencent.wxcloudrun.repository.SecretRealmConfigRepository;
 import com.tencent.wxcloudrun.repository.UserResourceRepository;
@@ -32,6 +34,8 @@ public class SecretRealmService {
     private EquipmentRepository equipmentRepository;
     @Autowired
     private SecretRealmConfigRepository realmConfigRepo;
+    @Autowired
+    private EquipmentPreMapper equipmentPreMapper;
 
     /**
      * 获取所有秘境概览(从数据库读取)
@@ -324,18 +328,22 @@ public class SecretRealmService {
                 com.tencent.wxcloudrun.config.EquipmentConfig.getEquipQualityLevel(qualityValueId);
         double attrRate = ql.attrRate / 10000.0;
 
-        String baseName = getString(eqRow, "name", "");
+        int equipPreId = getInt(eqRow, "equip_pre_id", 0);
+        EquipmentPre pre = equipPreId > 0 ? equipmentPreMapper.findById(equipPreId) : null;
+
+        String baseName = pre != null ? pre.getName() : getString(eqRow, "name", "");
         equipment.setName(ql.name + "的" + baseName);
-        equipment.setIcon(getString(eqRow, "icon", "⚔️"));
-        equipment.setLevel(level);
+        equipment.setIcon(pre != null && pre.getIconUrl() != null ? pre.getIconUrl() : getString(eqRow, "icon", "⚔️"));
+        equipment.setLevel(pre != null ? pre.getNeedLevel() : level);
         equipment.setEquipped(false);
         equipment.setCreateTime(System.currentTimeMillis());
         equipment.setUpdateTime(System.currentTimeMillis());
         equipment.setQualityValue(qualityValueId);
 
-        String position = getString(eqRow, "position", "武器");
+        int slotId = pre != null ? pre.getSlotTypeId() : positionToSlot(getString(eqRow, "position", "武器"));
+        String position = pre != null ? pre.getPosition() : getString(eqRow, "position", "武器");
         Equipment.SlotType slotType = new Equipment.SlotType();
-        slotType.setId(positionToSlot(position));
+        slotType.setId(slotId);
         slotType.setName(position);
         equipment.setSlotType(slotType);
 
@@ -347,37 +355,46 @@ public class SecretRealmService {
         quality.setMultiplier(qualityMultiplier(qId));
         equipment.setQuality(quality);
 
-        String setName = getString(eqRow, "set_name", "");
+        String setName = pre != null && pre.getSuitName() != null ? pre.getSuitName().replace("套装", "") : getString(eqRow, "set_name", "");
         String setEffect3 = getString(eqRow, "set_effect_3", "");
         String setEffect6 = getString(eqRow, "set_effect_6", "");
 
         Equipment.SetInfo setInfo = new Equipment.SetInfo();
         setInfo.setSetId(setName);
         setInfo.setSetName(setName + "套装");
-        setInfo.setSetLevel(level);
+        setInfo.setSetLevel(pre != null ? pre.getNeedLevel() : level);
         setInfo.setThreeSetEffect(setEffect3);
         setInfo.setSixSetEffect(setEffect6);
         setInfo.setThreeSetBonus(parseEffectText(setEffect3));
         setInfo.setSixSetBonus(parseEffectText(setEffect6));
         equipment.setSetInfo(setInfo);
 
-        int rawAtk = getInt(eqRow, "attack", 0);
-        int rawDef = getInt(eqRow, "defense", 0);
-        int rawHp = getInt(eqRow, "soldier_hp", 0);
-        int rawMob = getInt(eqRow, "mobility", 0);
+        int rawAtk, rawDef, rawHp, rawMob, rawValor, rawCommand;
+        if (pre != null) {
+            rawAtk = val(pre.getGenAtt());
+            rawDef = val(pre.getGenDef());
+            rawValor = val(pre.getGenFor());
+            rawCommand = val(pre.getGenLeader());
+            rawHp = val(pre.getArmyLife());
+            rawMob = val(pre.getArmySp());
+        } else {
+            rawAtk = getInt(eqRow, "attack", 0);
+            rawDef = getInt(eqRow, "defense", 0);
+            rawValor = 0;
+            rawCommand = 0;
+            rawHp = getInt(eqRow, "soldier_hp", 0);
+            rawMob = getInt(eqRow, "mobility", 0);
+        }
 
-        Equipment.Attributes rawAttrs = new Equipment.Attributes();
-        rawAttrs.setAttack(rawAtk);
-        rawAttrs.setDefense(rawDef);
-        rawAttrs.setHp(rawHp);
-        rawAttrs.setMobility(rawMob);
+        Equipment.Attributes rawAttrs = Equipment.Attributes.builder()
+                .attack(rawAtk).defense(rawDef).valor(rawValor).command(rawCommand)
+                .hp(rawHp).mobility(rawMob).build();
         equipment.setQualityAttributes(rawAttrs);
 
-        Equipment.Attributes attrs = new Equipment.Attributes();
-        attrs.setAttack((int)(rawAtk * attrRate));
-        attrs.setDefense((int)(rawDef * attrRate));
-        attrs.setHp((int)(rawHp * attrRate));
-        attrs.setMobility((int)(rawMob * attrRate));
+        Equipment.Attributes attrs = Equipment.Attributes.builder()
+                .attack((int)(rawAtk * attrRate)).defense((int)(rawDef * attrRate))
+                .valor((int)(rawValor * attrRate)).command((int)(rawCommand * attrRate))
+                .hp((int)(rawHp * attrRate)).mobility((int)(rawMob * attrRate)).build();
         equipment.setBaseAttributes(attrs);
 
         Equipment.Source source = new Equipment.Source();
@@ -392,14 +409,16 @@ public class SecretRealmService {
         return equipment;
     }
 
+    private static int val(Integer v) { return v != null ? v : 0; }
+
     private int positionToSlot(String position) {
         switch (position) {
             case "武器": return 1;
             case "戒指": return 2;
-            case "铠甲": return 3;
-            case "项链": return 4;
+            case "项链": return 3;
+            case "铠甲": return 4;
             case "头盔": return 5;
-            case "鞋子": return 6;
+            case "靴子": case "鞋子": return 6;
             default: return 1;
         }
     }
@@ -455,16 +474,16 @@ public class SecretRealmService {
 
     private String qualityName(int q) {
         switch (q) {
-            case 1: return "普通"; case 2: return "优秀"; case 3: return "精良";
-            case 4: return "稀有"; case 5: return "史诗"; case 6: return "传说";
-            default: return "普通";
+            case 1: return "白色"; case 2: return "绿色"; case 3: return "蓝色";
+            case 4: return "红色"; case 5: return "紫色"; case 6: return "橙色";
+            default: return "白色";
         }
     }
 
     private String qualityColor(int q) {
         switch (q) {
-            case 1: return "#aaaaaa"; case 2: return "#44dd44"; case 3: return "#4488ff";
-            case 4: return "#ff4444"; case 5: return "#cc44ff"; case 6: return "#ff8800";
+            case 1: return "#FFFFFF"; case 2: return "#32CD32"; case 3: return "#4169E1";
+            case 4: return "#DC143C"; case 5: return "#9370DB"; case 6: return "#FF8C00";
             default: return "#aaaaaa";
         }
     }

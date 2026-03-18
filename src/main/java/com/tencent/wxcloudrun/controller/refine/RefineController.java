@@ -82,7 +82,7 @@ public class RefineController {
     }
 
     /**
-     * 套装融合
+     * 套装融合: 3件同套装 → 用户指定部位的1件装备
      */
     @SuppressWarnings("unchecked")
     @PostMapping("/fuse")
@@ -91,8 +91,8 @@ public class RefineController {
             HttpServletRequest request) {
         String odUserId = String.valueOf(request.getAttribute("userId"));
         List<String> equipmentIds = (List<String>) params.get("equipmentIds");
-        Integer targetSlotId = (Integer) params.get("targetSlotId");
-        
+        int targetSlotId = params.get("targetSlotId") != null ? ((Number) params.get("targetSlotId")).intValue() : 0;
+
         Map<String, Object> result = refineService.fuseEquipments(odUserId, equipmentIds, targetSlotId);
         return ApiResponse.success(result);
     }
@@ -109,6 +109,20 @@ public class RefineController {
         List<String> equipmentIds = (List<String>) params.get("equipmentIds");
         
         Map<String, Object> result = refineService.decomposeEquipments(odUserId, equipmentIds);
+        return ApiResponse.success(result);
+    }
+
+    /**
+     * 材料合成 (PropClip_cfg)
+     */
+    @PostMapping("/compose")
+    public ApiResponse compose(
+            @RequestBody Map<String, Object> params,
+            HttpServletRequest request) {
+        String odUserId = String.valueOf(request.getAttribute("userId"));
+        int sourceItemId = ((Number) params.get("sourceItemId")).intValue();
+
+        Map<String, Object> result = refineService.composeMaterial(odUserId, sourceItemId);
         return ApiResponse.success(result);
     }
 }
