@@ -6,6 +6,11 @@ import com.tencent.wxcloudrun.exception.BusinessException;
 import com.tencent.wxcloudrun.model.Alliance;
 import com.tencent.wxcloudrun.model.AllianceWar;
 import com.tencent.wxcloudrun.model.AllianceWar.*;
+import com.tencent.wxcloudrun.model.General;
+import com.tencent.wxcloudrun.service.SuitConfigService;
+import com.tencent.wxcloudrun.service.battle.BattleCalculator;
+import com.tencent.wxcloudrun.service.battle.BattleService;
+import com.tencent.wxcloudrun.service.formation.FormationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,6 +34,15 @@ public class AllianceWarService {
     
     @Autowired
     private AllianceWarMapper allianceWarMapper;
+
+    @Autowired
+    private BattleService battleService;
+
+    @Autowired
+    private FormationService formationService;
+
+    @Autowired
+    private SuitConfigService suitConfigService;
     
     // 今日盟战（内存缓存，同时持久化到数据库）
     private AllianceWar todayWar;
@@ -301,33 +315,26 @@ public class AllianceWarService {
     }
     
     private void simulateBattle(WarBattle battle, WarParticipant p1, WarParticipant p2) {
-        Random random = new Random();
-        int p1Score = 0;
-        int p2Score = 0;
-        
-        for (int i = 1; i <= 5; i++) {
+        List<BattleCalculator.BattleUnit> sideA = buildWarParticipantUnits(p1);
+        List<BattleCalculator.BattleUnit> sideB = buildWarParticipantUnits(p2);
+        BattleService.BattleReport report = battleService.fight(sideA, sideB, 20);
+
+        battle.setBattleReportJson(JSON.toJSONString(report));
+
+        int p1Score = report.victoryA ? 3 : 0;
+        int p2Score = report.victoryA ? 0 : 3;
+
+        for (BattleService.RoundLog rl : report.rounds) {
             BattleRound round = new BattleRound();
-            round.setRoundNum(i);
-            
-            double p1Chance = 0.5 + (p1.getPower() - p2.getPower()) / 100000.0 * 0.1;
-            p1Chance = Math.max(0.3, Math.min(0.7, p1Chance));
-            
-            if (random.nextDouble() < p1Chance) {
-                int damage = 100 + random.nextInt(50);
+            round.setRoundNum(rl.roundNum);
+            if (!rl.actions.isEmpty()) {
+                BattleService.ActionLog first = rl.actions.get(0);
                 round.setAttackerId(p1.getOdUserId());
                 round.setDefenderId(p2.getOdUserId());
-                round.setDamage(damage);
-                round.setDescription(p1.getPlayerName() + " 对 " + p2.getPlayerName() + " 造成 " + damage + " 点伤害");
-                p1Score++;
-            } else {
-                int damage = 100 + random.nextInt(50);
-                round.setAttackerId(p2.getOdUserId());
-                round.setDefenderId(p1.getOdUserId());
-                round.setDamage(damage);
-                round.setDescription(p2.getPlayerName() + " 对 " + p1.getPlayerName() + " 造成 " + damage + " 点伤害");
-                p2Score++;
+                int totalLoss = first.hits != null ? first.hits.stream().mapToInt(h -> h.soldierLoss).sum() : 0;
+                round.setDamage(totalLoss);
+                round.setDescription(first.attackerName + " → " + first.targetName + " 减员" + totalLoss);
             }
-            
             battle.getRounds().add(round);
         }
         
@@ -335,7 +342,7 @@ public class AllianceWarService {
         battle.setPlayer2Score(p2Score);
         battle.setEndTime(System.currentTimeMillis());
         
-        if (p1Score > p2Score) {
+        if (report.victoryA) {
             battle.setWinnerId(p1.getOdUserId());
             battle.setWinnerName(p1.getPlayerName());
             p1.setWins(p1.getWins() + 1);
@@ -508,5 +515,56 @@ public class AllianceWarService {
         todayWar = AllianceWar.createNew(today);
         saveTodayWar();
         log.info("重置盟战: {}", today);
+    }
+
+    private List<BattleCalculator.BattleUnit> buildWarParticipantUnits(WarParticipant p) {
+        String odUserId = p.getOdUserId();
+        if (odUserId != null && !odUserId.startsWith("NPC_")) {
+            try {
+                List<General> generals = formationService.getBattleOrder(odUserId);
+                if (!generals.isEmpty()) {
+                    List<BattleCalculator.BattleUnit> units = new ArrayList<>();
+                    for (int i = 0; i < generals.size(); i++) {
+                        General g = generals.get(i);
+                        Map<String, Integer> eq = suitConfigService.calculateTotalEquipBonus(g.getId());
+                        int tier = g.getSoldierTier() != null ? g.getSoldierTier() : 1;
+                        int troopType = BattleCalculator.parseTroopType(g.getTroopType());
+                        int formLv = g.getSoldierRank() != null ? g.getSoldierRank() : 1;
+                        int maxSc = BattleCalculator.getFormationMaxPeople(formLv);
+                        int sc = g.getSoldierCount() != null ? Math.min(g.getSoldierCount(), maxSc) : maxSc;
+                        BattleCalculator.BattleUnit u = BattleCalculator.assembleBattleUnit(
+                                g.getName() != null ? g.getName() : p.getPlayerName(),
+                                g.getLevel() != null ? g.getLevel() : 1,
+                                g.getAttrAttack() != null ? g.getAttrAttack() : 100,
+                                g.getAttrDefense() != null ? g.getAttrDefense() : 50,
+                                g.getAttrValor() != null ? g.getAttrValor() : 10,
+                                g.getAttrCommand() != null ? g.getAttrCommand() : 10,
+                                g.getAttrDodge() != null ? (int) Math.round(g.getAttrDodge()) : 5,
+                                g.getAttrMobility() != null ? g.getAttrMobility() : 15,
+                                troopType, tier, sc, maxSc, formLv,
+                                eq.getOrDefault("attack", 0), eq.getOrDefault("defense", 0),
+                                eq.getOrDefault("speed", 0), eq.getOrDefault("hit", 0),
+                                eq.getOrDefault("dodge", 0), 0, 0, 0);
+                        u.position = i;
+                        units.add(u);
+                    }
+                    return units;
+                }
+            } catch (Exception e) {
+                log.warn("构建盟战参战者阵型失败: {}", odUserId, e);
+            }
+        }
+        int power = p.getPower() != null ? p.getPower().intValue() : 5000;
+        int level = 30;
+        int tier = Math.max(1, Math.min(10, 1 + level / 20));
+        int formLv = BattleCalculator.levelToFormationLevel(level);
+        int maxSc = BattleCalculator.getFormationMaxPeople(formLv);
+        BattleCalculator.BattleUnit u = BattleCalculator.assembleBattleUnit(
+                p.getPlayerName(), level,
+                power / 2, power / 3, level * 2, level * 2,
+                5, 15, 1, tier, maxSc, maxSc, formLv,
+                0, 0, 0, 0, 0, 0, 0, 0);
+        u.position = 0;
+        return Collections.singletonList(u);
     }
 }

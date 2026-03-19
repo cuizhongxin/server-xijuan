@@ -34,6 +34,7 @@ public class FormationService {
 
     @Autowired
     private com.tencent.wxcloudrun.service.SuitConfigService suitConfigService;
+
     
     /**
      * 获取用户阵型
@@ -57,6 +58,7 @@ public class FormationService {
         for (Formation.FormationSlot slot : formation.getSlots()) {
             Map<String, Object> slotInfo = new HashMap<>();
             slotInfo.put("index", slot.getIndex());
+            slotInfo.put("position", slot.getIndex());
             
             if (slot.getGeneralId() != null) {
                 General general = generalRepository.findById(slot.getGeneralId());
@@ -70,17 +72,24 @@ public class FormationService {
                     slotInfo.put("attack", general.getAttrAttack() != null ? general.getAttrAttack() : 0);
                     slotInfo.put("defense", general.getAttrDefense() != null ? general.getAttrDefense() : 0);
                     slotInfo.put("power", general.getAttrValor() != null ? general.getAttrValor() : 0);
+                    slotInfo.put("valor", general.getAttrValor() != null ? general.getAttrValor() : 0);
+                    slotInfo.put("command", general.getAttrCommand() != null ? general.getAttrCommand() : 0);
+                    slotInfo.put("dodge", general.getAttrDodge() != null ? (int) Math.round(general.getAttrDodge()) : 0);
                     slotInfo.put("troopType", general.getTroopType());
                     
-                    // 士兵信息（maxSoldierCount为null时用soldierCount或默认100）
-                    int sc = general.getSoldierCount() != null ? general.getSoldierCount() : 100;
-                    int msc = general.getSoldierMaxCount() != null ? general.getSoldierMaxCount() : Math.max(sc, 100);
+                    // 士兵信息
+                    int soldierTier = general.getSoldierTier() != null ? general.getSoldierTier() : 
+                                     (general.getSoldierRank() != null ? general.getSoldierRank() : 1);
+                    int formationLevel = general.getSoldierRank() != null ? general.getSoldierRank() : 1;
+                    int maxPeople = com.tencent.wxcloudrun.service.battle.BattleCalculator.getFormationMaxPeople(formationLevel);
+                    int sc = general.getSoldierCount() != null ? general.getSoldierCount() : maxPeople;
+                    int msc = general.getSoldierMaxCount() != null ? general.getSoldierMaxCount() : Math.max(sc, maxPeople);
                     slotInfo.put("soldierCount", sc);
                     slotInfo.put("maxSoldierCount", msc);
                     slotInfo.put("soldierTypeName", general.getTroopType());
-                    slotInfo.put("soldierRank", general.getSoldierRank() != null ? general.getSoldierRank() : 1);
-                    int soldierHp = 100;
-                    slotInfo.put("soldierHp", soldierHp);
+                    slotInfo.put("soldierTier", soldierTier);
+                    slotInfo.put("soldierRank", soldierTier);
+                    slotInfo.put("formationLevel", formationLevel);
                     
                     // 装备加成
                     Map<String, Integer> equipBonus = calculateEquipmentBonus(general.getId());
@@ -88,13 +97,6 @@ public class FormationService {
                     slotInfo.put("equipDefense", equipBonus.getOrDefault("defense", 0));
                     slotInfo.put("equipHp", equipBonus.getOrDefault("hp", 0));
                     slotInfo.put("equipMobility", equipBonus.getOrDefault("mobility", 0));
-                    
-                    // 计算综合HP
-                    int basePower = general.getAttrValor() != null ? general.getAttrValor() : 500;
-                    int soldierHpVal = (Integer) slotInfo.get("soldierHp");
-                    int totalHp = basePower * 10 + (sc * soldierHpVal) / 10;
-                    slotInfo.put("hp", totalHp);
-                    slotInfo.put("maxHp", totalHp);
                     
                     slotInfo.put("empty", false);
                 } else {

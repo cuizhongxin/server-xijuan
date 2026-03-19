@@ -9,6 +9,9 @@ import com.tencent.wxcloudrun.model.General;
 import com.tencent.wxcloudrun.model.UserResource;
 import com.tencent.wxcloudrun.repository.GeneralRepository;
 import com.tencent.wxcloudrun.repository.UserResourceRepository;
+import com.tencent.wxcloudrun.service.battle.BattleCalculator;
+import com.tencent.wxcloudrun.service.battle.BattleService;
+import com.tencent.wxcloudrun.service.SuitConfigService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,6 +42,8 @@ public class SupplyService {
     @Autowired private UserResourceRepository userResourceRepository;
     @Autowired private GeneralRepository generalRepository;
     @Autowired @Lazy private com.tencent.wxcloudrun.service.formation.FormationService formationService;
+    @Autowired private BattleService battleService;
+    @Autowired private SuitConfigService suitConfigService;
 
     private List<Map<String, Object>> gradeConfigs = new ArrayList<>();
 
@@ -360,19 +365,16 @@ public class SupplyService {
         int myLevel = myRes != null && myRes.getLevel() != null ? myRes.getLevel() : 1;
 
         List<General> myGenerals = formationService.getBattleOrder(userId);
-        int playerPower = myGenerals.stream()
-                .mapToInt(g -> g.getAttrValor() != null ? g.getAttrValor() : myLevel * 400)
-                .sum();
-        if (playerPower == 0) playerPower = myLevel * 500;
+        List<BattleCalculator.BattleUnit> sideA = buildBattleUnits(myGenerals);
 
-        List<General> defGenerals = generalRepository.findByUserId(defenderId);
-        int defPower = defGenerals.stream()
-                .mapToInt(g -> g.getAttrValor() != null ? g.getAttrValor() : 0)
-                .max().orElse(myLevel * 400);
+        List<General> defGenerals = formationService.getBattleOrder(defenderId);
+        if (defGenerals.isEmpty()) defGenerals = generalRepository.findByUserId(defenderId);
+        List<BattleCalculator.BattleUnit> sideB = defGenerals.isEmpty()
+                ? Collections.singletonList(buildDefaultEnemy(myLevel))
+                : buildBattleUnits(defGenerals);
 
-        double powerRatio = (double) playerPower / (playerPower + defPower);
-        double winRate = Math.min(Math.max(powerRatio * 1.2, 0.1), 0.95);
-        boolean victory = ThreadLocalRandom.current().nextDouble() < winRate;
+        BattleService.BattleReport report = battleService.fight(sideA, sideB, 20);
+        boolean victory = report.victoryA;
 
         long silverStolen = 0, paperStolen = 0, foodStolen = 0, metalStolen = 0;
 
@@ -420,8 +422,8 @@ public class SupplyService {
         result.put("foodStolen", foodStolen);
         result.put("metalStolen", metalStolen);
         result.put("todayRobbery", todayRobbery + 1);
-        result.put("playerPower", playerPower);
-        result.put("defPower", defPower);
+        result.put("playerPower", sideA.stream().mapToInt(u -> u.totalAttack + u.totalDefense).sum());
+        result.put("defPower", sideB.stream().mapToInt(u -> u.totalAttack + u.totalDefense).sum());
         logger.info("用户 {} {}抢夺 {} 的军需", userId, victory ? "成功" : "失败", defName);
         return result;
     }
@@ -573,5 +575,47 @@ public class SupplyService {
     private double parseDoubleSafe(Object val, double def) {
         if (val == null) return def;
         try { return Double.parseDouble(String.valueOf(val)); } catch (Exception e) { return def; }
+    }
+
+    private List<BattleCalculator.BattleUnit> buildBattleUnits(List<General> generals) {
+        List<BattleCalculator.BattleUnit> units = new ArrayList<>();
+        for (int i = 0; i < generals.size(); i++) {
+            General g = generals.get(i);
+            Map<String, Integer> eq = suitConfigService.calculateTotalEquipBonus(g.getId());
+            int tier = g.getSoldierTier() != null ? g.getSoldierTier() : 1;
+            int troopType = BattleCalculator.parseTroopType(g.getTroopType());
+            int formLv = g.getSoldierRank() != null ? g.getSoldierRank() : 1;
+            int maxSc = BattleCalculator.getFormationMaxPeople(formLv);
+            int sc = g.getSoldierCount() != null ? Math.min(g.getSoldierCount(), maxSc) : maxSc;
+            BattleCalculator.BattleUnit u = BattleCalculator.assembleBattleUnit(
+                    g.getName() != null ? g.getName() : "武将" + (i + 1),
+                    g.getLevel() != null ? g.getLevel() : 1,
+                    g.getAttrAttack() != null ? g.getAttrAttack() : 100,
+                    g.getAttrDefense() != null ? g.getAttrDefense() : 50,
+                    g.getAttrValor() != null ? g.getAttrValor() : 10,
+                    g.getAttrCommand() != null ? g.getAttrCommand() : 10,
+                    g.getAttrDodge() != null ? (int) Math.round(g.getAttrDodge()) : 5,
+                    g.getAttrMobility() != null ? g.getAttrMobility() : 15,
+                    troopType, tier, sc, maxSc, formLv,
+                    eq.getOrDefault("attack", 0), eq.getOrDefault("defense", 0),
+                    eq.getOrDefault("speed", 0), eq.getOrDefault("hit", 0),
+                    eq.getOrDefault("dodge", 0), 0, 0, 0);
+            u.position = i;
+            units.add(u);
+        }
+        return units;
+    }
+
+    private BattleCalculator.BattleUnit buildDefaultEnemy(int level) {
+        int tier = Math.max(1, Math.min(10, 1 + level / 20));
+        int troopType = 1;
+        int formLv = BattleCalculator.levelToFormationLevel(level);
+        int maxSc = BattleCalculator.getFormationMaxPeople(formLv);
+        BattleCalculator.BattleUnit u = BattleCalculator.assembleBattleUnit(
+                "护卫", level, level * 10, level * 6, level * 2, level * 2,
+                5, 15, troopType, tier, maxSc, maxSc, formLv,
+                0, 0, 0, 0, 0, 0, 0, 0);
+        u.position = 0;
+        return u;
     }
 }

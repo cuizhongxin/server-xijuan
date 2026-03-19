@@ -1,7 +1,9 @@
 package com.tencent.wxcloudrun.controller.alliance;
 
+import com.alibaba.fastjson.JSON;
 import com.tencent.wxcloudrun.dto.ApiResponse;
 import com.tencent.wxcloudrun.model.AllianceWar;
+import com.tencent.wxcloudrun.model.AllianceWar.WarBattle;
 import com.tencent.wxcloudrun.model.AllianceWar.WarParticipant;
 import com.tencent.wxcloudrun.service.alliance.AllianceWarService;
 import lombok.RequiredArgsConstructor;
@@ -177,6 +179,27 @@ public class AllianceWarController {
             return ApiResponse.success(data);
         } catch (Exception e) {
             log.error("重置盟战异常", e);
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
+    @GetMapping("/battle-detail/{battleId}")
+    public ApiResponse<Map<String, Object>> getBattleDetail(@PathVariable String battleId) {
+        try {
+            java.util.List<WarBattle> battles = allianceWarService.getAllBattles();
+            WarBattle found = null;
+            for (WarBattle b : battles) {
+                if (battleId.equals(b.getId())) { found = b; break; }
+            }
+            if (found == null) return ApiResponse.error("战报不存在");
+            Map<String, Object> result = new HashMap<>();
+            result.put("battle", found);
+            if (found.getBattleReportJson() != null) {
+                result.put("battleReport", JSON.parseObject(found.getBattleReportJson()));
+            }
+            return ApiResponse.success(result);
+        } catch (Exception e) {
+            log.error("获取盟战战报异常", e);
             return ApiResponse.error(e.getMessage());
         }
     }

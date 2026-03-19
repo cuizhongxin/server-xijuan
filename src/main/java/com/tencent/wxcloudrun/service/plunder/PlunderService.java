@@ -11,6 +11,9 @@ import com.tencent.wxcloudrun.repository.GeneralRepository;
 import com.tencent.wxcloudrun.repository.PlunderRepository;
 import com.tencent.wxcloudrun.repository.UserResourceRepository;
 import com.tencent.wxcloudrun.service.formation.FormationService;
+import com.tencent.wxcloudrun.service.battle.BattleCalculator;
+import com.tencent.wxcloudrun.service.battle.BattleService;
+import com.tencent.wxcloudrun.service.SuitConfigService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,6 +45,12 @@ public class PlunderService {
 
     @Autowired
     private FormationService formationService;
+
+    @Autowired
+    private BattleService battleService;
+
+    @Autowired
+    private SuitConfigService suitConfigService;
 
     /**
      * 获取掠夺主页数据
@@ -242,88 +251,54 @@ public class PlunderService {
             }
         }
 
-        // ========== 回合制战斗（与战役伤害公式一致） ==========
-        Random random = ThreadLocalRandom.current();
+        // ========== 使用统一战斗系统 ==========
+        List<BattleCalculator.BattleUnit> playerBattleUnits = new ArrayList<>();
+        for (int i = 0; i < myGenerals.size(); i++) {
+            General g = myGenerals.get(i);
+            Map<String, Integer> eqBonus = suitConfigService.calculateTotalEquipBonus(g.getId());
+            int tier = g.getSoldierTier() != null ? g.getSoldierTier() : 1;
+            int troopType = BattleCalculator.parseTroopType(g.getTroopType());
+            int formLv = g.getSoldierRank() != null ? g.getSoldierRank() : 1;
+            int maxSc = BattleCalculator.getFormationMaxPeople(formLv);
+            int sc = g.getSoldierCount() != null ? Math.min(g.getSoldierCount(), maxSc) : maxSc;
+            playerBattleUnits.add(BattleCalculator.assembleBattleUnit(
+                    g.getName() != null ? g.getName() : "武将" + (i + 1),
+                    g.getLevel() != null ? g.getLevel() : 1,
+                    g.getAttrAttack() != null ? g.getAttrAttack() : 100,
+                    g.getAttrDefense() != null ? g.getAttrDefense() : 50,
+                    g.getAttrValor() != null ? g.getAttrValor() : 10,
+                    g.getAttrCommand() != null ? g.getAttrCommand() : 10,
+                    g.getAttrDodge() != null ? (int) Math.round(g.getAttrDodge()) : 5,
+                    g.getAttrMobility() != null ? g.getAttrMobility() : 15,
+                    troopType, tier, sc, maxSc, formLv,
+                    eqBonus.getOrDefault("attack", 0), eqBonus.getOrDefault("defense", 0),
+                    eqBonus.getOrDefault("speed", 0), eqBonus.getOrDefault("hit", 0),
+                    eqBonus.getOrDefault("dodge", 0), 0, 0, 0));
+            playerBattleUnits.get(i).position = i;
+        }
+
+        List<BattleCalculator.BattleUnit> enemyBattleUnits = new ArrayList<>();
+        for (int i = 0; i < enemyUnits.size(); i++) {
+            int[] eu = enemyUnits.get(i);
+            int eTier = Math.max(1, Math.min(10, 1 + targetLevel / 20));
+            int eTroopType = 1 + (i % 3);
+            int eFormLv = BattleCalculator.levelToFormationLevel(targetLevel);
+            int eMaxSc = eu.length > 2 ? eu[2] : BattleCalculator.getFormationMaxPeople(eFormLv);
+            enemyBattleUnits.add(BattleCalculator.assembleBattleUnit(
+                    "敌将" + (i + 1), targetLevel,
+                    eu[0], eu.length > 1 ? eu[1] : 50,
+                    targetLevel * 2, targetLevel * 2, 5, 15,
+                    eTroopType, eTier, eMaxSc, eMaxSc, eFormLv,
+                    0, 0, 0, 0, 0, 0, 0, 0));
+            enemyBattleUnits.get(i).position = i;
+        }
+
+        BattleService.BattleReport report = battleService.fight(playerBattleUnits, enemyBattleUnits, 20);
+        boolean victory = report.victoryA;
+
         List<String> battleLog = new ArrayList<>();
-        int totalPlayerPower = 0;
-        int totalEnemyPower = 0;
-
-        // 构建玩家战斗单位: [attack, defense, troops, maxTroops]
-        List<int[]> playerUnits = new ArrayList<>();
-        List<String> playerNames = new ArrayList<>();
-        for (General g : myGenerals) {
-            Map<String, Integer> eb = g.getEquipmentBonus() != null ? g.getEquipmentBonus() : Collections.emptyMap();
-            int gAttack = (g.getAttrAttack() != null ? g.getAttrAttack() : 100) + eb.getOrDefault("attack", 0);
-            int gDefense = (g.getAttrDefense() != null ? g.getAttrDefense() : 50) + eb.getOrDefault("defense", 0);
-            int gValor = (g.getAttrValor() != null ? g.getAttrValor() : 50) + eb.getOrDefault("valor", 0);
-            int gCommand = (g.getAttrCommand() != null ? g.getAttrCommand() : 50) + eb.getOrDefault("command", 0);
-
-            int pAttack = gAttack + gValor / 2;
-            int pDefense = gDefense + gCommand / 2;
-            int pTroops = g.getSoldierCount() != null ? g.getSoldierCount() : 1000;
-
-            playerUnits.add(new int[]{pAttack, pDefense, pTroops, pTroops});
-            playerNames.add(g.getName() != null ? g.getName() : "武将");
-            totalPlayerPower += pAttack + pDefense;
-        }
-        for (int[] eu : enemyUnits) {
-            totalEnemyPower += eu[0] + eu[1];
-        }
-
-        battleLog.add(String.format("【掠夺战斗开始】我方 %d 将 vs %s (Lv.%d)", playerUnits.size(), targetName, targetLevel));
-
-        int round = 0;
-        int maxRound = 20;
-        while (round < maxRound) {
-            round++;
-            // 检查双方是否还有存活单位
-            boolean playerAlive = playerUnits.stream().anyMatch(u -> u[2] > 0);
-            boolean enemyAlive = enemyUnits.stream().anyMatch(u -> u[2] > 0);
-            if (!playerAlive || !enemyAlive) break;
-
-            // 每个玩家武将攻击一个存活的敌方单位
-            for (int i = 0; i < playerUnits.size(); i++) {
-                int[] pu = playerUnits.get(i);
-                if (pu[2] <= 0) continue;
-
-                // 找一个存活的敌方单位
-                int[] target = null;
-                for (int[] eu : enemyUnits) {
-                    if (eu[2] > 0) { target = eu; break; }
-                }
-                if (target == null) break;
-
-                int damage = Math.max(10, pu[0] - target[1] / 2 + random.nextInt(20));
-                target[2] = Math.max(0, target[2] - damage);
-            }
-
-            // 每个敌方单位攻击一个存活的玩家单位
-            for (int[] eu : enemyUnits) {
-                if (eu[2] <= 0) continue;
-
-                int[] target = null;
-                for (int[] pu : playerUnits) {
-                    if (pu[2] > 0) { target = pu; break; }
-                }
-                if (target == null) break;
-
-                int damage = Math.max(10, eu[0] - target[1] / 2 + random.nextInt(20));
-                target[2] = Math.max(0, target[2] - damage);
-            }
-        }
-
-        boolean playerAlive = playerUnits.stream().anyMatch(u -> u[2] > 0);
-        boolean enemyAlive = enemyUnits.stream().anyMatch(u -> u[2] > 0);
-        boolean victory = playerAlive && !enemyAlive;
-
-        // 如果超过20回合双方都有存活，按剩余兵力比判定
-        if (playerAlive && enemyAlive) {
-            int playerRemain = playerUnits.stream().mapToInt(u -> u[2]).sum();
-            int enemyRemain = enemyUnits.stream().mapToInt(u -> u[2]).sum();
-            victory = playerRemain >= enemyRemain;
-        }
-
-        battleLog.add(String.format("【战斗%s】经过 %d 回合", victory ? "胜利" : "失败", round));
+        battleLog.add(String.format("【掠夺战斗开始】我方 %d 将 vs %s (Lv.%d)", myGenerals.size(), targetName, targetLevel));
+        battleLog.addAll(report.toBattleLog("我方", "敌方"));
 
         // ========== 奖励计算（不变） ==========
         long silverGain = 0, woodGain = 0, paperGain = 0, foodGain = 0;
@@ -388,13 +363,13 @@ public class PlunderService {
         result.put("foodGain", foodGain);
         result.put("availableCount", pd.getAvailableCount());
         result.put("todayCount", pd.getTodayCount());
-        result.put("playerPower", totalPlayerPower);
-        result.put("targetPower", totalEnemyPower);
+        result.put("playerPower", playerBattleUnits.stream().mapToInt(u -> u.totalAttack + u.totalDefense).sum());
+        result.put("targetPower", enemyBattleUnits.stream().mapToInt(u -> u.totalAttack + u.totalDefense).sum());
         result.put("battleLog", battleLog);
-        result.put("rounds", round);
+        result.put("rounds", report.totalRounds);
         result.put("generalCount", myGenerals.size());
 
-        logger.info("用户 {} {}掠夺 {} (Lv.{}), {}将参战, {}回合", userId, victory ? "成功" : "失败", targetName, targetLevel, myGenerals.size(), round);
+        logger.info("用户 {} {}掠夺 {} (Lv.{}), {}将参战, {}回合", userId, victory ? "成功" : "失败", targetName, targetLevel, myGenerals.size(), report.totalRounds);
         return result;
     }
 

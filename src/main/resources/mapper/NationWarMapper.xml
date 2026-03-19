@@ -42,4 +42,20 @@
         ON DUPLICATE KEY UPDATE merit = #{merit}
     </insert>
 
+    <!-- 城市归属持久化 -->
+    <select id="findAllCityOwners" resultType="java.util.HashMap">
+        SELECT city_id AS cityId, owner FROM nation_war_city_owner
+    </select>
+
+    <insert id="upsertCityOwner">
+        INSERT INTO nation_war_city_owner (city_id, owner, update_time)
+        VALUES (#{cityId}, #{owner}, #{updateTime})
+        ON DUPLICATE KEY UPDATE owner = #{owner}, update_time = #{updateTime}
+    </insert>
+
+    <!-- 各国玩家人数统计 -->
+    <select id="countPlayersByNation" resultType="java.util.HashMap">
+        SELECT nation, COUNT(1) AS cnt FROM player_nation GROUP BY nation
+    </select>
+
 </mapper>

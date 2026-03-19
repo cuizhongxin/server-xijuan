@@ -3,23 +3,151 @@ package com.tencent.wxcloudrun.service.battle;
 import java.util.*;
 
 /**
- * 统一伤害计算器
+ * 统一战斗计算器
  *
- * 核心公式: rawDamage = ATK^2 / (ATK + DEF)
- * 最终伤害 = rawDamage × 兵种克制 × 士兵系数 × 统御加成 × 暴击 × 随机波动
+ * 武将四维:
+ *   武勇(valor)  → 攻击时伤害输出加成: valorBonus = 1 + valor/400
+ *   统御(command) → 防守时伤害减免:     commandReduction = command/(command+400)
+ *   攻击(attack)  → 直接加到军队总攻击
+ *   防御(defense)  → 直接加到军队总防御
  *
- * 士兵系数 = 1 + (soldierCount × soldierHp × tierMultiplier) / 50000
- * 统御加成 = 1 + command / 500
- * 暴击率 = valor / 5 (%)，暴击伤害 x1.5
- * 闪避率 = dodge (%)，上限50%
- * 机动值 = 决定行动顺序
+ * 核心公式:
+ *   rawDamage     = totalAtk² / (totalAtk + totalDef + 1)
+ *   finalDamage   = rawDamage × typeBonus × valorBonus × (1 - commandReduction) × randomFactor
+ *   soldierLoss   = max(1, round(finalDamage × KILL_MULTIPLIER / soldierLife))
+ *
+ * 兵力不影响伤害输出（无兵力衰减），士兵数量 = 纯血量，归零即阵亡
+ * KILL_MULTIPLIER = 30，可调节控制战斗节奏（目标5~8回合）
  */
 public class BattleCalculator {
 
     private static final Random random = new Random();
 
-    // ========== 兵种克制 ==========
-    // 步(1)克骑(2), 骑(2)克弓(3), 弓(3)克步(1)
+    /** 击杀倍率：控制战斗节奏，目标5~8回合内分出胜负 */
+    public static final int KILL_MULTIPLIER = 30;
+
+    // ==================== 兵种基础属性表（来自APK ArmyService.json） ====================
+    // [armyType 1=步 2=骑 3=弓][tier 1~10] → {life, att, def, sp, hit, mis}
+
+    public static final int[][] INFANTRY_STATS = {
+        //  life, att,  def,   sp, hit, mis
+        {}, // 0阶占位
+        { 240,  110,  120,  15, 0, 0 },  // 1阶 乡勇
+        { 260,  210,  250,  17, 0, 0 },  // 2阶 民兵
+        { 280,  290,  400,  19, 0, 0 },  // 3阶 轻步兵
+        { 300,  320,  600,  21, 0, 0 },  // 4阶 朴刀兵
+        { 320,  400,  750,  23, 0, 0 },  // 5阶 刀盾兵
+        { 340,  480,  900,  25, 0, 0 },  // 6阶 藤甲兵
+        { 360,  560, 1050,  26, 0, 0 },  // 7阶 重步兵
+        { 380,  640, 1200,  27, 0, 0 },  // 8阶 大戟士
+        { 400,  720, 1350,  28, 0, 0 },  // 9阶 陌刀兵
+        { 420,  800, 1500,  29, 0, 0 },  // 10阶 虎贲禁卫军
+    };
+
+    public static final int[][] CAVALRY_STATS = {
+        {},
+        { 230,  150,  110,  20, 0, 0 },
+        { 240,  300,  210,  22, 0, 0 },
+        { 250,  450,  290,  24, 0, 0 },
+        { 260,  600,  320,  26, 0, 0 },
+        { 270,  750,  400,  28, 0, 0 },
+        { 280,  900,  480,  30, 0, 0 },
+        { 290, 1050,  560,  31, 0, 0 },
+        { 300, 1200,  640,  32, 0, 0 },
+        { 310, 1350,  720,  33, 0, 0 },
+        { 320, 1500,  800,  34, 0, 0 },
+    };
+
+    public static final int[][] ARCHER_STATS = {
+        {},
+        { 230,  200,  100,  10, 0, 0 },
+        { 240,  400,  150,  12, 0, 0 },
+        { 250,  650,  200,  14, 0, 0 },
+        { 260,  900,  250,  16, 0, 0 },
+        { 270, 1200,  300,  18, 0, 0 },
+        { 280, 1500,  350,  20, 0, 0 },
+        { 290, 1800,  400,  21, 0, 0 },
+        { 300, 2000,  450,  22, 0, 0 },
+        { 310, 2300,  500,  23, 0, 0 },
+        { 320, 2600,  550,  24, 0, 0 },
+    };
+
+    /** 获取兵种基础属性 [life, att, def, sp, hit, mis] */
+    public static int[] getSoldierStats(int troopType, int tier) {
+        tier = Math.max(1, Math.min(10, tier));
+        switch (troopType) {
+            case 2: return CAVALRY_STATS[tier];
+            case 3: return ARCHER_STATS[tier];
+            default: return INFANTRY_STATS[tier];
+        }
+    }
+
+    public static int getSoldierLife(int troopType, int tier) {
+        return getSoldierStats(troopType, tier)[0];
+    }
+
+    public static int getSoldierAtt(int troopType, int tier) {
+        return getSoldierStats(troopType, tier)[1];
+    }
+
+    public static int getSoldierDef(int troopType, int tier) {
+        return getSoldierStats(troopType, tier)[2];
+    }
+
+    public static int getSoldierSpeed(int troopType, int tier) {
+        return getSoldierStats(troopType, tier)[3];
+    }
+
+    // ==================== 阵型等级配置（来自APK formation_cfg.json） ====================
+    // [formationLevel 1~10] → {maxPeople, addAtt, addDef}
+
+    public static final int[][] FORMATION_CONFIG = {
+        {},
+        { 100, 230, 230 },   // 1级 队
+        { 200, 250, 250 },   // 2级 伙
+        { 300, 270, 270 },   // 3级 哨
+        { 400, 290, 290 },   // 4级 岗
+        { 500, 310, 310 },   // 5级 都
+        { 600, 330, 330 },   // 6级 营
+        { 700, 350, 350 },   // 7级 团
+        { 800, 370, 370 },   // 8级 师
+        { 900, 390, 390 },   // 9级 旅
+        { 1000, 410, 410 },  // 10级 军
+    };
+
+    public static int getFormationMaxPeople(int level) {
+        level = Math.max(1, Math.min(10, level));
+        return FORMATION_CONFIG[level][0];
+    }
+
+    public static int getFormationAddAtt(int level) {
+        level = Math.max(1, Math.min(10, level));
+        return FORMATION_CONFIG[level][1];
+    }
+
+    public static int getFormationAddDef(int level) {
+        level = Math.max(1, Math.min(10, level));
+        return FORMATION_CONFIG[level][2];
+    }
+
+    /**
+     * 根据角色等级推算阵型等级 (参照 formation_level_config 的解锁等级)
+     */
+    public static int levelToFormationLevel(int characterLevel) {
+        if (characterLevel >= 80) return 10;
+        if (characterLevel >= 70) return 9;
+        if (characterLevel >= 60) return 8;
+        if (characterLevel >= 50) return 7;
+        if (characterLevel >= 40) return 6;
+        if (characterLevel >= 30) return 5;
+        if (characterLevel >= 20) return 4;
+        if (characterLevel >= 10) return 3;
+        if (characterLevel >= 5) return 2;
+        return 1;
+    }
+
+    // ==================== 兵种克制 ====================
+
     public static double getTypeBonus(int attackerType, int targetType) {
         if (attackerType == targetType) return 1.0;
         if ((attackerType == 1 && targetType == 2) ||
@@ -35,116 +163,59 @@ public class BattleCalculator {
         return 1.0;
     }
 
-    // ========== 士兵系数 ==========
-    public static double getSoldierBonus(int soldierCount, double soldierHp, double tierMultiplier) {
-        if (soldierCount <= 0) return 1.0;
-        return 1.0 + (soldierCount * soldierHp * tierMultiplier) / 50000.0;
+    // ==================== 武勇 → 进攻伤害加成 ====================
+
+    public static double getValorBonus(int valor) {
+        return 1.0 + valor / 400.0;
     }
 
-    // ========== 统御加成 ==========
-    public static double getCommandBonus(int command) {
-        return 1.0 + command / 500.0;
+    // ==================== 统御 → 防守伤害减免 ====================
+
+    public static double getCommandReduction(int command) {
+        if (command <= 0) return 0;
+        return (double) command / (command + 400.0);
     }
 
-    // ========== 暴击判定 ==========
-    public static boolean isCrit(int valor) {
-        double critRate = valor / 5.0; // 百分比
-        return random.nextDouble() * 100 < critRate;
+    // ==================== 闪避判定 ====================
+
+    public static boolean isDodge(int attackerHit, int targetDodge) {
+        double netDodge = Math.min(50, Math.max(0, targetDodge - attackerHit));
+        return random.nextDouble() * 100 < netDodge;
     }
 
-    // ========== 闪避判定 ==========
-    public static boolean isDodge(int dodge) {
-        double dodgeRate = Math.min(50, dodge); // 上限50%
-        return random.nextDouble() * 100 < dodgeRate;
-    }
+    // ==================== 核心伤害计算 ====================
 
-    // ========== 核心伤害计算 ==========
     public static DamageResult calcDamage(BattleUnit attacker, BattleUnit target) {
-        // 闪避判定
-        if (isDodge(target.dodge)) {
+        if (isDodge(attacker.hit, target.dodge)) {
             return new DamageResult(0, false, true, 0);
         }
 
-        double atk = attacker.attack;
-        double def = target.defense;
+        double atk = attacker.totalAttack;
+        double def = target.totalDefense;
 
-        // 基础伤害: ATK^2 / (ATK + DEF)
-        double rawDamage = atk * atk / (atk + def + 1); // +1防止除零
+        double rawDamage = atk * atk / (atk + def + 1);
 
-        // 兵种克制
         double typeBonus = getTypeBonus(attacker.troopType, target.troopType);
+        double valorBonus = getValorBonus(attacker.valor);
+        double commandReduction = getCommandReduction(target.command);
+        double randomFactor = 0.95 + random.nextDouble() * 0.10;
 
-        // 士兵系数
-        double soldierBonus = getSoldierBonus(
-            attacker.soldierCount, attacker.soldierHp, attacker.tierMultiplier);
+        double finalDamage = rawDamage
+                * typeBonus
+                * valorBonus
+                * (1.0 - commandReduction)
+                * randomFactor;
 
-        // 统御加成
-        double commandBonus = getCommandBonus(attacker.command);
+        int soldierLife = attacker.targetSoldierLife > 0 ? attacker.targetSoldierLife : getSoldierLife(target.troopType, target.soldierTier);
+        int soldierLoss = Math.max(1, (int) Math.round(finalDamage * KILL_MULTIPLIER / Math.max(1, soldierLife)));
+        soldierLoss = Math.min(soldierLoss, target.soldierCount);
 
-        // 暴击
-        boolean crit = isCrit(attacker.valor);
-        double critMultiplier = crit ? 1.5 : 1.0;
-
-        // 随机波动 0.9 ~ 1.1
-        double randomFactor = 0.9 + random.nextDouble() * 0.2;
-
-        // 最终伤害
-        double finalDamage = rawDamage * typeBonus * soldierBonus * commandBonus
-                           * critMultiplier * randomFactor;
-        int damage = Math.max(1, (int) Math.floor(finalDamage));
-
-        // 士兵减员
-        int soldierLoss = 0;
-        if (target.soldierCount > 0 && target.soldierHp > 0) {
-            double effectiveHp = target.soldierHp * target.tierMultiplier;
-            soldierLoss = Math.max(1, (int) Math.floor(damage / Math.max(1, effectiveHp)));
-            soldierLoss = Math.min(soldierLoss, target.soldierCount);
-        }
-
-        return new DamageResult(damage, crit, false, soldierLoss);
+        boolean isCrit = false;
+        return new DamageResult(soldierLoss, isCrit, false, soldierLoss);
     }
 
-    // ========== 兵阶配置 ==========
-    public static final double[] TIER_MULTIPLIERS = {
-        0,     // 占位(0阶不存在)
-        1.00,  // 1阶
-        1.15,  // 2阶
-        1.35,  // 3阶
-        1.55,  // 4阶
-        1.80,  // 5阶
-        2.10,  // 6阶
-        2.45,  // 7阶
-        2.85,  // 8阶
-        3.30   // 9阶
-    };
+    // ==================== 兵种类型转换 ====================
 
-    public static final int[] TIER_MAX_SOLDIERS = {
-        0, 50, 100, 150, 200, 250, 300, 350, 400, 450
-    };
-
-    public static final int[] TIER_SOLDIER_HP = {
-        0, 100, 130, 170, 220, 280, 350, 430, 520, 620
-    };
-
-    public static double getTierMultiplier(int tier) {
-        if (tier < 1) return 1.0;
-        if (tier >= TIER_MULTIPLIERS.length) return TIER_MULTIPLIERS[TIER_MULTIPLIERS.length - 1];
-        return TIER_MULTIPLIERS[tier];
-    }
-
-    public static int getTierMaxSoldiers(int tier) {
-        if (tier < 1) return 50;
-        if (tier >= TIER_MAX_SOLDIERS.length) return TIER_MAX_SOLDIERS[TIER_MAX_SOLDIERS.length - 1];
-        return TIER_MAX_SOLDIERS[tier];
-    }
-
-    public static int getTierSoldierHp(int tier) {
-        if (tier < 1) return 100;
-        if (tier >= TIER_SOLDIER_HP.length) return TIER_SOLDIER_HP[TIER_SOLDIER_HP.length - 1];
-        return TIER_SOLDIER_HP[tier];
-    }
-
-    // ========== 兵种类型转换 ==========
     public static int parseTroopType(String type) {
         if (type == null) return 1;
         switch (type) {
@@ -155,12 +226,48 @@ public class BattleCalculator {
         }
     }
 
-    // ========== 兵法战斗计算 ==========
+    // ==================== 组装军队总属性 ====================
 
     /**
-     * 带兵法的伤害计算。
-     * 先应用被动兵法加成，再判定主动兵法发动，最后执行普通/特殊攻击。
+     * 根据武将属性 + 兵种 + 阵型等级 组装一个完整的BattleUnit
      */
+    public static BattleUnit assembleBattleUnit(
+            String name, int level,
+            int genAttack, int genDefense, int genValor, int genCommand,
+            int genDodge, int genMobility,
+            int troopType, int soldierTier, int soldierCount, int maxSoldierCount,
+            int formationLevel,
+            int equipArmyAtt, int equipArmyDef, int equipArmySp, int equipArmyHit, int equipArmyMis,
+            int traitAtkBonus, int traitDefBonus, int traitDmgBonus) {
+
+        int[] soldierStats = getSoldierStats(troopType, soldierTier);
+
+        BattleUnit u = new BattleUnit();
+        u.name = name;
+        u.level = level;
+        u.troopType = troopType;
+        u.soldierTier = soldierTier;
+        u.soldierCount = soldierCount;
+        u.maxSoldierCount = maxSoldierCount;
+        u.soldierLife = soldierStats[0];
+
+        u.totalAttack = soldierStats[1] + getFormationAddAtt(formationLevel)
+                + genAttack + equipArmyAtt + traitAtkBonus;
+        u.totalDefense = soldierStats[2] + getFormationAddDef(formationLevel)
+                + genDefense + equipArmyDef + traitDefBonus;
+
+        u.valor = genValor;
+        u.command = genCommand;
+        u.dodge = (int)(genDodge + soldierStats[5] + equipArmyMis);
+        u.hit = soldierStats[4] + equipArmyHit;
+        u.mobility = genMobility + soldierStats[3] + equipArmySp;
+        u.traitDmgBonus = traitDmgBonus;
+
+        return u;
+    }
+
+    // ==================== 带兵法的伤害计算 ====================
+
     public static TacticsResult calcDamageWithTactics(BattleUnit attacker, BattleUnit target,
                                                        List<BattleUnit> allEnemies) {
         TacticsResult result = new TacticsResult();
@@ -174,29 +281,31 @@ public class BattleCalculator {
 
         String tid = attacker.tacticsId;
 
-        // ===== 步兵被动兵法 - 在攻击前修改属性 =====
+        // ===== 步兵被动兵法 =====
         if ("t_infantry_1".equals(tid)) {
-            double bonus = attacker.tacticsEffectValue / 100.0;
-            attacker.defense = (int)(attacker.defense * (1 + bonus));
+            // 方圆阵 - 全减伤
+            // 效果在被攻击时触发，此处标记
         } else if ("t_infantry_2".equals(tid)) {
-            double bonus = attacker.tacticsEffectValue / 100.0;
-            attacker.dodge = (int) Math.min(50, attacker.dodge + attacker.dodge * bonus);
+            // 偃月阵 - 减骑兵伤害
         } else if ("t_infantry_3".equals(tid)) {
-            double cavReduce = attacker.tacticsEffectValue / 100.0;
-            if (target.troopType == 2) {
-                target.attack = (int)(target.attack * (1 - cavReduce));
-            }
+            // 长蛇阵 - 减弓兵伤害
         }
 
         // ===== 弓兵被动: 落月弓 =====
         if ("t_archer_3".equals(tid)) {
-            double bonus = attacker.tacticsEffectValue / 100.0;
-            attacker.attack = (int)(attacker.attack * (1 + bonus));
-            result.damages.add(calcDamage(attacker, target));
+            int bonusAtk = (int)(attacker.tacticsEffectValue);
+            double dmgMul = 1.0 + attacker.tacticsEffectValue / 100.0;
+            int origAtk = attacker.totalAttack;
+            attacker.totalAttack = origAtk + bonusAtk;
+            DamageResult dr = calcDamage(attacker, target);
+            dr.soldierLoss = Math.max(1, (int)(dr.soldierLoss * dmgMul));
+            dr.soldierLoss = Math.min(dr.soldierLoss, target.soldierCount);
+            result.damages.add(dr);
+            attacker.totalAttack = origAtk;
             return result;
         }
 
-        // ===== 主动兵法发动判定（品质加成 + 名将特性翻倍） =====
+        // ===== 主动兵法发动判定 =====
         double triggerRate = (attacker.tacticsTriggerRate + attacker.tacticsTriggerBonus) * attacker.tacticsTriggerMultiplier;
         boolean triggered = random.nextDouble() * 100 < triggerRate;
 
@@ -210,63 +319,70 @@ public class BattleCalculator {
 
         switch (tid) {
             case "t_cavalry_1": {
-                // 铁骑冲锋 - 额外伤害
-                double bonus = 1 + attacker.tacticsEffectValue / 100.0;
-                int origAtk = attacker.attack;
-                attacker.attack = (int)(origAtk * bonus);
-                result.damages.add(calcDamage(attacker, target));
-                result.effectDesc = "铁骑冲锋！额外" + (int)attacker.tacticsEffectValue + "%伤害";
-                attacker.attack = origAtk;
+                int bonusAtk = (int) attacker.tacticsEffectValue;
+                double dmgMul = 1.0 + attacker.tacticsEffectValue / 200.0;
+                int origAtk = attacker.totalAttack;
+                attacker.totalAttack = origAtk + bonusAtk;
+                DamageResult dr = calcDamage(attacker, target);
+                dr.soldierLoss = Math.max(1, (int)(dr.soldierLoss * dmgMul));
+                dr.soldierLoss = Math.min(dr.soldierLoss, target.soldierCount);
+                result.damages.add(dr);
+                result.effectDesc = "铁骑冲锋！";
+                attacker.totalAttack = origAtk;
                 break;
             }
             case "t_cavalry_2": {
-                // 声东击西 - 攻击随机弓兵
                 result.effectDesc = "声东击西！攻击敌方弓兵";
+                int bonusAtk = (int) attacker.tacticsEffectValue;
+                double dmgMul = 1.0 + attacker.tacticsEffectValue / 200.0;
                 List<BattleUnit> archers = new ArrayList<>();
                 if (allEnemies != null) {
                     for (BattleUnit e : allEnemies) {
-                        if (e.troopType == 3 && e.hp > 0) archers.add(e);
+                        if (e.troopType == 3 && e.soldierCount > 0) archers.add(e);
                     }
                 }
-                if (!archers.isEmpty()) {
-                    BattleUnit archTarget = archers.get(random.nextInt(archers.size()));
-                    result.damages.add(calcDamage(attacker, archTarget));
-                    result.specialTarget = archTarget.name;
-                } else {
-                    result.damages.add(calcDamage(attacker, target));
-                }
+                BattleUnit actualTarget = archers.isEmpty() ? target : archers.get(random.nextInt(archers.size()));
+                int origAtk = attacker.totalAttack;
+                attacker.totalAttack = origAtk + bonusAtk;
+                DamageResult dr = calcDamage(attacker, actualTarget);
+                dr.soldierLoss = Math.max(1, (int)(dr.soldierLoss * dmgMul));
+                dr.soldierLoss = Math.min(dr.soldierLoss, actualTarget.soldierCount);
+                result.damages.add(dr);
+                if (!archers.isEmpty()) result.specialTarget = actualTarget.name;
+                attacker.totalAttack = origAtk;
                 break;
             }
             case "t_cavalry_3": {
-                // 以逸待劳 - 伏击，额外伤害
-                double ambushBonus = 1 + attacker.tacticsEffectValue / 100.0;
-                int origAtkC3 = attacker.attack;
-                attacker.attack = (int)(origAtkC3 * ambushBonus);
-                result.damages.add(calcDamage(attacker, target));
-                result.effectDesc = "以逸待劳！伏击额外" + (int)attacker.tacticsEffectValue + "%伤害";
-                attacker.attack = origAtkC3;
+                double dmgRatio = attacker.tacticsEffectValue / 100.0;
+                result.effectDesc = "以逸待劳！伏击";
+                int origAtk = attacker.totalAttack;
+                DamageResult dr = calcDamage(attacker, target);
+                dr.soldierLoss = Math.max(1, (int)(dr.soldierLoss * Math.max(0.3, dmgRatio)));
+                dr.soldierLoss = Math.min(dr.soldierLoss, target.soldierCount);
+                result.damages.add(dr);
+                attacker.totalAttack = origAtk;
                 break;
             }
             case "t_cavalry_4": {
-                // 战神突击 - 贯穿一行
                 double pierceRatio = attacker.tacticsEffectValue / 100.0;
                 result.effectDesc = "战神突击！贯穿攻击";
                 if (allEnemies != null) {
+                    int atkRow = attacker.position % 2;
                     for (BattleUnit e : allEnemies) {
-                        if (e.hp > 0) {
-                            int origAtkP = attacker.attack;
-                            attacker.attack = (int)(origAtkP * pierceRatio);
-                            result.damages.add(calcDamage(attacker, e));
-                            attacker.attack = origAtkP;
+                        if (e.soldierCount > 0 && e.position % 2 == atkRow) {
+                            DamageResult dr = calcDamage(attacker, e);
+                            dr.soldierLoss = Math.max(1, (int)(dr.soldierLoss * pierceRatio));
+                            dr.soldierLoss = Math.min(dr.soldierLoss, e.soldierCount);
+                            result.damages.add(dr);
                         }
                     }
-                } else {
+                }
+                if (result.damages.isEmpty()) {
                     result.damages.add(calcDamage(attacker, target));
                 }
                 break;
             }
             case "t_archer_1": {
-                // 连射 - 两次攻击
                 result.effectDesc = "连射！发动两次攻击";
                 result.damages.add(calcDamage(attacker, target));
                 result.damages.add(calcDamage(attacker, target));
@@ -274,19 +390,20 @@ public class BattleCalculator {
             }
             case "t_archer_2":
             case "t_special_lvbu": {
-                // 长虹贯日 / 辕门射戟 - AOE
                 double aoeRatio = attacker.tacticsEffectValue / 100.0;
-                result.effectDesc = "t_special_lvbu".equals(tid) ? "辕门射戟！" : "长虹贯日！";
+                result.effectDesc = "t_special_lvbu".equals(tid) ? "战神突击！" : "长虹贯日！";
                 if (allEnemies != null) {
+                    int atkRow = attacker.position % 2;
                     for (BattleUnit e : allEnemies) {
-                        if (e.hp > 0) {
-                            int origAtk = attacker.attack;
-                            attacker.attack = (int)(origAtk * aoeRatio);
-                            result.damages.add(calcDamage(attacker, e));
-                            attacker.attack = origAtk;
+                        if (e.soldierCount > 0 && e.position % 2 == atkRow) {
+                            DamageResult dr = calcDamage(attacker, e);
+                            dr.soldierLoss = Math.max(1, (int)(dr.soldierLoss * aoeRatio));
+                            dr.soldierLoss = Math.min(dr.soldierLoss, e.soldierCount);
+                            result.damages.add(dr);
                         }
                     }
-                } else {
+                }
+                if (result.damages.isEmpty()) {
                     result.damages.add(calcDamage(attacker, target));
                 }
                 break;
@@ -299,44 +416,47 @@ public class BattleCalculator {
         return result;
     }
 
-    // ========== 数据类 ==========
+    // ==================== 数据类 ====================
+
     public static class BattleUnit {
-        public int attack;
-        public int defense;
-        public int valor;      // 武勇(暴击率)
-        public int command;    // 统御(伤害加成)
-        public int dodge;      // 闪避率(%)
-        public int mobility;   // 机动(行动顺序)
-        public int troopType;  // 1步 2骑 3弓
-        public int soldierCount;
-        public double soldierHp;
-        public double tierMultiplier;
-        public int maxHp;
-        public int hp;
+        public int totalAttack;     // 军队总攻击 = 兵种att + 阵型addAtt + 武将攻击 + 装备 + 天赋
+        public int totalDefense;    // 军队总防御 = 兵种def + 阵型addDef + 武将防御 + 装备 + 天赋
+        public int valor;           // 武勇 → 进攻伤害加成
+        public int command;         // 统御 → 防守伤害减免
+        public int dodge;           // 闪避值
+        public int hit;             // 命中值
+        public int mobility;        // 机动 → 行动顺序
+        public int troopType;       // 1步 2骑 3弓
+        public int soldierTier;     // 兵阶 1~10
+        public int soldierCount;    // 当前士兵数（=血量）
+        public int maxSoldierCount; // 满编士兵数（=最大血量）
+        public int soldierLife;     // 单兵生命值（用于计算杀伤）
+        public int traitDmgBonus;   // 天赋平坦伤害加成
+        public int targetSoldierLife; // 仅用于特殊覆写
+        public int position;        // 阵型位置 0~5
         public String name;
         public int level;
+
         // 兵法相关
         public String tacticsId;
         public String tacticsName;
         public int tacticsLevel;
         public double tacticsTriggerRate;
         public double tacticsEffectValue;
-        /** 武将品质带来的兵法发动概率加成(%) */
         public double tacticsTriggerBonus;
-        /** 名将特性"兵法发动概率提升"的倍率，默认1，拥有该特性时为2（翻倍） */
         public double tacticsTriggerMultiplier = 1;
 
         public BattleUnit() {
-            this.tierMultiplier = 1.0;
-            this.soldierHp = 100;
+            this.soldierLife = 240;
         }
     }
 
     public static class DamageResult {
-        public int damage;
+        public int damage;          // 伤害值（=soldierLoss，用于兼容显示）
         public boolean isCrit;
         public boolean isDodge;
-        public int soldierLoss;
+        public int soldierLoss;     // 士兵损失数（核心指标）
+        public boolean isCounter;
 
         public DamageResult(int damage, boolean isCrit, boolean isDodge, int soldierLoss) {
             this.damage = damage;

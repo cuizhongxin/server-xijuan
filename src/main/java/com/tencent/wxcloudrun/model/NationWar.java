@@ -185,6 +185,7 @@ public class NationWar {
         
         private Long battleTime;
         private String battleLog;
+        private String battleReportJson;
     }
     
     /**
@@ -221,6 +222,9 @@ public class NationWar {
         private List<String> neighbors; // 相邻城市ID
         private Boolean isCapital;      // 是否为国都
         private Integer defenseBonus;   // 防御加成
+        private String pic;             // APK 城市精灵图名称
+        private Integer flagX;          // 旗帜偏移X
+        private Integer flagY;          // 旗帜偏移Y
     }
     
     /**

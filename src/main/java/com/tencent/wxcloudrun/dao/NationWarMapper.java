@@ -26,4 +26,12 @@ public interface NationWarMapper {
     Integer findPlayerMerit(@Param("odUserId") String odUserId);
     
     void upsertPlayerMerit(@Param("odUserId") String odUserId, @Param("merit") int merit);
+    
+    // 城市归属持久化
+    List<Map<String, Object>> findAllCityOwners();
+    
+    void upsertCityOwner(@Param("cityId") String cityId, @Param("owner") String owner, @Param("updateTime") long updateTime);
+    
+    // 玩家国籍统计
+    List<Map<String, Object>> countPlayersByNation();
 }

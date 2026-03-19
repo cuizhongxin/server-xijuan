@@ -6,7 +6,10 @@ import com.tencent.wxcloudrun.exception.BusinessException;
 import com.tencent.wxcloudrun.model.General;
 import com.tencent.wxcloudrun.model.UserResource;
 import com.tencent.wxcloudrun.service.UserResourceService;
+import com.tencent.wxcloudrun.service.SuitConfigService;
 import com.tencent.wxcloudrun.service.formation.FormationService;
+import com.tencent.wxcloudrun.service.battle.BattleCalculator;
+import com.tencent.wxcloudrun.service.battle.BattleService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,6 +52,12 @@ public class HeroRankService {
 
     @Autowired
     private FormationService formationService;
+
+    @Autowired
+    private BattleService battleService;
+
+    @Autowired
+    private SuitConfigService suitConfigService;
 
     private List<Map<String, Object>> peerageConfigs = new ArrayList<>();
 
@@ -134,33 +143,34 @@ public class HeroRankService {
             throw new BusinessException(400, "对手不存在排行榜中");
         }
 
-        // 获取我方战力
         List<General> myGenerals = formationService.getBattleOrder(userId);
-        int myPower = myGenerals.stream()
-                .mapToInt(g -> g.getAttrValor() != null ? g.getAttrValor() : myLevel * 400)
-                .sum();
-        if (myPower == 0) myPower = myLevel * 500;
+        List<BattleCalculator.BattleUnit> sideA = buildHeroBattleUnits(myGenerals, myLevel);
 
-        // 获取对手战力（NPC直接从排行榜取，真实玩家从阵型取）
         boolean isNpc = targetId.startsWith("npc_hero_");
         int targetPower;
         int targetLevel;
+        List<BattleCalculator.BattleUnit> sideB;
+
         if (isNpc) {
             targetPower = getInt(targetRank, "power", 1000);
             targetLevel = getInt(targetRank, "level", 1);
+            sideB = buildNpcBattleUnits(targetPower, targetLevel, Math.max(1, myGenerals.size()));
         } else {
             List<General> targetGenerals = formationService.getBattleOrder(targetId);
-            targetPower = targetGenerals.stream()
-                    .mapToInt(g -> g.getAttrValor() != null ? g.getAttrValor() : 0)
-                    .sum();
             UserResource targetRes = resourceService.getUserResource(targetId);
             targetLevel = targetRes != null && targetRes.getLevel() != null ? targetRes.getLevel() : 1;
-            if (targetPower == 0) targetPower = targetLevel * 500;
+            if (targetGenerals.isEmpty()) {
+                targetPower = targetLevel * 500;
+                sideB = buildNpcBattleUnits(targetPower, targetLevel, Math.max(1, myGenerals.size()));
+            } else {
+                sideB = buildHeroBattleUnits(targetGenerals, targetLevel);
+                targetPower = sideB.stream().mapToInt(u -> u.totalAttack + u.totalDefense).sum();
+            }
         }
 
-        double powerRatio = (double) myPower / (myPower + targetPower);
-        double winRate = Math.min(Math.max(powerRatio * 1.2, 0.1), 0.95);
-        boolean victory = Math.random() < winRate;
+        int myPower = sideA.stream().mapToInt(u -> u.totalAttack + u.totalDefense).sum();
+        BattleService.BattleReport report = battleService.fight(sideA, sideB, 20);
+        boolean victory = report.victoryA;
 
         // 计算声望奖励
         long fameGain = 0;
@@ -470,5 +480,55 @@ public class HeroRankService {
     private String getString(Map<String, Object> m, String key, String def) {
         Object v = m.get(key);
         return v != null ? v.toString() : def;
+    }
+
+    private List<BattleCalculator.BattleUnit> buildHeroBattleUnits(List<General> generals, int fallbackLevel) {
+        List<BattleCalculator.BattleUnit> units = new ArrayList<>();
+        for (int i = 0; i < generals.size(); i++) {
+            General g = generals.get(i);
+            Map<String, Integer> eq = suitConfigService.calculateTotalEquipBonus(g.getId());
+            int tier = g.getSoldierTier() != null ? g.getSoldierTier() : 1;
+            int troopType = BattleCalculator.parseTroopType(g.getTroopType());
+            int formLv = g.getSoldierRank() != null ? g.getSoldierRank() : 1;
+            int maxSc = BattleCalculator.getFormationMaxPeople(formLv);
+            int sc = g.getSoldierCount() != null ? Math.min(g.getSoldierCount(), maxSc) : maxSc;
+            BattleCalculator.BattleUnit u = BattleCalculator.assembleBattleUnit(
+                    g.getName() != null ? g.getName() : "武将" + (i + 1),
+                    g.getLevel() != null ? g.getLevel() : fallbackLevel,
+                    g.getAttrAttack() != null ? g.getAttrAttack() : 100,
+                    g.getAttrDefense() != null ? g.getAttrDefense() : 50,
+                    g.getAttrValor() != null ? g.getAttrValor() : 10,
+                    g.getAttrCommand() != null ? g.getAttrCommand() : 10,
+                    g.getAttrDodge() != null ? (int) Math.round(g.getAttrDodge()) : 5,
+                    g.getAttrMobility() != null ? g.getAttrMobility() : 15,
+                    troopType, tier, sc, maxSc, formLv,
+                    eq.getOrDefault("attack", 0), eq.getOrDefault("defense", 0),
+                    eq.getOrDefault("speed", 0), eq.getOrDefault("hit", 0),
+                    eq.getOrDefault("dodge", 0), 0, 0, 0);
+            u.position = i;
+            units.add(u);
+        }
+        return units;
+    }
+
+    private List<BattleCalculator.BattleUnit> buildNpcBattleUnits(int power, int level, int count) {
+        List<BattleCalculator.BattleUnit> units = new ArrayList<>();
+        int[] troopTypes = {1, 2, 3};
+        for (int i = 0; i < count; i++) {
+            int tier = Math.max(1, Math.min(10, 1 + level / 20));
+            int troopType = troopTypes[i % 3];
+            int formLv = BattleCalculator.levelToFormationLevel(level);
+            int maxSc = BattleCalculator.getFormationMaxPeople(formLv);
+            int eAtk = power / count / 2 + level * 5;
+            int eDef = power / count / 3 + level * 3;
+            BattleCalculator.BattleUnit u = BattleCalculator.assembleBattleUnit(
+                    "NPC" + (i + 1), level, eAtk, eDef,
+                    level * 2, level * 2, 5, 15,
+                    troopType, tier, maxSc, maxSc, formLv,
+                    0, 0, 0, 0, 0, 0, 0, 0);
+            u.position = i;
+            units.add(u);
+        }
+        return units;
     }
 }

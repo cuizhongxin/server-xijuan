@@ -120,9 +120,9 @@ public class Campaign {
         private Integer enemyCommand;
         private Integer enemyDodge;
         private Integer enemyMobility;
-        private Integer enemySoldierHp;
+        private Integer enemySoldierTier;
+        private Integer enemyFormationLevel;
         private String enemyTroopType;
-        private Double enemyTierMultiplier;
         private Integer expReward;
         private Long silverReward;
         private List<StageDrop> drops;

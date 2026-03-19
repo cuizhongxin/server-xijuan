@@ -2,7 +2,12 @@ package com.tencent.wxcloudrun.service.alliance;
 
 import com.tencent.wxcloudrun.dao.AllianceBossMapper;
 import com.tencent.wxcloudrun.exception.BusinessException;
+import com.tencent.wxcloudrun.model.General;
 import com.tencent.wxcloudrun.service.UserResourceService;
+import com.tencent.wxcloudrun.service.SuitConfigService;
+import com.tencent.wxcloudrun.service.battle.BattleCalculator;
+import com.tencent.wxcloudrun.service.battle.BattleService;
+import com.tencent.wxcloudrun.service.formation.FormationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +38,15 @@ public class AllianceBossService {
 
     @Autowired
     private UserResourceService userResourceService;
+
+    @Autowired
+    private BattleService battleService;
+
+    @Autowired
+    private FormationService formationService;
+
+    @Autowired
+    private SuitConfigService suitConfigService;
 
     @PostConstruct
     public void init() {
@@ -136,9 +150,56 @@ public class AllianceBossService {
         long maxHp = ((Number) boss.get("maxHp")).longValue();
         int bossLevel = ((Number) boss.get("bossLevel")).intValue();
 
-        Random random = new Random();
-        long baseDamage = 50000 + random.nextInt(50000);
-        long damage = Math.min(baseDamage, currentHp);
+        // 构建玩家阵型
+        List<General> myGenerals = formationService.getBattleOrder(userId);
+        List<BattleCalculator.BattleUnit> sideA = new ArrayList<>();
+        for (int i = 0; i < myGenerals.size(); i++) {
+            General g = myGenerals.get(i);
+            Map<String, Integer> eq = suitConfigService.calculateTotalEquipBonus(g.getId());
+            int tier = g.getSoldierTier() != null ? g.getSoldierTier() : 1;
+            int troopType = BattleCalculator.parseTroopType(g.getTroopType());
+            int formLv = g.getSoldierRank() != null ? g.getSoldierRank() : 1;
+            int maxSc = BattleCalculator.getFormationMaxPeople(formLv);
+            int sc = g.getSoldierCount() != null ? Math.min(g.getSoldierCount(), maxSc) : maxSc;
+            BattleCalculator.BattleUnit u = BattleCalculator.assembleBattleUnit(
+                    g.getName() != null ? g.getName() : "武将" + (i + 1),
+                    g.getLevel() != null ? g.getLevel() : 1,
+                    g.getAttrAttack() != null ? g.getAttrAttack() : 100,
+                    g.getAttrDefense() != null ? g.getAttrDefense() : 50,
+                    g.getAttrValor() != null ? g.getAttrValor() : 10,
+                    g.getAttrCommand() != null ? g.getAttrCommand() : 10,
+                    g.getAttrDodge() != null ? (int) Math.round(g.getAttrDodge()) : 5,
+                    g.getAttrMobility() != null ? g.getAttrMobility() : 15,
+                    troopType, tier, sc, maxSc, formLv,
+                    eq.getOrDefault("attack", 0), eq.getOrDefault("defense", 0),
+                    eq.getOrDefault("speed", 0), eq.getOrDefault("hit", 0),
+                    eq.getOrDefault("dodge", 0), 0, 0, 0);
+            u.position = i;
+            sideA.add(u);
+        }
+
+        // Boss 作为高属性单个单位
+        int bossHp = (int) Math.min(currentHp, Integer.MAX_VALUE);
+        BattleCalculator.BattleUnit bossUnit = new BattleCalculator.BattleUnit();
+        bossUnit.name = String.valueOf(boss.get("bossName"));
+        bossUnit.level = bossLevel;
+        bossUnit.totalAttack = bossLevel * 40;
+        bossUnit.totalDefense = bossLevel * 25;
+        bossUnit.valor = bossLevel * 4;
+        bossUnit.command = bossLevel * 4;
+        bossUnit.dodge = 5;
+        bossUnit.hit = 10;
+        bossUnit.mobility = 15;
+        bossUnit.troopType = 1;
+        bossUnit.soldierTier = Math.min(10, 1 + bossLevel / 8);
+        bossUnit.soldierCount = bossHp;
+        bossUnit.maxSoldierCount = bossHp;
+        bossUnit.soldierLife = 500;
+        bossUnit.position = 0;
+
+        BattleService.BattleReport report = battleService.fight(sideA, Collections.singletonList(bossUnit), 20);
+        long damage = (long)(bossHp - bossUnit.soldierCount);
+        damage = Math.min(damage, currentHp);
 
         long newHp = currentHp - damage;
         bossMapper.updateBossHp(bossId, Math.max(0, newHp));

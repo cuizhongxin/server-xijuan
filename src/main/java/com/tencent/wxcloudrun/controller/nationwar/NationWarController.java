@@ -1,7 +1,9 @@
 package com.tencent.wxcloudrun.controller.nationwar;
 
+import com.alibaba.fastjson.JSON;
 import com.tencent.wxcloudrun.dto.ApiResponse;
 import com.tencent.wxcloudrun.model.NationWar;
+import com.tencent.wxcloudrun.model.NationWar.WarBattle;
 import com.tencent.wxcloudrun.service.nationwar.NationWarService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -271,6 +273,27 @@ public class NationWarController {
         result.put("success", true);
         result.put("message", "国战已开始");
         
+        return ApiResponse.success(result);
+    }
+
+    @GetMapping("/battle-detail/{warId}/{battleId}")
+    public ApiResponse<Map<String, Object>> getBattleDetail(
+            @PathVariable String warId,
+            @PathVariable String battleId) {
+        NationWar war = nationWarService.getTodayWar(warId.contains("_") ? warId.split("_", 2)[1] : warId);
+        if (war == null) return ApiResponse.error("国战不存在");
+        WarBattle found = null;
+        if (war.getBattles() != null) {
+            for (WarBattle b : war.getBattles()) {
+                if (battleId.equals(b.getBattleId())) { found = b; break; }
+            }
+        }
+        if (found == null) return ApiResponse.error("战报不存在");
+        Map<String, Object> result = new HashMap<>();
+        result.put("battle", found);
+        if (found.getBattleReportJson() != null) {
+            result.put("battleReport", JSON.parseObject(found.getBattleReportJson()));
+        }
         return ApiResponse.success(result);
     }
 }

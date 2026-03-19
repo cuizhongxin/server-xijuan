@@ -102,6 +102,7 @@ public class AllianceWar {
         private Long startTime;
         private Long endTime;
         private List<BattleRound> rounds;   // 战斗回合
+        private String battleReportJson;    // BattleService 完整战报
     }
     
     /**

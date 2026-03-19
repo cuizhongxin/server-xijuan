@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import com.tencent.wxcloudrun.service.battle.BattleCalculator;
+import com.tencent.wxcloudrun.service.battle.BattleService;
 import com.tencent.wxcloudrun.config.TacticsConfig;
 import com.tencent.wxcloudrun.config.TacticsConfig.TacticsTemplate;
 import com.tencent.wxcloudrun.dao.UserTacticsMapper;
@@ -38,6 +39,7 @@ public class CampaignService {
     private final com.tencent.wxcloudrun.service.herorank.PeerageService peerageService;
     private final com.tencent.wxcloudrun.service.formation.FormationService formationService;
     private final com.tencent.wxcloudrun.service.SuitConfigService suitConfigService;
+    private final BattleService battleService;
     
     // 战役配置
     private final Map<String, Campaign> campaignConfigs = new ConcurrentHashMap<>();
@@ -453,9 +455,9 @@ public class CampaignService {
             int[] attrs = generalService.calcAttributes(npcQuality, troopType, npcLevel);
             int npcAtk = attrs[0] + (int)(attrs[0] * 0.4);
             int npcDef = attrs[1] + (int)(attrs[1] * 0.4);
-            int npcTier = Math.min(9, 1 + npcLevel / 20);
-            int npcSoldiers = BattleCalculator.getTierMaxSoldiers(npcTier);
-            int npcSoldierHp = BattleCalculator.getTierSoldierHp(npcTier);
+            int npcTier = Math.min(10, 1 + npcLevel / 20);
+            int npcFormationLevel = BattleCalculator.levelToFormationLevel(npcLevel);
+            int npcSoldiers = BattleCalculator.getFormationMaxPeople(npcFormationLevel);
 
             if (isBoss) {
                 npcAtk = (int)(npcAtk * 1.35);
@@ -487,7 +489,8 @@ public class CampaignService {
                 int fa = a[0] + (int)(a[0] * 0.35); int fd = a[1] + (int)(a[1] * 0.35);
                 if (boss) { fa = (int)(fa * 1.35); fd = (int)(fd * 1.35); }
                 int ft = Math.min(9, 1 + lv / 20);
-                int fs = BattleCalculator.getTierMaxSoldiers(ft);
+                int fFormLv = BattleCalculator.levelToFormationLevel(lv);
+                int fs = BattleCalculator.getFormationMaxPeople(fFormLv);
                 if (boss) fs = (int)(fs * 1.3);
 
                 formation.add(Campaign.StageNpc.builder()
@@ -549,8 +552,8 @@ public class CampaignService {
                     .enemyAttack(npcAtk).enemyDefense(npcDef)
                     .enemyValor(attrs[2]).enemyCommand(attrs[3])
                     .enemyDodge(attrs[4]).enemyMobility(attrs[5])
-                    .enemySoldierHp(npcSoldierHp).enemyTroopType(troopType)
-                    .enemyTierMultiplier(BattleCalculator.getTierMultiplier(npcTier))
+                    .enemySoldierTier(npcTier).enemyFormationLevel(npcFormationLevel)
+                    .enemyTroopType(troopType)
                     .expReward(baseExp + i * (baseExp / 2))
                     .silverReward(baseSilver + i * (baseSilver / 2))
                     .isBoss(isBoss).drops(drops).formation(formation)
@@ -877,31 +880,36 @@ public class CampaignService {
         
         Map<String, Integer> eqBonus = suitConfigService.calculateTotalEquipBonus(general.getId());
 
-        BattleCalculator.BattleUnit player = new BattleCalculator.BattleUnit();
-        player.name = general.getName();
-        player.level = general.getLevel() != null ? general.getLevel() : 1;
-        player.attack = (general.getAttrAttack() != null ? general.getAttrAttack() : 100) + eqBonus.getOrDefault("attack", 0);
-        player.defense = (general.getAttrDefense() != null ? general.getAttrDefense() : 50) + eqBonus.getOrDefault("defense", 0);
-        player.valor = (general.getAttrValor() != null ? general.getAttrValor() : 10) + eqBonus.getOrDefault("valor", 0);
-        player.command = (general.getAttrCommand() != null ? general.getAttrCommand() : 10) + eqBonus.getOrDefault("command", 0);
-        player.dodge = (general.getAttrDodge() != null ? (int) Math.round(general.getAttrDodge()) : 5) + eqBonus.getOrDefault("dodge", 0);
-        player.mobility = (general.getAttrMobility() != null ? general.getAttrMobility() : 15) + eqBonus.getOrDefault("mobility", 0);
-        player.troopType = BattleCalculator.parseTroopType(general.getTroopType());
-        player.soldierCount = progress.getCurrentTroops();
-        // 兵阶
-        int playerTier = general.getSoldierTier() != null ? general.getSoldierTier() : 1;
-        player.soldierHp = BattleCalculator.getTierSoldierHp(playerTier);
-        player.tierMultiplier = BattleCalculator.getTierMultiplier(playerTier);
-
+        int playerLevel = general.getLevel() != null ? general.getLevel() : 1;
+        int playerTier = general.getSoldierTier() != null ? general.getSoldierTier() :
+                (general.getSoldierRank() != null ? general.getSoldierRank() : 1);
+        int playerTroopType = BattleCalculator.parseTroopType(general.getTroopType());
         String troopCat = general.getTroopType() != null ? general.getTroopType() : "步";
 
-        // 品质兵法发动加成 + 名将特性翻倍
+        int playerFormationLevel = general.getSoldierRank() != null ? general.getSoldierRank() : 1;
+        int playerMaxSoldiers = BattleCalculator.getFormationMaxPeople(playerFormationLevel);
+        int playerSoldierCount = Math.min(progress.getCurrentTroops(), playerMaxSoldiers);
+
+        BattleCalculator.BattleUnit player = BattleCalculator.assembleBattleUnit(
+                general.getName(), playerLevel,
+                (general.getAttrAttack() != null ? general.getAttrAttack() : 100),
+                (general.getAttrDefense() != null ? general.getAttrDefense() : 50),
+                (general.getAttrValor() != null ? general.getAttrValor() : 10),
+                (general.getAttrCommand() != null ? general.getAttrCommand() : 10),
+                (general.getAttrDodge() != null ? (int) Math.round(general.getAttrDodge()) : 5),
+                (general.getAttrMobility() != null ? general.getAttrMobility() : 15),
+                playerTroopType, playerTier, playerSoldierCount, playerMaxSoldiers,
+                playerFormationLevel,
+                eqBonus.getOrDefault("attack", 0), eqBonus.getOrDefault("defense", 0),
+                eqBonus.getOrDefault("speed", 0), eqBonus.getOrDefault("hit", 0),
+                eqBonus.getOrDefault("dodge", 0),
+                0, 0, 0);
+
         if (general.getSlotId() != null && general.getSlotId() > 0) {
             player.tacticsTriggerBonus = generalService.getTacticsTriggerBonus(general.getSlotId());
             player.tacticsTriggerMultiplier = generalService.getTacticsTriggerMultiplier(general.getSlotId());
         }
 
-        // 兵法属性填充
         if (general.getTacticsId() != null) {
             TacticsTemplate tt = tacticsConfig.getById(general.getTacticsId());
             if (tt != null) {
@@ -915,91 +923,46 @@ public class CampaignService {
                 player.tacticsTriggerRate = TacticsConfig.calcTriggerRate(tt, tLevel);
             }
         }
-        
-        // 构建NPC战斗单元
-        BattleCalculator.BattleUnit enemy = new BattleCalculator.BattleUnit();
-        enemy.name = stage.getEnemyGeneralName();
-        enemy.level = stage.getEnemyLevel();
-        enemy.attack = stage.getEnemyAttack();
-        enemy.defense = stage.getEnemyDefense();
-        enemy.valor = stage.getEnemyValor() != null ? stage.getEnemyValor() : 10;
-        enemy.command = stage.getEnemyCommand() != null ? stage.getEnemyCommand() : 10;
-        enemy.dodge = stage.getEnemyDodge() != null ? stage.getEnemyDodge() : 5;
-        enemy.mobility = stage.getEnemyMobility() != null ? stage.getEnemyMobility() : 15;
-        enemy.troopType = BattleCalculator.parseTroopType(
+
+        int enemyLevel = stage.getEnemyLevel() != null ? stage.getEnemyLevel() : 1;
+        int enemyTier = stage.getEnemySoldierTier() != null ? stage.getEnemySoldierTier()
+                : Math.min(10, 1 + enemyLevel / 20);
+        int enemyFormLv = stage.getEnemyFormationLevel() != null ? stage.getEnemyFormationLevel()
+                : BattleCalculator.levelToFormationLevel(enemyLevel);
+        int enemyTroopType = BattleCalculator.parseTroopType(
                 stage.getEnemyTroopType() != null ? stage.getEnemyTroopType() : "步");
-        enemy.soldierCount = stage.getEnemyTroops();
-        enemy.soldierHp = stage.getEnemySoldierHp() != null ? stage.getEnemySoldierHp() : 100;
-        enemy.tierMultiplier = stage.getEnemyTierMultiplier() != null ? stage.getEnemyTierMultiplier() : 1.0;
-        
-        // 战斗模拟
+        int enemyMaxSoldiers = BattleCalculator.getFormationMaxPeople(enemyFormLv);
+
+        BattleCalculator.BattleUnit enemy = BattleCalculator.assembleBattleUnit(
+                stage.getEnemyGeneralName(), enemyLevel,
+                stage.getEnemyAttack() != null ? stage.getEnemyAttack() : 100,
+                stage.getEnemyDefense() != null ? stage.getEnemyDefense() : 50,
+                stage.getEnemyValor() != null ? stage.getEnemyValor() : 10,
+                stage.getEnemyCommand() != null ? stage.getEnemyCommand() : 10,
+                stage.getEnemyDodge() != null ? stage.getEnemyDodge() : 5,
+                stage.getEnemyMobility() != null ? stage.getEnemyMobility() : 15,
+                enemyTroopType, enemyTier,
+                stage.getEnemyTroops() != null ? stage.getEnemyTroops() : enemyMaxSoldiers,
+                enemyMaxSoldiers,
+                enemyFormLv,
+                0, 0, 0, 0, 0,
+                0, 0, 0);
+
+        BattleService.BattleReport report = battleService.fight(
+                Collections.singletonList(player), Collections.singletonList(enemy), 20);
+
         List<String> battleLog = new ArrayList<>();
         battleLog.add(String.format("【战斗开始】%s(Lv%d) vs %s(Lv%d)",
                 player.name, player.level, enemy.name, enemy.level));
-        battleLog.add(String.format("我方 攻:%d 防:%d 兵:%d 兵阶:%d",
-                player.attack, player.defense, player.soldierCount, playerTier));
-        battleLog.add(String.format("敌方 攻:%d 防:%d 兵:%d",
-                enemy.attack, enemy.defense, enemy.soldierCount));
-        
-        // 先手判定：机动高的先攻
-        boolean playerFirst = player.mobility >= enemy.mobility;
-        
-        int round = 0;
-        while (player.soldierCount >= 0 && enemy.soldierCount >= 0 && round < 20) {
-            round++;
-            
-            BattleCalculator.BattleUnit first = playerFirst ? player : enemy;
-            BattleCalculator.BattleUnit second = playerFirst ? enemy : player;
-            String firstName = playerFirst ? "我方" : "敌方";
-            String secondName = playerFirst ? "敌方" : "我方";
-            
-            // 先手攻击（兵法版）
-            List<BattleCalculator.BattleUnit> secondList = Collections.singletonList(second);
-            BattleCalculator.TacticsResult tr1 = BattleCalculator.calcDamageWithTactics(first, second, secondList);
-            if (tr1.triggered && tr1.tacticsName != null) {
-                battleLog.add(String.format("第%d回合: %s发动【%s】！%s",
-                        round, firstName, tr1.tacticsName, tr1.effectDesc != null ? tr1.effectDesc : ""));
-            }
-            for (BattleCalculator.DamageResult r1 : tr1.damages) {
-                if (r1.isDodge) {
-                    battleLog.add(String.format("第%d回合: %s攻击，%s闪避！", round, firstName, secondName));
-                } else {
-                    second.soldierCount = Math.max(0, second.soldierCount - r1.soldierLoss);
-                    String critTag = r1.isCrit ? "【暴击】" : "";
-                    battleLog.add(String.format("第%d回合: %s攻击%s造成%d伤害%s，减员%d，剩余兵力%d",
-                            round, firstName, critTag, r1.damage, critTag.isEmpty() ? "" : "！",
-                            r1.soldierLoss, second.soldierCount));
-                }
-            }
-            
-            if (second.soldierCount <= 0) break;
-            
-            // 后手攻击（兵法版）
-            List<BattleCalculator.BattleUnit> firstList = Collections.singletonList(first);
-            BattleCalculator.TacticsResult tr2 = BattleCalculator.calcDamageWithTactics(second, first, firstList);
-            if (tr2.triggered && tr2.tacticsName != null) {
-                battleLog.add(String.format("第%d回合: %s发动【%s】！%s",
-                        round, secondName, tr2.tacticsName, tr2.effectDesc != null ? tr2.effectDesc : ""));
-            }
-            for (BattleCalculator.DamageResult r2 : tr2.damages) {
-                if (r2.isDodge) {
-                    battleLog.add(String.format("第%d回合: %s反击，%s闪避！", round, secondName, firstName));
-                } else {
-                    first.soldierCount = Math.max(0, first.soldierCount - r2.soldierLoss);
-                    String critTag = r2.isCrit ? "【暴击】" : "";
-                    battleLog.add(String.format("第%d回合: %s反击%s造成%d伤害%s，减员%d，剩余兵力%d",
-                            round, secondName, critTag, r2.damage, critTag.isEmpty() ? "" : "！",
-                            r2.soldierLoss, first.soldierCount));
-                }
-            }
-            
-            if (first.soldierCount <= 0) break;
-        }
-        
-        int playerRemaining = playerFirst ? player.soldierCount : player.soldierCount;
-        boolean victory = player.soldierCount > 0 && enemy.soldierCount <= 0;
-        // 20回合未分胜负算失败
-        if (round >= 20 && enemy.soldierCount > 0) victory = false;
+        battleLog.add(String.format("我方 总攻:%d 总防:%d 兵:%d 兵阶:%d 阵型Lv:%d",
+                player.totalAttack, player.totalDefense, player.soldierCount,
+                playerTier, playerFormationLevel));
+        battleLog.add(String.format("敌方 总攻:%d 总防:%d 兵:%d 兵阶:%d 阵型Lv:%d",
+                enemy.totalAttack, enemy.totalDefense, enemy.soldierCount,
+                enemyTier, enemyFormLv));
+        battleLog.addAll(report.toBattleLog("我方", "敌方"));
+
+        boolean victory = report.victoryA;
         
         int troopsLost = progress.getCurrentTroops() - player.soldierCount;
         
