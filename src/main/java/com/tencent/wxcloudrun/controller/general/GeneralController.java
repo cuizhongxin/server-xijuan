@@ -47,7 +47,6 @@ public class GeneralController {
         logger.info("获取武将列表, userId: {}", userId);
         
         List<General> generals = generalService.getUserGenerals(userId);
-        generals.forEach(general -> general.setAvatar("步兵.png"));
         return ApiResponse.success(generals);
     }
     
