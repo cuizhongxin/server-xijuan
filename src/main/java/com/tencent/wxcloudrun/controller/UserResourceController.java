@@ -75,9 +75,9 @@ public class UserResourceController {
         
         // 挑战剩余次数
         try {
-            Map<String, Object> heroInfo = heroRankService.getHeroRankInfo(userId, 0);
-            Map<String, Object> myRank = (Map<String, Object>) heroInfo.get("myRank");
-            int maxChallenge = heroInfo.get("maxChallenge") != null ? ((Number) heroInfo.get("maxChallenge")).intValue() : 10;
+            Map<String, Object> heroInfo = heroRankService.getInfo(userId);
+            Map<String, Object> myRank = (Map<String, Object>) heroInfo.get("myInfo");
+            int maxChallenge = heroInfo.get("maxDaily") != null ? ((Number) heroInfo.get("maxDaily")).intValue() : 15;
             if (myRank != null) {
                 int todayChal = myRank.get("todayChallenge") != null ? ((Number) myRank.get("todayChallenge")).intValue() : 0;
                 int todayPur = myRank.get("todayPurchased") != null ? ((Number) myRank.get("todayPurchased")).intValue() : 0;

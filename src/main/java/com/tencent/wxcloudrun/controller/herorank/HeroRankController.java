@@ -17,49 +17,75 @@ public class HeroRankController {
     private HeroRankService heroRankService;
 
     @GetMapping("/info")
-    public ApiResponse<Map<String, Object>> getInfo(HttpServletRequest request,
-                                                     @RequestParam(defaultValue = "0") int page) {
-        String userId = getUserId(request);
-        return ApiResponse.success(heroRankService.getHeroRankInfo(userId, page));
+    public ApiResponse<Map<String, Object>> getInfo(HttpServletRequest request) {
+        try {
+            String userId = getUserId(request);
+            return ApiResponse.success(heroRankService.getInfo(userId));
+        } catch (Exception e) {
+            return ApiResponse.error(e.getMessage());
+        }
     }
 
     @PostMapping("/challenge")
     public ApiResponse<Map<String, Object>> challenge(HttpServletRequest request,
                                                        @RequestBody Map<String, Object> body) {
-        String userId = getUserId(request);
-        String targetId = (String) body.get("targetId");
-        return ApiResponse.success(heroRankService.challenge(userId, targetId));
+        try {
+            String userId = getUserId(request);
+            String targetId = (String) body.get("targetId");
+            return ApiResponse.success(heroRankService.challenge(userId, targetId));
+        } catch (Exception e) {
+            return ApiResponse.error(e.getMessage());
+        }
     }
 
-    @PostMapping("/purchase")
-    public ApiResponse<Map<String, Object>> purchaseChallenge(HttpServletRequest request) {
-        String userId = getUserId(request);
-        return ApiResponse.success(heroRankService.purchaseChallenge(userId));
+    @PostMapping("/speedup")
+    public ApiResponse<Map<String, Object>> speedUp(HttpServletRequest request) {
+        try {
+            String userId = getUserId(request);
+            return ApiResponse.success(heroRankService.speedUp(userId));
+        } catch (Exception e) {
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
+    @PostMapping("/claim-reward")
+    public ApiResponse<Map<String, Object>> claimReward(HttpServletRequest request) {
+        try {
+            String userId = getUserId(request);
+            return ApiResponse.success(heroRankService.claimReward(userId));
+        } catch (Exception e) {
+            return ApiResponse.error(e.getMessage());
+        }
     }
 
     @GetMapping("/records")
-    public ApiResponse<List<Map<String, Object>>> getBattleRecords(HttpServletRequest request) {
-        String userId = getUserId(request);
-        return ApiResponse.success(heroRankService.getBattleRecords(userId));
+    public ApiResponse<List<Map<String, Object>>> getRecords(HttpServletRequest request) {
+        try {
+            String userId = getUserId(request);
+            return ApiResponse.success(heroRankService.getRecords(userId));
+        } catch (Exception e) {
+            return ApiResponse.error(e.getMessage());
+        }
     }
 
-    @GetMapping("/rewards")
-    public ApiResponse<List<Map<String, Object>>> getRewardRecords(HttpServletRequest request) {
-        String userId = getUserId(request);
-        return ApiResponse.success(heroRankService.getRewardRecords(userId));
+    @GetMapping("/battle-report")
+    public ApiResponse<Map<String, Object>> getBattleReport(@RequestParam long id) {
+        try {
+            return ApiResponse.success(heroRankService.getBattleReport(id));
+        } catch (Exception e) {
+            return ApiResponse.error(e.getMessage());
+        }
     }
 
     @PostMapping("/sync")
     public ApiResponse<String> syncPower(HttpServletRequest request) {
-        String userId = getUserId(request);
-        heroRankService.syncPower(userId);
-        return ApiResponse.success("ok");
-    }
-
-    @PostMapping("/resetCooldown")
-    public ApiResponse<Map<String, Object>> resetCooldown(HttpServletRequest request) {
-        String userId = getUserId(request);
-        return ApiResponse.success(heroRankService.resetCooldown(userId));
+        try {
+            String userId = getUserId(request);
+            heroRankService.syncPower(userId);
+            return ApiResponse.success("ok");
+        } catch (Exception e) {
+            return ApiResponse.error(e.getMessage());
+        }
     }
 
     private String getUserId(HttpServletRequest request) {

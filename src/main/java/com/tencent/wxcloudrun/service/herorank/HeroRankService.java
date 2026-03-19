@@ -1,534 +1,586 @@
 package com.tencent.wxcloudrun.service.herorank;
 
+import com.tencent.wxcloudrun.config.TacticsConfig;
+import com.tencent.wxcloudrun.config.TacticsConfig.TacticsTemplate;
+import com.tencent.wxcloudrun.dao.GameServerMapper;
 import com.tencent.wxcloudrun.dao.HeroRankMapper;
 import com.tencent.wxcloudrun.dao.PeerageConfigMapper;
-import com.tencent.wxcloudrun.exception.BusinessException;
+import com.tencent.wxcloudrun.dao.UserTacticsMapper;
 import com.tencent.wxcloudrun.model.General;
 import com.tencent.wxcloudrun.model.UserResource;
-import com.tencent.wxcloudrun.service.UserResourceService;
-import com.tencent.wxcloudrun.service.SuitConfigService;
 import com.tencent.wxcloudrun.service.formation.FormationService;
+import com.tencent.wxcloudrun.service.general.GeneralService;
+import com.tencent.wxcloudrun.service.SuitConfigService;
+import com.tencent.wxcloudrun.service.UserResourceService;
 import com.tencent.wxcloudrun.service.battle.BattleCalculator;
 import com.tencent.wxcloudrun.service.battle.BattleService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.tencent.wxcloudrun.service.nationwar.NationWarService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.PostConstruct;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.text.SimpleDateFormat;
 import java.util.*;
 
+/**
+ * 英雄榜 V2 — 排名互换制（匹配APK设计）
+ *
+ * 核心规则:
+ *   1. 排名按ranking字段升序，挑战胜利后攻守双方排名互换
+ *   2. 每日15次免费挑战，黄金可购买额外次数
+ *   3. 每次挑战后15分钟CD，黄金可加速
+ *   4. 每日21:00按排名发放奖励（声望+白银+经验），需手动领取
+ *   5. 声望累积决定爵位晋升
+ */
 @Service
+@Slf4j
+@RequiredArgsConstructor
 public class HeroRankService {
 
-    private static final Logger logger = LoggerFactory.getLogger(HeroRankService.class);
+    private final HeroRankMapper heroRankMapper;
+    private final PeerageConfigMapper peerageConfigMapper;
+    private final GameServerMapper gameServerMapper;
+    private final BattleService battleService;
+    private final FormationService formationService;
+    private final GeneralService generalService;
+    private final SuitConfigService suitConfigService;
+    private final UserResourceService userResourceService;
+    private final UserTacticsMapper userTacticsMapper;
+    private final TacticsConfig tacticsConfig;
+    private final NationWarService nationWarService;
 
-    private static final int MAX_DAILY_CHALLENGE = 10;
-    private static final int MAX_PURCHASE = 999;
-    private static final long CHALLENGE_COOLDOWN_MS = 15 * 60 * 1000L; // 15分钟冷却
-    private static final long COOLDOWN_RESET_GOLD = 50; // 重置冷却消耗黄金
+    private static final int MAX_DAILY_CHALLENGE = 15;
+    private static final long CHALLENGE_CD_MS = 15 * 60 * 1000;
+    private static final int SPEED_UP_GOLD = 50;
+    private static final int NPC_COUNT = 1000;
+    private static final String[] NATIONS = {"WEI", "SHU", "WU"};
+    private static final ObjectMapper JSON = new ObjectMapper();
 
-    // 挑战胜利声望奖励: 第1名500, 第2名450, ... 第10及以后100
-    private static final int[] WIN_FAME_BY_RANK = {500, 450, 400, 350, 300, 250, 200, 180, 150, 100};
-
-    // 每日排名奖励: {声望, 白银}
-    private static final long[][] DAILY_RANK_REWARDS = {
-        {3500, 100000}, {2500, 50000}, {2400, 40000}, {2300, 35000}, {2200, 30000},
-        {2100, 28000}, {2000, 26000}, {1900, 24000}, {1800, 22000}, {1700, 20000},
-        {1600, 19000}, {1500, 18000}, {1400, 17000}, {1350, 16000}, {1300, 15000},
-        {1250, 14000}, {1200, 13000}, {1150, 12000}, {1100, 11000}, {1000, 10000}
+    private static final int[][] RANK_REWARDS = {
+        {1, 3500, 100000, 50000},
+        {2, 2500, 50000, 30000},
+        {3, 2400, 40000, 25000},
+        {5, 2200, 35000, 20000},
+        {10, 2000, 30000, 18000},
+        {20, 1800, 25000, 15000},
+        {50, 1500, 20000, 12000},
+        {100, 1200, 15000, 10000},
+        {200, 1000, 12000, 8000},
+        {500, 800, 10000, 5000},
+        {1000, 500, 5000, 3000},
     };
 
-    @Autowired
-    private HeroRankMapper heroRankMapper;
+    private static final int[] WIN_FAME = {500, 450, 400, 350, 300, 260, 220, 180, 140, 100};
 
-    @Autowired
-    private PeerageConfigMapper peerageConfigMapper;
+    // ==================== 初始化NPC ====================
 
-    @Autowired
-    private UserResourceService resourceService;
+    public void ensureNpcExists() {
+        int count = heroRankMapper.countAll();
+        if (count >= NPC_COUNT) return;
 
-    @Autowired
-    private FormationService formationService;
+        log.info("初始化英雄榜NPC: 现有{}条，需{}条", count, NPC_COUNT);
+        String[] names = {"张角", "董卓", "袁绍", "袁术", "公孙瓒", "刘表", "刘璋", "马腾",
+            "孟获", "祝融", "沙摩柯", "兀突骨", "张宝", "张梁", "韩遂", "张鲁",
+            "纪灵", "高览", "淳于琼", "蒋干", "于禁", "乐进", "李典", "曹洪",
+            "曹仁", "夏侯惇", "夏侯渊", "张辽", "徐晃", "张郃", "许褚", "典韦",
+            "关羽", "张飞", "赵云", "马超", "黄忠", "魏延", "姜维", "庞统",
+            "诸葛亮", "周瑜", "陆逊", "吕蒙", "甘宁", "太史慈", "孙策", "孙权",
+            "曹操", "刘备", "吕布", "司马懿", "郭嘉", "荀彧", "贾诩", "法正"};
+        Random rng = new Random(42);
 
-    @Autowired
-    private BattleService battleService;
+        long now = System.currentTimeMillis();
+        for (int i = count + 1; i <= NPC_COUNT; i++) {
+            String npcId = String.format("npc_hero_%05d", i);
+            String name = names[rng.nextInt(names.length)];
+            int level = Math.max(1, 50 - i / 25);
+            int power = Math.max(50, (int)(800 * Math.pow(0.997, i)) + rng.nextInt(30));
+            long fame = Math.max(0, 5000 - i * 5L);
+            String peerage = calcPeerage(fame, level);
 
-    @Autowired
-    private SuitConfigService suitConfigService;
-
-    private List<Map<String, Object>> peerageConfigs = new ArrayList<>();
-
-    @PostConstruct
-    public void init() {
-        peerageConfigs = peerageConfigMapper.findAllPeerage();
-        logger.info("加载爵位配置 {} 条", peerageConfigs.size());
+            String nation = NATIONS[rng.nextInt(NATIONS.length)];
+            heroRankMapper.upsert(npcId, name, level, power, fame, peerage, i, nation,
+                0, 0, 0, "", 0, 0, 0, 0, 1, "", now);
+        }
+        log.info("英雄榜NPC初始化完成，共{}条", NPC_COUNT);
     }
 
-    /**
-     * 获取英雄榜信息（玩家数据 + 分页排行榜）
-     */
-    public Map<String, Object> getHeroRankInfo(String userId, int page) {
-        UserResource res = resourceService.getUserResource(userId);
-        int level = res != null && res.getLevel() != null ? res.getLevel() : 1;
+    // ==================== 查询 ====================
 
-        ensureRankEntry(userId, res);
+    private static final int DISPLAY_COUNT = 10;
 
-        Map<String, Object> myRank = heroRankMapper.findByUserId(userId);
-        resetIfNewDay(myRank, userId);
+    public Map<String, Object> getInfo(String userId) {
+        ensureNpcExists();
+        ensurePlayerEntry(userId);
+        resetIfNewDay(userId);
 
-        int pageSize = 20;
-        int offset = page * pageSize;
-        List<Map<String, Object>> topList = heroRankMapper.findPage(offset, pageSize);
-        int totalCount = heroRankMapper.countAll();
+        Map<String, Object> me = heroRankMapper.findByUserId(userId);
+        int myRanking = getInt(me, "ranking");
+        int total = heroRankMapper.countAll();
+
+        List<Map<String, Object>> list;
+        if (myRanking <= DISPLAY_COUNT) {
+            list = heroRankMapper.findByRanking(0, DISPLAY_COUNT);
+        } else {
+            int minRank = Math.max(1, (int)(myRanking * 0.8));
+            list = heroRankMapper.findRandomInRange(minRank, myRanking, userId, DISPLAY_COUNT);
+        }
+
+        long lastTime = getLong(me, "lastChallengeTime");
+        long cdRemain = Math.max(0, CHALLENGE_CD_MS - (System.currentTimeMillis() - lastTime));
 
         Map<String, Object> result = new HashMap<>();
-        // 冷却信息
-        long lastChallengeTime = getLong(myRank, "lastChallengeTime", 0L);
-        long now = System.currentTimeMillis();
-        long cooldownRemainMs = Math.max(0, CHALLENGE_COOLDOWN_MS - (now - lastChallengeTime));
+        result.put("myInfo", me);
+        result.put("rankings", list);
+        result.put("total", total);
+        result.put("maxDaily", MAX_DAILY_CHALLENGE);
+        result.put("cdRemainMs", cdRemain);
+        result.put("cdTotalMs", CHALLENGE_CD_MS);
+        result.put("speedUpGold", SPEED_UP_GOLD);
 
-        result.put("myRank", myRank);
-        result.put("topList", topList);
-        result.put("totalCount", totalCount);
-        result.put("page", page);
-        result.put("pageSize", pageSize);
-        result.put("totalPages", (totalCount + pageSize - 1) / pageSize);
-        result.put("maxChallenge", MAX_DAILY_CHALLENGE);
-        result.put("peerageConfigs", peerageConfigs);
-        result.put("fame", res.getFame());
-        result.put("rank", res.getRank());
-        result.put("level", level);
-        result.put("cooldownRemainMs", cooldownRemainMs);
-        result.put("cooldownResetGold", COOLDOWN_RESET_GOLD);
         return result;
     }
 
-    /**
-     * 挑战英雄榜中的玩家
-     */
+    // ==================== 挑战（排名互换制） ====================
+
     public Map<String, Object> challenge(String userId, String targetId) {
-        if (userId.equals(targetId)) {
-            throw new BusinessException(400, "不能挑战自己");
+        if (userId.equals(targetId)) throw new RuntimeException("不能挑战自己");
+
+        ensurePlayerEntry(userId);
+        resetIfNewDay(userId);
+
+        Map<String, Object> me = heroRankMapper.findByUserId(userId);
+        Map<String, Object> target = heroRankMapper.findByUserId(targetId);
+        if (target == null) throw new RuntimeException("对手不存在");
+
+        int todayChallenge = getInt(me, "todayChallenge");
+        int todayPurchased = getInt(me, "todayPurchased");
+        if (todayChallenge >= MAX_DAILY_CHALLENGE + todayPurchased) {
+            throw new RuntimeException("今日挑战次数已用完");
         }
 
-        UserResource myRes = resourceService.getUserResource(userId);
-        int myLevel = myRes != null && myRes.getLevel() != null ? myRes.getLevel() : 1;
-
-        ensureRankEntry(userId, myRes);
-
-        Map<String, Object> myRank = heroRankMapper.findByUserId(userId);
-        resetIfNewDay(myRank, userId);
-
-        int todayChallenge = getInt(myRank, "todayChallenge", 0);
-        int todayPurchased = getInt(myRank, "todayPurchased", 0);
-        int totalAllowed = MAX_DAILY_CHALLENGE + todayPurchased;
-
-        if (todayChallenge >= totalAllowed) {
-            throw new BusinessException(400, "今日挑战次数已用完，请购买额外次数");
-        }
-
-        // 冷却检查
-        long lastChallengeTime = getLong(myRank, "lastChallengeTime", 0L);
+        long lastTime = getLong(me, "lastChallengeTime");
         long now = System.currentTimeMillis();
-        if (todayChallenge > 0 && (now - lastChallengeTime) < CHALLENGE_COOLDOWN_MS) {
-            long remainSec = (CHALLENGE_COOLDOWN_MS - (now - lastChallengeTime)) / 1000;
-            throw new BusinessException(400, "挑战冷却中，还需等待" + (remainSec / 60) + "分" + (remainSec % 60) + "秒");
+        if (now - lastTime < CHALLENGE_CD_MS) {
+            throw new RuntimeException("挑战冷却中");
         }
 
-        Map<String, Object> targetRank = heroRankMapper.findByUserId(targetId);
-        if (targetRank == null) {
-            throw new BusinessException(400, "对手不存在排行榜中");
+        int myRank = getInt(me, "ranking");
+        int targetRank = getInt(target, "ranking");
+        if (myRank <= targetRank) {
+            throw new RuntimeException("只能挑战排名高于自己的对手");
         }
 
-        List<General> myGenerals = formationService.getBattleOrder(userId);
-        List<BattleCalculator.BattleUnit> sideA = buildHeroBattleUnits(myGenerals, myLevel);
-
-        boolean isNpc = targetId.startsWith("npc_hero_");
-        int targetPower;
-        int targetLevel;
+        List<BattleCalculator.BattleUnit> sideA = buildPlayerUnits(userId);
         List<BattleCalculator.BattleUnit> sideB;
-
-        if (isNpc) {
-            targetPower = getInt(targetRank, "power", 1000);
-            targetLevel = getInt(targetRank, "level", 1);
-            sideB = buildNpcBattleUnits(targetPower, targetLevel, Math.max(1, myGenerals.size()));
+        if (targetId.startsWith("npc_hero_")) {
+            sideB = buildNpcUnits(target, sideA.size());
         } else {
-            List<General> targetGenerals = formationService.getBattleOrder(targetId);
-            UserResource targetRes = resourceService.getUserResource(targetId);
-            targetLevel = targetRes != null && targetRes.getLevel() != null ? targetRes.getLevel() : 1;
-            if (targetGenerals.isEmpty()) {
-                targetPower = targetLevel * 500;
-                sideB = buildNpcBattleUnits(targetPower, targetLevel, Math.max(1, myGenerals.size()));
-            } else {
-                sideB = buildHeroBattleUnits(targetGenerals, targetLevel);
-                targetPower = sideB.stream().mapToInt(u -> u.totalAttack + u.totalDefense).sum();
-            }
+            sideB = buildPlayerUnits(targetId);
+            if (sideB.isEmpty()) sideB = buildNpcUnits(target, sideA.size());
         }
 
-        int myPower = sideA.stream().mapToInt(u -> u.totalAttack + u.totalDefense).sum();
+        if (sideA.isEmpty()) throw new RuntimeException("请先配置阵型");
+
         BattleService.BattleReport report = battleService.fight(sideA, sideB, 20);
         boolean victory = report.victoryA;
 
-        // 计算声望奖励
+        int myNewRank = myRank;
+        int targetNewRank = targetRank;
         long fameGain = 0;
-        if (victory) {
-            int todayWins = getInt(myRank, "todayWins", 0);
-            if (todayWins < WIN_FAME_BY_RANK.length) {
-                fameGain = WIN_FAME_BY_RANK[todayWins];
-            } else {
-                fameGain = 100;
-            }
-            // 增加声望
-            resourceService.addFame(userId, fameGain);
 
-            // 更新胜利次数
-            heroRankMapper.upsert(userId,
-                    getString(myRank, "userName", "主公"),
-                    myLevel, myPower, myRes.getFame() + fameGain,
-                    myRes.getRank(),
-                    getInt(myRank, "ranking", 0),
-                    todayChallenge + 1,
-                    todayWins + 1,
-                    todayPurchased,
-                    today(),
-                    now,
-                    now);
+        if (victory) {
+            myNewRank = targetRank;
+            targetNewRank = myRank;
+            heroRankMapper.swapRanking(userId, myRank, targetId, targetRank, now);
+
+            int todayWins = getInt(me, "todayWins") + 1;
+            int idx = Math.min(todayWins - 1, WIN_FAME.length - 1);
+            fameGain = WIN_FAME[idx];
+
+            long currentFame = getLong(me, "fame") + fameGain;
+            String newPeerage = calcPeerage(currentFame, getInt(me, "level"));
+
+            heroRankMapper.upsert(userId, str(me, "userName"), getInt(me, "level"),
+                getInt(me, "power"), currentFame, newPeerage, myNewRank, str(me, "nation"),
+                todayChallenge + 1, todayWins, todayPurchased,
+                str(me, "lastResetDate"), now,
+                getLong(me, "pendingFame"), getLong(me, "pendingSilver"),
+                getLong(me, "pendingExp"), getInt(me, "rewardClaimed"),
+                str(me, "settleDate"), now);
         } else {
-            heroRankMapper.upsert(userId,
-                    getString(myRank, "userName", "主公"),
-                    myLevel, myPower, myRes.getFame(),
-                    myRes.getRank(),
-                    getInt(myRank, "ranking", 0),
-                    todayChallenge + 1,
-                    getInt(myRank, "todayWins", 0),
-                    todayPurchased,
-                    today(),
-                    now,
-                    now);
+            heroRankMapper.upsert(userId, str(me, "userName"), getInt(me, "level"),
+                getInt(me, "power"), getLong(me, "fame"), str(me, "rankName"), myRank, str(me, "nation"),
+                todayChallenge + 1, getInt(me, "todayWins"), todayPurchased,
+                str(me, "lastResetDate"), now,
+                getLong(me, "pendingFame"), getLong(me, "pendingSilver"),
+                getLong(me, "pendingExp"), getInt(me, "rewardClaimed"),
+                str(me, "settleDate"), now);
         }
 
-        // 更新自己的战力
-        syncPower(userId);
-        syncPower(targetId);
+        String today = new SimpleDateFormat("yyyyMMdd").format(new Date());
+        String reportJson = null;
+        try {
+            reportJson = JSON.writeValueAsString(report);
+        } catch (Exception e) {
+            log.warn("序列化战报失败: {}", e.getMessage());
+        }
+        heroRankMapper.insertBattle(
+            userId, str(me, "userName"), getInt(me, "level"),
+            targetId, str(target, "userName"), getInt(target, "level"),
+            victory, fameGain,
+            myRank, myNewRank, targetRank, targetNewRank,
+            reportJson, now, today);
 
-        // 记录战斗
-        heroRankMapper.insertBattle(userId,
-                getString(myRank, "userName", "主公"),
-                myLevel,
-                targetId,
-                getString(targetRank, "userName", "对手"),
-                getInt(targetRank, "level", 1),
-                victory, fameGain,
-                System.currentTimeMillis(), today());
+        syncPower(userId);
 
         Map<String, Object> result = new HashMap<>();
         result.put("victory", victory);
         result.put("fameGain", fameGain);
-        result.put("myPower", myPower);
-        result.put("targetPower", targetPower);
+        result.put("myOldRank", myRank);
+        result.put("myNewRank", myNewRank);
+        result.put("targetOldRank", targetRank);
+        result.put("targetNewRank", targetNewRank);
+        result.put("targetName", str(target, "userName"));
         result.put("todayChallenge", todayChallenge + 1);
-        result.put("totalAllowed", totalAllowed);
-        result.put("cooldownRemainMs", CHALLENGE_COOLDOWN_MS);
-        result.put("targetName", getString(targetRank, "userName", "对手"));
-        result.put("targetLevel", getInt(targetRank, "level", 1));
-        return result;
-    }
-
-    /**
-     * 购买挑战次数
-     */
-    public Map<String, Object> purchaseChallenge(String userId) {
-        Map<String, Object> myRank = heroRankMapper.findByUserId(userId);
-        if (myRank == null) {
-            throw new BusinessException(400, "未在排行榜中");
-        }
-        resetIfNewDay(myRank, userId);
-
-        int todayPurchased = getInt(myRank, "todayPurchased", 0);
-
-        // 第1~10次 10元宝/次，第11次以后 100元宝/次
-        long cost = todayPurchased < 10 ? 10 : 100;
-
-        if (!resourceService.consumeGold(userId, cost)) {
-            throw new BusinessException(400, "元宝不足，需要" + cost + "元宝");
-        }
-
-        heroRankMapper.upsert(userId,
-                getString(myRank, "userName", "主公"),
-                getInt(myRank, "level", 1),
-                getInt(myRank, "power", 0),
-                getLong(myRank, "fame", 0L),
-                (String) myRank.get("rankName"),
-                getInt(myRank, "ranking", 0),
-                getInt(myRank, "todayChallenge", 0),
-                getInt(myRank, "todayWins", 0),
-                todayPurchased + 1,
-                today(),
-                getLong(myRank, "lastChallengeTime", 0L),
-                System.currentTimeMillis());
-
-        Map<String, Object> result = new HashMap<>();
-        result.put("cost", cost);
-        result.put("todayPurchased", todayPurchased + 1);
-        result.put("nextCost", (todayPurchased + 1) < 10 ? 10 : 100);
-        result.put("totalAllowed", MAX_DAILY_CHALLENGE + todayPurchased + 1);
-        return result;
-    }
-
-    /**
-     * 黄金重置挑战冷却
-     */
-    public Map<String, Object> resetCooldown(String userId) {
-        Map<String, Object> myRank = heroRankMapper.findByUserId(userId);
-        if (myRank == null) {
-            throw new BusinessException(400, "未在排行榜中");
-        }
-
-        long lastChallengeTime = getLong(myRank, "lastChallengeTime", 0L);
-        long elapsed = System.currentTimeMillis() - lastChallengeTime;
-        if (elapsed >= CHALLENGE_COOLDOWN_MS) {
-            throw new BusinessException(400, "当前没有冷却，无需重置");
-        }
-
-        // 扣除黄金
-        resourceService.consumeGold(userId, COOLDOWN_RESET_GOLD);
-
-        // 将 lastChallengeTime 设为0，清除冷却
-        heroRankMapper.upsert(userId,
-                getString(myRank, "userName", "主公"),
-                getInt(myRank, "level", 1),
-                getInt(myRank, "power", 0),
-                getLong(myRank, "fame", 0L),
-                (String) myRank.get("rankName"),
-                getInt(myRank, "ranking", 0),
-                getInt(myRank, "todayChallenge", 0),
-                getInt(myRank, "todayWins", 0),
-                getInt(myRank, "todayPurchased", 0),
-                getString(myRank, "lastResetDate", today()),
-                0L,
-                System.currentTimeMillis());
-
-        Map<String, Object> result = new HashMap<>();
-        result.put("cooldownRemainMs", 0);
-        result.put("goldCost", COOLDOWN_RESET_GOLD);
-        return result;
-    }
-
-    /**
-     * 获取挑战记录
-     */
-    public List<Map<String, Object>> getBattleRecords(String userId) {
-        List<Map<String, Object>> records = heroRankMapper.findBattlesByAttacker(userId, 50);
-        for (Map<String, Object> r : records) {
-            Object v = r.get("victory");
-            if (v instanceof Number) {
-                r.put("victory", ((Number) v).intValue() == 1);
-            }
-        }
-        return records;
-    }
-
-    /**
-     * 获取奖励记录
-     */
-    public List<Map<String, Object>> getRewardRecords(String userId) {
-        return heroRankMapper.findRewardLogs(userId, 30);
-    }
-
-    /**
-     * 同步玩家战力到排行榜（跳过NPC）
-     */
-    public void syncPower(String userId) {
-        if (userId == null || userId.startsWith("npc_hero_")) return;
+        result.put("maxDaily", MAX_DAILY_CHALLENGE + todayPurchased);
+        result.put("cdRemainMs", CHALLENGE_CD_MS);
         try {
-            UserResource res = resourceService.getUserResource(userId);
-            int level = res != null && res.getLevel() != null ? res.getLevel() : 1;
-
-            List<General> generals = formationService.getBattleOrder(userId);
-            int totalPower = generals.stream()
-                    .mapToInt(g -> g.getAttrValor() != null ? g.getAttrValor() : level * 400)
-                    .sum();
-            if (totalPower == 0) totalPower = level * 500;
-
-            Map<String, Object> rank = heroRankMapper.findByUserId(userId);
-            if (rank != null) {
-                heroRankMapper.upsert(userId,
-                        getString(rank, "userName", "主公"),
-                        level, totalPower, res.getFame(),
-                        res.getRank(),
-                        getInt(rank, "ranking", 0),
-                        getInt(rank, "todayChallenge", 0),
-                        getInt(rank, "todayWins", 0),
-                        getInt(rank, "todayPurchased", 0),
-                        getString(rank, "lastResetDate", today()),
-                        getLong(rank, "lastChallengeTime", 0L),
-                        System.currentTimeMillis());
-            }
+            result.put("battleReport", JSON.convertValue(report, Map.class));
         } catch (Exception e) {
-            logger.warn("同步战力失败 userId={}: {}", userId, e.getMessage());
+            log.warn("战报转Map失败: {}", e.getMessage());
+            result.put("battleReport", null);
+        }
+        return result;
+    }
+
+    // ==================== 加速挑战（跳过CD） ====================
+
+    public Map<String, Object> speedUp(String userId) {
+        Map<String, Object> me = heroRankMapper.findByUserId(userId);
+        if (me == null) throw new RuntimeException("未加入英雄榜");
+
+        long lastTime = getLong(me, "lastChallengeTime");
+        long remain = CHALLENGE_CD_MS - (System.currentTimeMillis() - lastTime);
+        if (remain <= 0) throw new RuntimeException("无需加速");
+
+        UserResource res = userResourceService.getUserResource(userId);
+        long gold = res.getGold() != null ? res.getGold() : 0;
+        if (gold < SPEED_UP_GOLD) throw new RuntimeException("黄金不足");
+
+        res.setGold(gold - SPEED_UP_GOLD);
+        userResourceService.saveUserResource(res);
+
+        heroRankMapper.upsert(userId, str(me, "userName"), getInt(me, "level"),
+            getInt(me, "power"), getLong(me, "fame"), str(me, "rankName"),
+            getInt(me, "ranking"), str(me, "nation"),
+            getInt(me, "todayChallenge"), getInt(me, "todayWins"),
+            getInt(me, "todayPurchased"), str(me, "lastResetDate"), 0,
+            getLong(me, "pendingFame"), getLong(me, "pendingSilver"),
+            getLong(me, "pendingExp"), getInt(me, "rewardClaimed"),
+            str(me, "settleDate"), System.currentTimeMillis());
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("success", true);
+        result.put("goldCost", SPEED_UP_GOLD);
+        result.put("remainGold", gold - SPEED_UP_GOLD);
+        return result;
+    }
+
+    // ==================== 领取奖励 ====================
+
+    public Map<String, Object> claimReward(String userId) {
+        Map<String, Object> me = heroRankMapper.findByUserId(userId);
+        if (me == null) throw new RuntimeException("未加入英雄榜");
+        if (getInt(me, "rewardClaimed") == 1) throw new RuntimeException("奖励已领取");
+
+        long fame = getLong(me, "pendingFame");
+        long silver = getLong(me, "pendingSilver");
+        long exp = getLong(me, "pendingExp");
+
+        UserResource res = userResourceService.getUserResource(userId);
+        res.setSilver(res.getSilver() + silver);
+        userResourceService.saveUserResource(res);
+
+        long newFame = getLong(me, "fame") + fame;
+        String newPeerage = calcPeerage(newFame, getInt(me, "level"));
+
+        heroRankMapper.upsert(userId, str(me, "userName"), getInt(me, "level"),
+            getInt(me, "power"), newFame, newPeerage, getInt(me, "ranking"), str(me, "nation"),
+            getInt(me, "todayChallenge"), getInt(me, "todayWins"),
+            getInt(me, "todayPurchased"), str(me, "lastResetDate"),
+            getLong(me, "lastChallengeTime"),
+            0, 0, 0, 1, str(me, "settleDate"),
+            System.currentTimeMillis());
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("fame", fame);
+        result.put("silver", silver);
+        result.put("exp", exp);
+        result.put("totalFame", newFame);
+        result.put("peerage", newPeerage);
+        return result;
+    }
+
+    // ==================== 战报 ====================
+
+    public List<Map<String, Object>> getRecords(String userId) {
+        return heroRankMapper.findBattlesByUser(userId, 30);
+    }
+
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> getBattleReport(long battleId) {
+        Map<String, Object> row = heroRankMapper.findBattleReportById(battleId);
+        if (row == null) throw new RuntimeException("战报不存在");
+        String json = str(row, "battleReport");
+        if (json == null || json.isEmpty()) throw new RuntimeException("战报数据为空");
+        try {
+            return JSON.readValue(json, Map.class);
+        } catch (Exception e) {
+            throw new RuntimeException("战报解析失败");
         }
     }
 
-    /**
-     * 每日00:00结算排名奖励
-     */
+    // ==================== 每日结算（21:00） ====================
+
     @Scheduled(cron = "0 0 0 * * ?")
     public void dailySettle() {
-        logger.info("开始每日英雄榜结算...");
-        try {
-            List<Map<String, Object>> allPlayers = heroRankMapper.findAllOrderByPower();
-            String settleDate = today();
+        log.info("[英雄榜] 开始每日结算");
+        List<Map<String, Object>> all = heroRankMapper.findAllOrderByRanking();
+        String today = new SimpleDateFormat("yyyyMMdd").format(new Date());
+        long now = System.currentTimeMillis();
 
-            for (int i = 0; i < allPlayers.size(); i++) {
-                Map<String, Object> player = allPlayers.get(i);
-                String uid = (String) player.get("userId");
-                int ranking = i + 1;
+        for (int i = 0; i < all.size(); i++) {
+            Map<String, Object> entry = all.get(i);
+            String uid = str(entry, "userId");
+            int rank = i + 1;
+            heroRankMapper.updateRanking(uid, rank, now);
 
-                heroRankMapper.updateRanking(uid, ranking);
+            int[] reward = getRewardForRank(rank);
+            heroRankMapper.setPendingReward(uid, reward[0], reward[1], reward[2], today);
 
-                long fameReward;
-                long silverReward;
-                if (i < DAILY_RANK_REWARDS.length) {
-                    fameReward = DAILY_RANK_REWARDS[i][0];
-                    silverReward = DAILY_RANK_REWARDS[i][1];
-                } else {
-                    fameReward = 1000;
-                    silverReward = 10000;
-                }
-
-                resourceService.addFame(uid, fameReward);
-                resourceService.addSilver(uid, silverReward);
-
-                heroRankMapper.insertRewardLog(uid, ranking, fameReward, silverReward,
-                        settleDate, System.currentTimeMillis());
+            if (!uid.startsWith("npc_hero_")) {
+                heroRankMapper.insertRewardLog(uid, rank, reward[0], reward[1], today, now);
             }
+        }
+        log.info("[英雄榜] 结算完成，处理{}条", all.size());
+    }
 
-            logger.info("英雄榜结算完成，共处理 {} 名玩家", allPlayers.size());
+    // ==================== 同步战力 ====================
+
+    public void syncPower(String userId) {
+        if (userId.startsWith("npc_hero_")) return;
+
+        Map<String, Object> me = heroRankMapper.findByUserId(userId);
+        if (me == null) return;
+
+        int totalPower = 0;
+        try {
+            List<String> ids = formationService.getFormationGeneralIds(userId);
+            for (String gid : ids) {
+                General g = generalService.getGeneralById(gid);
+                if (g == null) continue;
+                int atk = g.getAttrAttack() != null ? g.getAttrAttack() : 0;
+                int def = g.getAttrDefense() != null ? g.getAttrDefense() : 0;
+                int val = g.getAttrValor() != null ? g.getAttrValor() : 0;
+                int cmd = g.getAttrCommand() != null ? g.getAttrCommand() : 0;
+                totalPower += atk + def + val + cmd;
+
+                Map<String, Integer> eq = suitConfigService.calculateTotalEquipBonus(gid);
+                totalPower += eq.getOrDefault("attack", 0) + eq.getOrDefault("defense", 0);
+            }
         } catch (Exception e) {
-            logger.error("英雄榜每日结算失败", e);
+            log.warn("同步战力异常: {}", e.getMessage());
         }
-    }
-
-    // ==== 内部方法 ====
-
-    private void ensureRankEntry(String userId, UserResource res) {
-        Map<String, Object> rank = heroRankMapper.findByUserId(userId);
-        if (rank == null) {
-            int level = res != null && res.getLevel() != null ? res.getLevel() : 1;
-            List<General> generals = formationService.getBattleOrder(userId);
-            int power = generals.stream()
-                    .mapToInt(g -> g.getAttrValor() != null ? g.getAttrValor() : level * 400)
-                    .sum();
-            if (power == 0) power = level * 500;
-
-            String userName = "主公Lv." + level;
-            heroRankMapper.upsert(userId, userName, level, power,
-                    res.getFame() != null ? res.getFame() : 0,
-                    res.getRank() != null ? res.getRank() : "平民",
-                    0, 0, 0, 0, today(),
-                    0L,
-                    System.currentTimeMillis());
+        if (totalPower == 0) {
+            totalPower = getInt(me, "level") * 500;
         }
+
+        heroRankMapper.upsert(userId, str(me, "userName"), getInt(me, "level"),
+            totalPower, getLong(me, "fame"), str(me, "rankName"), getInt(me, "ranking"), str(me, "nation"),
+            getInt(me, "todayChallenge"), getInt(me, "todayWins"),
+            getInt(me, "todayPurchased"), str(me, "lastResetDate"),
+            getLong(me, "lastChallengeTime"),
+            getLong(me, "pendingFame"), getLong(me, "pendingSilver"),
+            getLong(me, "pendingExp"), getInt(me, "rewardClaimed"),
+            str(me, "settleDate"), System.currentTimeMillis());
     }
 
-    private void resetIfNewDay(Map<String, Object> rank, String userId) {
-        String lastDate = getString(rank, "lastResetDate", "");
-        if (!today().equals(lastDate)) {
-            heroRankMapper.upsert(userId,
-                    getString(rank, "userName", "主公"),
-                    getInt(rank, "level", 1),
-                    getInt(rank, "power", 0),
-                    getLong(rank, "fame", 0L),
-                    (String) rank.get("rankName"),
-                    getInt(rank, "ranking", 0),
-                    0, 0, 0, today(),
-                    0L,
-                    System.currentTimeMillis());
-            rank.put("todayChallenge", 0);
-            rank.put("todayWins", 0);
-            rank.put("todayPurchased", 0);
-            rank.put("lastChallengeTime", 0L);
-            rank.put("lastResetDate", today());
+    // ==================== 内部方法 ====================
+
+    private void ensurePlayerEntry(String userId) {
+        if (userId.startsWith("npc_hero_")) return;
+        Map<String, Object> me = heroRankMapper.findByUserId(userId);
+        if (me != null) return;
+
+        String name = getPlayerName(userId);
+        String nation = getPlayerNation(userId);
+        UserResource res = userResourceService.getUserResource(userId);
+        int level = res.getLevel() != null ? res.getLevel() : 1;
+        int power = level * 500;
+        int ranking = heroRankMapper.countAll() + 1;
+
+        heroRankMapper.upsert(userId, name, level, power, 0, "平民", ranking, nation,
+            0, 0, 0, "", 0, 0, 0, 0, 1, "", System.currentTimeMillis());
+
+        syncPower(userId);
+    }
+
+    private String getPlayerName(String userId) {
+        try {
+            List<Map<String, Object>> servers = gameServerMapper.findPlayerServers(userId);
+            if (servers != null && !servers.isEmpty()) {
+                Object lordName = servers.get(0).get("lordName");
+                if (lordName != null && !lordName.toString().isEmpty()) {
+                    return lordName.toString();
+                }
+            }
+        } catch (Exception e) {
+            log.warn("获取玩家名称失败: {}", e.getMessage());
         }
+        return "君主";
     }
 
-    private String today() {
-        return new SimpleDateFormat("yyyyMMdd").format(new Date());
-    }
-
-    private int getInt(Map<String, Object> m, String key, int def) {
-        Object v = m.get(key);
-        if (v instanceof Number) return ((Number) v).intValue();
-        if (v instanceof String) {
-            try { return Integer.parseInt((String) v); } catch (Exception e) { return def; }
+    private String getPlayerNation(String userId) {
+        try {
+            String nation = nationWarService.getPlayerNation(userId);
+            if (nation != null && !nation.isEmpty()) return nation;
+        } catch (Exception e) {
+            log.warn("获取玩家国家失败: {}", e.getMessage());
         }
-        return def;
+        return "WEI";
     }
 
-    private long getLong(Map<String, Object> m, String key, long def) {
-        Object v = m.get(key);
-        if (v instanceof Number) return ((Number) v).longValue();
-        if (v instanceof String) {
-            try { return Long.parseLong((String) v); } catch (Exception e) { return def; }
+    private void resetIfNewDay(String userId) {
+        Map<String, Object> me = heroRankMapper.findByUserId(userId);
+        if (me == null) return;
+        String today = new SimpleDateFormat("yyyyMMdd").format(new Date());
+        String lastDate = str(me, "lastResetDate");
+        if (today.equals(lastDate)) return;
+
+        heroRankMapper.upsert(userId, str(me, "userName"), getInt(me, "level"),
+            getInt(me, "power"), getLong(me, "fame"), str(me, "rankName"),
+            getInt(me, "ranking"), str(me, "nation"),
+            0, 0, 0, today, 0,
+            getLong(me, "pendingFame"), getLong(me, "pendingSilver"),
+            getLong(me, "pendingExp"), getInt(me, "rewardClaimed"),
+            str(me, "settleDate"), System.currentTimeMillis());
+    }
+
+    private String calcPeerage(long fame, int level) {
+        List<Map<String, Object>> configs = peerageConfigMapper.findAllPeerage();
+        String result = "平民";
+        for (Map<String, Object> cfg : configs) {
+            long fameReq = ((Number) cfg.get("fameRequired")).longValue();
+            int levelReq = ((Number) cfg.get("levelRequired")).intValue();
+            if (fame >= fameReq && level >= levelReq) {
+                result = (String) cfg.get("rankName");
+            }
         }
-        return def;
+        return result;
     }
 
-    private String getString(Map<String, Object> m, String key, String def) {
-        Object v = m.get(key);
-        return v != null ? v.toString() : def;
-    }
-
-    private List<BattleCalculator.BattleUnit> buildHeroBattleUnits(List<General> generals, int fallbackLevel) {
+    private List<BattleCalculator.BattleUnit> buildPlayerUnits(String userId) {
         List<BattleCalculator.BattleUnit> units = new ArrayList<>();
-        for (int i = 0; i < generals.size(); i++) {
-            General g = generals.get(i);
-            Map<String, Integer> eq = suitConfigService.calculateTotalEquipBonus(g.getId());
-            int tier = g.getSoldierTier() != null ? g.getSoldierTier() : 1;
-            int troopType = BattleCalculator.parseTroopType(g.getTroopType());
-            int formLv = g.getSoldierRank() != null ? g.getSoldierRank() : 1;
-            int maxSc = BattleCalculator.getFormationMaxPeople(formLv);
-            int sc = g.getSoldierCount() != null ? Math.min(g.getSoldierCount(), maxSc) : maxSc;
-            BattleCalculator.BattleUnit u = BattleCalculator.assembleBattleUnit(
-                    g.getName() != null ? g.getName() : "武将" + (i + 1),
-                    g.getLevel() != null ? g.getLevel() : fallbackLevel,
+        try {
+            List<String> ids = formationService.getFormationGeneralIds(userId);
+            for (String gid : ids) {
+                General g = generalService.getGeneralById(gid);
+                if (g == null) continue;
+
+                Map<String, Integer> eq = suitConfigService.calculateTotalEquipBonus(gid);
+                int lvl = g.getLevel() != null ? g.getLevel() : 1;
+                int tier = g.getSoldierTier() != null ? g.getSoldierTier() : 1;
+                int sRank = g.getSoldierRank() != null ? g.getSoldierRank() : 1;
+                int troopType = BattleCalculator.parseTroopType(g.getTroopType());
+                int formLv = sRank;
+                int maxSoldiers = BattleCalculator.getFormationMaxPeople(formLv);
+
+                BattleCalculator.BattleUnit u = BattleCalculator.assembleBattleUnit(
+                    g.getName(), lvl,
                     g.getAttrAttack() != null ? g.getAttrAttack() : 100,
                     g.getAttrDefense() != null ? g.getAttrDefense() : 50,
                     g.getAttrValor() != null ? g.getAttrValor() : 10,
                     g.getAttrCommand() != null ? g.getAttrCommand() : 10,
                     g.getAttrDodge() != null ? (int) Math.round(g.getAttrDodge()) : 5,
                     g.getAttrMobility() != null ? g.getAttrMobility() : 15,
-                    troopType, tier, sc, maxSc, formLv,
+                    troopType, tier, maxSoldiers, maxSoldiers, formLv,
                     eq.getOrDefault("attack", 0), eq.getOrDefault("defense", 0),
                     eq.getOrDefault("speed", 0), eq.getOrDefault("hit", 0),
                     eq.getOrDefault("dodge", 0), 0, 0, 0);
+
+                u.position = units.size();
+                if (g.getTacticsId() != null) {
+                    TacticsTemplate tt = tacticsConfig.getById(g.getTacticsId());
+                    if (tt != null) {
+                        Map<String, Object> owned = userTacticsMapper.findByUserIdAndTacticsId(
+                            g.getUserId(), g.getTacticsId());
+                        int tLv = owned != null ? ((Number) owned.get("level")).intValue() : 1;
+                        u.tacticsId = tt.getId();
+                        u.tacticsName = tt.getName();
+                        u.tacticsLevel = tLv;
+                        u.tacticsEffectValue = TacticsConfig.calcEffect(tt, tLv);
+                        u.tacticsTriggerRate = TacticsConfig.calcTriggerRate(tt, tLv);
+                    }
+                }
+                units.add(u);
+            }
+        } catch (Exception e) {
+            log.warn("构建玩家战斗单位异常: {}", e.getMessage());
+        }
+        return units;
+    }
+
+    private List<BattleCalculator.BattleUnit> buildNpcUnits(Map<String, Object> npc, int count) {
+        List<BattleCalculator.BattleUnit> units = new ArrayList<>();
+        int power = getInt(npc, "power");
+        int level = getInt(npc, "level");
+        if (count <= 0) count = 3;
+        String[] types = {"步", "骑", "弓"};
+
+        for (int i = 0; i < count; i++) {
+            String troopCat = types[i % 3];
+            int troopType = BattleCalculator.parseTroopType(troopCat);
+            int tier = Math.max(1, Math.min(10, 1 + level / 20));
+            int formLv = BattleCalculator.levelToFormationLevel(level);
+            int maxSoldiers = BattleCalculator.getFormationMaxPeople(formLv);
+
+            int eAtk = power / count / 2 + level * 5;
+            int eDef = power / count / 3 + level * 3;
+
+            String unitName = count > 1
+                ? str(npc, "userName") + "[" + troopCat + (i + 1) + "]"
+                : str(npc, "userName");
+            BattleCalculator.BattleUnit u = BattleCalculator.assembleBattleUnit(
+                unitName, level,
+                eAtk, eDef, level * 2, level, 5 + level / 10, 15 + level / 5,
+                troopType, tier, maxSoldiers, maxSoldiers, formLv,
+                0, 0, 0, 0, 0, 0, 0, 0);
             u.position = i;
             units.add(u);
         }
         return units;
     }
 
-    private List<BattleCalculator.BattleUnit> buildNpcBattleUnits(int power, int level, int count) {
-        List<BattleCalculator.BattleUnit> units = new ArrayList<>();
-        int[] troopTypes = {1, 2, 3};
-        for (int i = 0; i < count; i++) {
-            int tier = Math.max(1, Math.min(10, 1 + level / 20));
-            int troopType = troopTypes[i % 3];
-            int formLv = BattleCalculator.levelToFormationLevel(level);
-            int maxSc = BattleCalculator.getFormationMaxPeople(formLv);
-            int eAtk = power / count / 2 + level * 5;
-            int eDef = power / count / 3 + level * 3;
-            BattleCalculator.BattleUnit u = BattleCalculator.assembleBattleUnit(
-                    "NPC" + (i + 1), level, eAtk, eDef,
-                    level * 2, level * 2, 5, 15,
-                    troopType, tier, maxSc, maxSc, formLv,
-                    0, 0, 0, 0, 0, 0, 0, 0);
-            u.position = i;
-            units.add(u);
+    private int[] getRewardForRank(int rank) {
+        for (int[] r : RANK_REWARDS) {
+            if (rank <= r[0]) return new int[]{r[1], r[2], r[3]};
         }
-        return units;
+        return new int[]{500, 5000, 3000};
+    }
+
+    private static int getInt(Map<String, Object> m, String k) {
+        Object v = m.get(k);
+        return v instanceof Number ? ((Number) v).intValue() : 0;
+    }
+    private static long getLong(Map<String, Object> m, String k) {
+        Object v = m.get(k);
+        return v instanceof Number ? ((Number) v).longValue() : 0;
+    }
+    private static String str(Map<String, Object> m, String k) {
+        Object v = m.get(k);
+        return v != null ? v.toString() : "";
     }
 }

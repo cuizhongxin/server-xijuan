@@ -65,6 +65,9 @@ public class BattleService {
                 ActionLog action = new ActionLog();
                 action.attackerName = attacker.name;
                 action.targetName = target.name;
+                action.attackerIsA = attackerIsA;
+                action.attackerIdx = attackerIsA ? sideA.indexOf(attacker) : sideB.indexOf(attacker);
+                action.targetIdx = attackerIsA ? sideB.indexOf(target) : sideA.indexOf(target);
                 action.tacticsTriggered = tr.triggered;
                 action.tacticsName = tr.tacticsName;
                 action.effectDesc = tr.effectDesc;
@@ -104,11 +107,11 @@ public class BattleService {
 
         report.sideASummary = new ArrayList<>();
         for (BattleCalculator.BattleUnit u : sideA) {
-            report.sideASummary.add(new UnitSummary(u.name, u.soldierCount, u.maxSoldierCount, u.troopType));
+            report.sideASummary.add(new UnitSummary(u.name, u.soldierCount, u.maxSoldierCount, u.troopType, u.soldierTier, u.level, u.position));
         }
         report.sideBSummary = new ArrayList<>();
         for (BattleCalculator.BattleUnit u : sideB) {
-            report.sideBSummary.add(new UnitSummary(u.name, u.soldierCount, u.maxSoldierCount, u.troopType));
+            report.sideBSummary.add(new UnitSummary(u.name, u.soldierCount, u.maxSoldierCount, u.troopType, u.soldierTier, u.level, u.position));
         }
 
         return report;
@@ -177,6 +180,9 @@ public class BattleService {
     public static class ActionLog {
         public String attackerName;
         public String targetName;
+        public boolean attackerIsA;
+        public int attackerIdx;
+        public int targetIdx;
         public int soldierLoss;
         public boolean isDodge;
         public boolean tacticsTriggered;
@@ -198,12 +204,18 @@ public class BattleService {
         public int soldierCount;
         public int maxSoldierCount;
         public int troopType;
+        public int soldierTier;
+        public int level;
+        public int position;
 
-        public UnitSummary(String name, int soldierCount, int maxSoldierCount, int troopType) {
+        public UnitSummary(String name, int soldierCount, int maxSoldierCount, int troopType, int soldierTier, int level, int position) {
             this.name = name;
             this.soldierCount = soldierCount;
             this.maxSoldierCount = maxSoldierCount;
             this.troopType = troopType;
+            this.soldierTier = soldierTier;
+            this.level = level;
+            this.position = position;
         }
     }
 }
