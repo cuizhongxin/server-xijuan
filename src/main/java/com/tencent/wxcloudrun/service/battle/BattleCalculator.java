@@ -131,6 +131,13 @@ public class BattleCalculator {
         return FORMATION_CONFIG[level][2];
     }
 
+    public static int maxPeopleToFormationLevel(int maxPeople) {
+        for (int i = FORMATION_CONFIG.length - 1; i >= 1; i--) {
+            if (maxPeople >= FORMATION_CONFIG[i][0]) return i;
+        }
+        return 1;
+    }
+
     /**
      * 根据角色等级推算阵型等级 (参照 formation_level_config 的解锁等级)
      */

@@ -306,6 +306,7 @@ public class SoldierController {
         }
 
         general.setSoldierRank(targetTier);
+        general.setSoldierTier(targetTier);
         general.setUpdateTime(System.currentTimeMillis());
         generalService.saveGeneral(general);
 

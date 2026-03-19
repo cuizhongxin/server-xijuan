@@ -882,13 +882,14 @@ public class CampaignService {
         Map<String, Integer> eqBonus = suitConfigService.calculateTotalEquipBonus(general.getId());
 
         int playerLevel = general.getLevel() != null ? general.getLevel() : 1;
-        int playerTier = general.getSoldierTier() != null ? general.getSoldierTier() :
-                (general.getSoldierRank() != null ? general.getSoldierRank() : 1);
+        int rawTier = general.getSoldierTier() != null ? general.getSoldierTier() : 1;
+        int rankTier = general.getSoldierRank() != null ? general.getSoldierRank() : 1;
+        int playerTier = Math.max(rawTier, rankTier);
         int playerTroopType = BattleCalculator.parseTroopType(general.getTroopType());
         String troopCat = general.getTroopType() != null ? general.getTroopType() : "步";
 
-        int playerFormationLevel = general.getSoldierRank() != null ? general.getSoldierRank() : 1;
-        int playerMaxSoldiers = BattleCalculator.getFormationMaxPeople(playerFormationLevel);
+        int playerMaxSoldiers = general.getSoldierMaxCount() != null ? general.getSoldierMaxCount() : 100;
+        int playerFormationLevel = BattleCalculator.maxPeopleToFormationLevel(playerMaxSoldiers);
         int playerSoldierCount = Math.min(progress.getCurrentTroops(), playerMaxSoldiers);
 
         BattleCalculator.BattleUnit player = BattleCalculator.assembleBattleUnit(

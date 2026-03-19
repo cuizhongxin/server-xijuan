@@ -156,10 +156,12 @@ public class AllianceBossService {
         for (int i = 0; i < myGenerals.size(); i++) {
             General g = myGenerals.get(i);
             Map<String, Integer> eq = suitConfigService.calculateTotalEquipBonus(g.getId());
-            int tier = g.getSoldierTier() != null ? g.getSoldierTier() : 1;
+            int rawTier = g.getSoldierTier() != null ? g.getSoldierTier() : 1;
+            int sRank = g.getSoldierRank() != null ? g.getSoldierRank() : 1;
+            int tier = Math.max(rawTier, sRank);
             int troopType = BattleCalculator.parseTroopType(g.getTroopType());
-            int formLv = g.getSoldierRank() != null ? g.getSoldierRank() : 1;
-            int maxSc = BattleCalculator.getFormationMaxPeople(formLv);
+            int maxSc = g.getSoldierMaxCount() != null ? g.getSoldierMaxCount() : 100;
+            int formLv = BattleCalculator.maxPeopleToFormationLevel(maxSc);
             int sc = g.getSoldierCount() != null ? Math.min(g.getSoldierCount(), maxSc) : maxSc;
             BattleCalculator.BattleUnit u = BattleCalculator.assembleBattleUnit(
                     g.getName() != null ? g.getName() : "武将" + (i + 1),

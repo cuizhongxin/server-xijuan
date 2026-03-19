@@ -78,12 +78,12 @@ public class FormationService {
                     slotInfo.put("troopType", general.getTroopType());
                     
                     // 士兵信息
-                    int soldierTier = general.getSoldierTier() != null ? general.getSoldierTier() : 
-                                     (general.getSoldierRank() != null ? general.getSoldierRank() : 1);
-                    int formationLevel = general.getSoldierRank() != null ? general.getSoldierRank() : 1;
-                    int maxPeople = com.tencent.wxcloudrun.service.battle.BattleCalculator.getFormationMaxPeople(formationLevel);
-                    int sc = general.getSoldierCount() != null ? general.getSoldierCount() : maxPeople;
-                    int msc = general.getSoldierMaxCount() != null ? general.getSoldierMaxCount() : Math.max(sc, maxPeople);
+                    int sRank = general.getSoldierRank() != null ? general.getSoldierRank() : 1;
+                    int rawSoldierTier = general.getSoldierTier() != null ? general.getSoldierTier() : 1;
+                    int soldierTier = Math.max(rawSoldierTier, sRank);
+                    int msc = general.getSoldierMaxCount() != null ? general.getSoldierMaxCount() : 100;
+                    int formationLevel = com.tencent.wxcloudrun.service.battle.BattleCalculator.maxPeopleToFormationLevel(msc);
+                    int sc = general.getSoldierCount() != null ? general.getSoldierCount() : msc;
                     slotInfo.put("soldierCount", sc);
                     slotInfo.put("maxSoldierCount", msc);
                     slotInfo.put("soldierTypeName", general.getTroopType());

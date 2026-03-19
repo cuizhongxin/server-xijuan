@@ -492,11 +492,12 @@ public class HeroRankService {
 
                 Map<String, Integer> eq = suitConfigService.calculateTotalEquipBonus(gid);
                 int lvl = g.getLevel() != null ? g.getLevel() : 1;
-                int tier = g.getSoldierTier() != null ? g.getSoldierTier() : 1;
+                int rawTier = g.getSoldierTier() != null ? g.getSoldierTier() : 1;
                 int sRank = g.getSoldierRank() != null ? g.getSoldierRank() : 1;
+                int tier = Math.max(rawTier, sRank);
                 int troopType = BattleCalculator.parseTroopType(g.getTroopType());
-                int formLv = sRank;
-                int maxSoldiers = BattleCalculator.getFormationMaxPeople(formLv);
+                int maxSoldiers = g.getSoldierMaxCount() != null ? g.getSoldierMaxCount() : 100;
+                int formLv = BattleCalculator.maxPeopleToFormationLevel(maxSoldiers);
 
                 BattleCalculator.BattleUnit u = BattleCalculator.assembleBattleUnit(
                     g.getName(), lvl,
