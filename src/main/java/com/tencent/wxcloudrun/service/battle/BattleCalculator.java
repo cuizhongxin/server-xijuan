@@ -11,20 +11,21 @@ import java.util.*;
  *   攻击(attack)  → 直接加到军队总攻击
  *   防御(defense)  → 直接加到军队总防御
  *
- * 核心公式:
- *   rawDamage     = totalAtk² / (totalAtk + totalDef + 1)
- *   finalDamage   = rawDamage × typeBonus × valorBonus × (1 - commandReduction) × randomFactor
- *   soldierLoss   = max(1, round(finalDamage × KILL_MULTIPLIER / soldierLife))
+ * 核心公式（破防制）:
+ *   netDamage     = max(0, totalAtk - totalDef × 1.25)
+ *   finalDamage   = netDamage × typeBonus × valorBonus × (1 - commandReduction) × randomFactor
+ *   soldierLoss   = finalDamage > 0 ? max(1, round(finalDamage × 100 / soldierLife)) : random(1~5)
  *
- * 兵力不影响伤害输出（无兵力衰减），士兵数量 = 纯血量，归零即阵亡
- * KILL_MULTIPLIER = 30，可调节控制战斗节奏（目标5~8回合）
+ * 攻击只能破 80% 数值的防御（如1000攻只破800防），破不了防则随机1~5微伤
+ * KILL_MULTIPLIER = 100，DEFENSE_FACTOR = 1.25
  */
 public class BattleCalculator {
 
     private static final Random random = new Random();
 
     /** 击杀倍率：控制战斗节奏，目标5~8回合内分出胜负 */
-    public static final int KILL_MULTIPLIER = 30;
+    public static final double DEFENSE_FACTOR = 1.25;
+    public static final int KILL_MULTIPLIER = 100;
 
     // ==================== 兵种基础属性表（来自APK ArmyService.json） ====================
     // [armyType 1=步 2=骑 3=弓][tier 1~10] → {life, att, def, sp, hit, mis}
@@ -193,21 +194,26 @@ public class BattleCalculator {
         double atk = attacker.totalAttack;
         double def = target.totalDefense;
 
-        double rawDamage = atk * atk / (atk + def + 1);
+        double netDamage = Math.max(0, atk - def * DEFENSE_FACTOR);
 
         double typeBonus = getTypeBonus(attacker.troopType, target.troopType);
         double valorBonus = getValorBonus(attacker.valor);
         double commandReduction = getCommandReduction(target.command);
         double randomFactor = 0.95 + random.nextDouble() * 0.10;
 
-        double finalDamage = rawDamage
+        double finalDamage = netDamage
                 * typeBonus
                 * valorBonus
                 * (1.0 - commandReduction)
                 * randomFactor;
 
         int soldierLife = attacker.targetSoldierLife > 0 ? attacker.targetSoldierLife : getSoldierLife(target.troopType, target.soldierTier);
-        int soldierLoss = Math.max(1, (int) Math.round(finalDamage * KILL_MULTIPLIER / Math.max(1, soldierLife)));
+        int soldierLoss;
+        if (finalDamage <= 0) {
+            soldierLoss = 1 + random.nextInt(5);
+        } else {
+            soldierLoss = Math.max(1, (int) Math.round(finalDamage * KILL_MULTIPLIER / Math.max(1, soldierLife)));
+        }
         soldierLoss = Math.min(soldierLoss, target.soldierCount);
 
         boolean isCrit = false;
