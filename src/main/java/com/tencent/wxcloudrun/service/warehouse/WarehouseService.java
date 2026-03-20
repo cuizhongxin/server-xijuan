@@ -405,7 +405,7 @@ public class WarehouseService {
      */
     private Map<String, Object> applyItemEffect(String userId, Warehouse.WarehouseItem item, int count) {
         Map<String, Object> effect = new HashMap<>();
-        UserResource resource = resourceRepository.findByUserId(userId);
+        UserResource resource = userResourceService.getUserResource(userId);
 
         int id = 0;
         try { id = Integer.parseInt(item.getItemId()); } catch (Exception ignored) {}
@@ -489,13 +489,13 @@ public class WarehouseService {
         e.put("message", "获得" + amount + "声望");
     }
     private void addSilverEffect(UserResource r, Map<String, Object> e, long amount) {
-        r.setSilver(r.getSilver() + amount);
+        r.setSilver((r.getSilver() != null ? r.getSilver() : 0L) + amount);
         resourceRepository.save(r);
         e.put("type", "silver"); e.put("gain", amount);
         e.put("message", "获得" + amount + "白银");
     }
     private void addGoldEffect(UserResource r, Map<String, Object> e, long amount) {
-        r.setGold(r.getGold() + amount);
+        r.setGold((r.getGold() != null ? r.getGold() : 0L) + amount);
         resourceRepository.save(r);
         e.put("type", "gold"); e.put("gain", amount);
         e.put("message", "获得" + amount + "黄金");
@@ -517,9 +517,15 @@ public class WarehouseService {
     private void addMaterialEffect(UserResource r, Map<String, Object> e, int matId, long amount) {
         String matName;
         switch (matId) {
-            case 11052: r.setMetal(r.getMetal() + amount); matName = "金属"; break;
-            case 11053: r.setFood(r.getFood() + amount); matName = "粮食"; break;
-            case 11054: r.setPaper(r.getPaper() + amount); matName = "纸张"; break;
+            case 11052:
+                r.setMetal((r.getMetal() != null ? r.getMetal() : 0L) + amount);
+                matName = "金属"; break;
+            case 11053:
+                r.setFood((r.getFood() != null ? r.getFood() : 0L) + amount);
+                matName = "粮食"; break;
+            case 11054:
+                r.setPaper((r.getPaper() != null ? r.getPaper() : 0L) + amount);
+                matName = "纸张"; break;
             default: matName = "资源"; break;
         }
         resourceRepository.save(r);
