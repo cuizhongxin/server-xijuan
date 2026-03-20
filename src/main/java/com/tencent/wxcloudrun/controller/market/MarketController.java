@@ -19,12 +19,13 @@ public class MarketController {
     @GetMapping("/browse")
     public ApiResponse<Map<String, Object>> browse(HttpServletRequest request,
                                                     @RequestParam(defaultValue = "all") String itemType,
+                                                    @RequestParam(defaultValue = "") String keyword,
                                                     @RequestParam(defaultValue = "0") int page) {
-        return ApiResponse.success(marketService.browse(itemType, page));
+        return ApiResponse.success(marketService.browse(itemType, keyword, page));
     }
 
     @GetMapping("/my")
-    public ApiResponse<List<Map<String, Object>>> myListings(HttpServletRequest request) {
+    public ApiResponse<Map<String, Object>> myListings(HttpServletRequest request) {
         return ApiResponse.success(marketService.myListings(getUserId(request)));
     }
 

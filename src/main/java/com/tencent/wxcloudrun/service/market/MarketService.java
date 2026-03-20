@@ -12,6 +12,7 @@ import com.tencent.wxcloudrun.service.warehouse.WarehouseService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -20,7 +21,12 @@ import java.util.*;
 public class MarketService {
 
     private static final Logger logger = LoggerFactory.getLogger(MarketService.class);
-    private static final long COMMISSION_RATE = 1000;
+
+    private static final int MAX_LISTINGS = 10;
+    private static final long MAX_PRICE = 50000;
+    private static final long COMMISSION_RATE = 50;
+    private static final int PAGE_SIZE = 12;
+    private static final long EXPIRE_DAYS = 7;
 
     @Autowired
     private MarketMapper marketMapper;
@@ -32,36 +38,42 @@ public class MarketService {
     private EquipmentRepository equipmentRepository;
 
     /**
-     * 浏览市场（分页）
+     * 浏览市场（分页 + 分类 + 搜索）
      */
-    public Map<String, Object> browse(String itemType, int page) {
-        int pageSize = 12;
-        int offset = page * pageSize;
-        List<Map<String, Object>> listings = marketMapper.findActive(itemType, offset, pageSize);
-        int total = marketMapper.countActive(itemType);
+    public Map<String, Object> browse(String itemType, String keyword, int page) {
+        int offset = page * PAGE_SIZE;
+        String kw = (keyword != null && !keyword.trim().isEmpty()) ? keyword.trim() : null;
+        List<Map<String, Object>> listings = marketMapper.findActive(itemType, kw, offset, PAGE_SIZE);
+        int total = marketMapper.countActive(itemType, kw);
 
         Map<String, Object> result = new HashMap<>();
         result.put("listings", listings);
         result.put("total", total);
         result.put("page", page);
-        result.put("pageSize", pageSize);
-        result.put("totalPages", (total + pageSize - 1) / pageSize);
+        result.put("pageSize", PAGE_SIZE);
+        result.put("totalPages", Math.max(1, (total + PAGE_SIZE - 1) / PAGE_SIZE));
         return result;
     }
 
     /**
      * 我的挂牌
      */
-    public List<Map<String, Object>> myListings(String userId) {
-        return marketMapper.findBySeller(userId, 50);
+    public Map<String, Object> myListings(String userId) {
+        List<Map<String, Object>> listings = marketMapper.findBySeller(userId, 50);
+        int activeCount = marketMapper.countActiveBySeller(userId);
+        Map<String, Object> result = new HashMap<>();
+        result.put("listings", listings);
+        result.put("activeCount", activeCount);
+        result.put("maxListings", MAX_LISTINGS);
+        return result;
     }
 
     /**
      * 挂牌出售装备
      */
     public Map<String, Object> listEquipment(String userId, String equipmentId, long price) {
-        if (price <= 0) throw new BusinessException(400, "售价必须大于0");
-        if (price > 1000000) throw new BusinessException(400, "售价不能超过100万黄金");
+        validateListingPrice(price);
+        checkListingQuota(userId);
 
         Equipment equip = equipmentRepository.findById(equipmentId);
         if (equip == null) throw new BusinessException(400, "装备不存在");
@@ -71,17 +83,13 @@ public class MarketService {
 
         long commission = price * COMMISSION_RATE;
         if (!resourceService.consumeSilver(userId, commission)) {
-            throw new BusinessException(400, "白银不足，佣金需要" + commission + "白银");
+            throw new BusinessException(400, "白银不足，手续费需要" + commission + "银");
         }
 
-        // 从仓库移除
         warehouseService.removeEquipment(userId, equipmentId);
 
         String snapshot = JSON.toJSONString(equip);
-        String sellerName = "主公";
-        UserResource res = resourceService.getUserResource(userId);
-        if (res != null && res.getLevel() != null) sellerName = "Lv." + res.getLevel() + "主公";
-
+        String sellerName = resolveSellerName(userId);
         int qualityId = equip.getQuality() != null && equip.getQuality().getId() != null ? equip.getQuality().getId() : 1;
 
         marketMapper.insertListing(userId, sellerName, "equipment", equipmentId,
@@ -90,13 +98,15 @@ public class MarketService {
                 qualityId, 1, price, commission, snapshot,
                 System.currentTimeMillis());
 
-        logger.info("用户 {} 挂牌装备 [{}] 售价 {} 黄金, 佣金 {} 白银", userId, equip.getName(), price, commission);
+        logger.info("用户 {} 挂牌装备 [{}] 售价 {} 黄金, 手续费 {} 白银", userId, equip.getName(), price, commission);
 
         Map<String, Object> result = new HashMap<>();
         result.put("success", true);
         result.put("commission", commission);
         result.put("price", price);
         result.put("itemName", equip.getName());
+        result.put("activeCount", marketMapper.countActiveBySeller(userId));
+        result.put("maxListings", MAX_LISTINGS);
         return result;
     }
 
@@ -104,8 +114,9 @@ public class MarketService {
      * 挂牌出售道具
      */
     public Map<String, Object> listItem(String userId, String itemId, int count, long price) {
-        if (price <= 0) throw new BusinessException(400, "售价必须大于0");
+        validateListingPrice(price);
         if (count <= 0) throw new BusinessException(400, "数量必须大于0");
+        checkListingQuota(userId);
 
         Warehouse warehouse = warehouseService.getWarehouse(userId);
         Warehouse.WarehouseItem target = null;
@@ -121,46 +132,28 @@ public class MarketService {
 
         long commission = price * COMMISSION_RATE;
         if (!resourceService.consumeSilver(userId, commission)) {
-            throw new BusinessException(400, "白银不足，佣金需要" + commission + "白银");
+            throw new BusinessException(400, "白银不足，手续费需要" + commission + "银");
         }
 
         warehouseService.removeItem(userId, itemId, count);
 
-        String sellerName = "主公";
-        UserResource res = resourceService.getUserResource(userId);
-        if (res != null && res.getLevel() != null) sellerName = "Lv." + res.getLevel() + "主公";
+        String sellerName = resolveSellerName(userId);
+        int qualityVal = resolveQuality(target.getQuality());
 
-        int qualityVal = 1;
-        try {
-            String qStr = target.getQuality();
-            if (qStr != null) {
-                switch (qStr) {
-                    case "绿色": case "优秀": qualityVal = 2; break;
-                    case "蓝色": case "精良": qualityVal = 3; break;
-                    case "紫色": case "史诗": qualityVal = 4; break;
-                    case "橙色": case "传说": qualityVal = 5; break;
-                    case "红色": case "神话": qualityVal = 6; break;
-                    default: qualityVal = 1;
-                }
-            }
-        } catch (Exception e) {
-            logger.error("解析品质异常", e);
-        }
-
-        Map<String, Object> snapshot = new HashMap<>();
-        snapshot.put("itemId", target.getItemId());
-        snapshot.put("name", target.getName());
-        snapshot.put("icon", target.getIcon());
-        snapshot.put("itemType", target.getItemType());
-        snapshot.put("quality", target.getQuality());
-        snapshot.put("count", count);
+        Map<String, Object> snapshotMap = new HashMap<>();
+        snapshotMap.put("itemId", target.getItemId());
+        snapshotMap.put("name", target.getName());
+        snapshotMap.put("icon", target.getIcon());
+        snapshotMap.put("itemType", target.getItemType());
+        snapshotMap.put("quality", target.getQuality());
+        snapshotMap.put("count", count);
 
         marketMapper.insertListing(userId, sellerName, "item", itemId,
                 target.getName(), target.getIcon(), 0, qualityVal, count,
-                price, commission, JSON.toJSONString(snapshot),
+                price, commission, JSON.toJSONString(snapshotMap),
                 System.currentTimeMillis());
 
-        logger.info("用户 {} 挂牌道具 [{}]x{} 售价 {} 黄金, 佣金 {} 白银",
+        logger.info("用户 {} 挂牌道具 [{}]x{} 售价 {} 黄金, 手续费 {} 白银",
                 userId, target.getName(), count, price, commission);
 
         Map<String, Object> result = new HashMap<>();
@@ -168,6 +161,8 @@ public class MarketService {
         result.put("commission", commission);
         result.put("price", price);
         result.put("itemName", target.getName());
+        result.put("activeCount", marketMapper.countActiveBySeller(userId));
+        result.put("maxListings", MAX_LISTINGS);
         return result;
     }
 
@@ -180,23 +175,19 @@ public class MarketService {
         if (!"active".equals(listing.get("status"))) throw new BusinessException(400, "该物品已下架");
 
         String sellerId = (String) listing.get("sellerId");
-        if (buyerId.equals(sellerId)) throw new BusinessException(400, "不能购买自己的物品");
+        if (buyerId.equals(sellerId)) throw new BusinessException(400, "不能购买自己出售的物品");
 
         long price = getLong(listing, "price", 0);
         if (!resourceService.consumeGold(buyerId, price)) {
             throw new BusinessException(400, "黄金不足，需要" + price + "黄金");
         }
 
-        // 黄金转给卖家
         resourceService.addGold(sellerId, price);
 
         String itemType = (String) listing.get("itemType");
         String itemName = (String) listing.get("itemName");
-        String buyerName = "买家";
-        UserResource buyerRes = resourceService.getUserResource(buyerId);
-        if (buyerRes != null && buyerRes.getLevel() != null) buyerName = "Lv." + buyerRes.getLevel() + "主公";
+        String buyerName = resolveSellerName(buyerId);
 
-        // 物品转给买家
         if ("equipment".equals(itemType)) {
             String snapshot = (String) listing.get("itemSnapshot");
             Equipment equip = JSON.parseObject(snapshot, Equipment.class);
@@ -236,7 +227,7 @@ public class MarketService {
     }
 
     /**
-     * 撤销挂牌（退还佣金+物品）
+     * 撤销挂牌（退还佣金 + 物品）
      */
     public Map<String, Object> cancel(String userId, long listingId) {
         Map<String, Object> listing = marketMapper.findById(listingId);
@@ -247,6 +238,82 @@ public class MarketService {
         long commission = getLong(listing, "commission", 0);
         resourceService.addSilver(userId, commission);
 
+        restoreItemToOwner(userId, listing);
+        marketMapper.updateStatus(listingId, "cancelled", null, null, System.currentTimeMillis());
+
+        logger.info("用户 {} 撤销挂牌 {}, 退还手续费 {} 白银", userId, listingId, commission);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("success", true);
+        result.put("commission", commission);
+        result.put("itemName", listing.get("itemName"));
+        return result;
+    }
+
+    /**
+     * 交易记录
+     */
+    public List<Map<String, Object>> getTradeLogs(String userId) {
+        return marketMapper.findTradeLogs(userId, 50);
+    }
+
+    /**
+     * 每小时检查过期挂牌，自动下架并退还物品 + 佣金
+     */
+    @Scheduled(fixedRate = 3600000)
+    public void autoDelistTask() {
+        long expireTime = System.currentTimeMillis() - EXPIRE_DAYS * 24 * 3600 * 1000L;
+        List<Map<String, Object>> expired = marketMapper.findExpiredListings(expireTime, 200);
+        if (expired.isEmpty()) return;
+
+        for (Map<String, Object> listing : expired) {
+            try {
+                String sellerId = (String) listing.get("sellerId");
+                long commission = getLong(listing, "commission", 0);
+                resourceService.addSilver(sellerId, commission);
+                restoreItemToOwner(sellerId, listing);
+            } catch (Exception e) {
+                logger.error("自动下架退还物品失败, listingId={}", listing.get("id"), e);
+            }
+        }
+
+        int count = marketMapper.autoDelistExpired(expireTime, System.currentTimeMillis());
+        logger.info("自动下架过期挂牌 {} 条", count);
+    }
+
+    // ===== 内部方法 =====
+
+    private void validateListingPrice(long price) {
+        if (price <= 0) throw new BusinessException(400, "售价必须大于0");
+        if (price > MAX_PRICE) throw new BusinessException(400, "总价超过上限" + MAX_PRICE / 10000 + "W!");
+    }
+
+    private void checkListingQuota(String userId) {
+        int active = marketMapper.countActiveBySeller(userId);
+        if (active >= MAX_LISTINGS) {
+            throw new BusinessException(400, "挂单数量已满！最多可同时挂" + MAX_LISTINGS + "个出售单");
+        }
+    }
+
+    private String resolveSellerName(String userId) {
+        UserResource res = resourceService.getUserResource(userId);
+        if (res != null && res.getLevel() != null) return "Lv." + res.getLevel() + "主公";
+        return "主公";
+    }
+
+    private int resolveQuality(String qStr) {
+        if (qStr == null) return 1;
+        switch (qStr) {
+            case "绿色": case "优秀": return 2;
+            case "蓝色": case "精良": return 3;
+            case "紫色": case "史诗": return 4;
+            case "橙色": case "传说": return 5;
+            case "红色": case "神话": return 6;
+            default: return 1;
+        }
+    }
+
+    private void restoreItemToOwner(String userId, Map<String, Object> listing) {
         String itemType = (String) listing.get("itemType");
         if ("equipment".equals(itemType)) {
             String snapshot = (String) listing.get("itemSnapshot");
@@ -269,23 +336,6 @@ public class MarketService {
             wItem.setUsable(true);
             warehouseService.addItem(userId, wItem);
         }
-
-        marketMapper.updateStatus(listingId, "cancelled", null, null, System.currentTimeMillis());
-
-        logger.info("用户 {} 撤销挂牌 {}, 退还佣金 {} 白银", userId, listingId, commission);
-
-        Map<String, Object> result = new HashMap<>();
-        result.put("success", true);
-        result.put("commission", commission);
-        result.put("itemName", listing.get("itemName"));
-        return result;
-    }
-
-    /**
-     * 交易记录
-     */
-    public List<Map<String, Object>> getTradeLogs(String userId) {
-        return marketMapper.findTradeLogs(userId, 50);
     }
 
     private long getLong(Map<String, Object> m, String key, long def) {

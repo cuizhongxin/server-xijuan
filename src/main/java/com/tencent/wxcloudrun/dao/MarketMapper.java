@@ -25,10 +25,14 @@ public interface MarketMapper {
     Map<String, Object> findById(@Param("id") long id);
 
     List<Map<String, Object>> findActive(@Param("itemType") String itemType,
+                                          @Param("keyword") String keyword,
                                           @Param("offset") int offset,
                                           @Param("limit") int limit);
 
-    int countActive(@Param("itemType") String itemType);
+    int countActive(@Param("itemType") String itemType,
+                    @Param("keyword") String keyword);
+
+    int countActiveBySeller(@Param("sellerId") String sellerId);
 
     List<Map<String, Object>> findBySeller(@Param("sellerId") String sellerId,
                                             @Param("limit") int limit);
@@ -48,4 +52,8 @@ public interface MarketMapper {
                         @Param("createTime") long createTime);
 
     List<Map<String, Object>> findTradeLogs(@Param("userId") String userId, @Param("limit") int limit);
+
+    int autoDelistExpired(@Param("expireTime") long expireTime, @Param("updateTime") long updateTime);
+
+    List<Map<String, Object>> findExpiredListings(@Param("expireTime") long expireTime, @Param("limit") int limit);
 }

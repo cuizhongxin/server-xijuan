@@ -33,6 +33,9 @@
         <if test="itemType != null and itemType != '' and itemType != 'all'">
             AND item_type = #{itemType}
         </if>
+        <if test="keyword != null and keyword != ''">
+            AND item_name LIKE CONCAT('%', #{keyword}, '%')
+        </if>
         ORDER BY create_time DESC
         LIMIT #{offset}, #{limit}
     </select>
@@ -42,6 +45,14 @@
         <if test="itemType != null and itemType != '' and itemType != 'all'">
             AND item_type = #{itemType}
         </if>
+        <if test="keyword != null and keyword != ''">
+            AND item_name LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+    </select>
+
+    <select id="countActiveBySeller" resultType="int">
+        SELECT COUNT(*) FROM market_listing
+        WHERE seller_id = #{sellerId} AND status = 'active'
     </select>
 
     <select id="findBySeller" resultType="java.util.HashMap">
@@ -74,5 +85,18 @@
         ORDER BY create_time DESC
         LIMIT #{limit}
     </select>
+
+    <select id="findExpiredListings" resultType="java.util.HashMap">
+        SELECT id, seller_id AS sellerId, item_type AS itemType, item_snapshot AS itemSnapshot,
+               item_name AS itemName, item_icon AS itemIcon, item_count AS itemCount, commission
+        FROM market_listing
+        WHERE status = 'active' AND create_time &lt; #{expireTime}
+        LIMIT #{limit}
+    </select>
+
+    <update id="autoDelistExpired">
+        UPDATE market_listing SET status = 'expired', update_time = #{updateTime}
+        WHERE status = 'active' AND create_time &lt; #{expireTime}
+    </update>
 
 </mapper>
