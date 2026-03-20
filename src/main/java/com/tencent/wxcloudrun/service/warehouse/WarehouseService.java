@@ -39,6 +39,9 @@ public class WarehouseService {
     @Autowired
     private PeerageConfigMapper peerageConfigMapper;
     
+    @Autowired
+    private com.tencent.wxcloudrun.service.level.LevelService levelService;
+    
     /**
      * 获取用户仓库
      */
@@ -398,116 +401,135 @@ public class WarehouseService {
     }
     
     /**
-     * 应用物品效果
+     * 应用物品效果 — 按 itemId 精确分发
      */
     private Map<String, Object> applyItemEffect(String userId, Warehouse.WarehouseItem item, int count) {
         Map<String, Object> effect = new HashMap<>();
         UserResource resource = resourceRepository.findByUserId(userId);
-        
-        String itemType = item.getItemType();
-        switch (itemType) {
-            case "stamina": // 体力丹
-                int staminaGain = 20 * count; // 每个回复20体力
-                // 这里可以调用体力服务增加体力
-                effect.put("type", "stamina");
-                effect.put("gain", staminaGain);
-                effect.put("message", "恢复" + staminaGain + "点体力");
-                break;
-                
-            case "exp": // 经验丹
-                int expGain = 100 * count;
-                // 这里可以调用经验服务增加经验
-                effect.put("type", "exp");
-                effect.put("gain", expGain);
-                effect.put("message", "获得" + expGain + "点经验");
-                break;
-                
-            case "resource_wood": // 木材包
-                int woodGain = 1000 * count;
-                resource.setWood(resource.getWood() + woodGain);
+
+        int id = 0;
+        try { id = Integer.parseInt(item.getItemId()); } catch (Exception ignored) {}
+
+        switch (id) {
+            // ═══════ 声望符 ═══════
+            case 11001: addFameEffect(userId, effect, 100L * count); break;
+            case 11002: addFameEffect(userId, effect, 500L * count); break;
+
+            // ═══════ 白银 ═══════
+            case 11011: addSilverEffect(resource, effect, 2000L * count); break;
+            case 11012: addSilverEffect(resource, effect, 10000L * count); break;
+            case 11013: addSilverEffect(resource, effect, 50000L * count); break;
+
+            // ═══════ 黄金 ═══════
+            case 11021: addGoldEffect(resource, effect, 10L * count); break;
+            case 11022: addGoldEffect(resource, effect, 20L * count); break;
+
+            // ═══════ 绑金 ═══════
+            case 11023: addBoundGoldEffect(userId, effect, 30L * count); break;
+            case 11024: addBoundGoldEffect(userId, effect, 50L * count); break;
+
+            // ═══════ 将魂 ═══════
+            case 11026:
+                int soul = 50 * count;
+                resource.setSoulPoint((resource.getSoulPoint() != null ? resource.getSoulPoint() : 0) + soul);
                 resourceRepository.save(resource);
-                effect.put("type", "wood");
-                effect.put("gain", woodGain);
-                effect.put("message", "获得" + woodGain + "木材");
+                effect.put("type", "soul"); effect.put("gain", soul);
+                effect.put("message", "获得" + soul + "将魂");
                 break;
-                
-            case "resource_metal": // 金属包
-                int metalGain = 1000 * count;
-                resource.setMetal(resource.getMetal() + metalGain);
-                resourceRepository.save(resource);
-                effect.put("type", "metal");
-                effect.put("gain", metalGain);
-                effect.put("message", "获得" + metalGain + "金属");
+
+            // ═══════ 君主经验符 ═══════
+            case 11042: addLordExpEffect(userId, effect, 5000L * count); break;
+            case 11043: addLordExpEffect(userId, effect, 20000L * count); break;
+            case 11044: addLordExpEffect(userId, effect, 100000L * count); break;
+            case 11045: addLordExpEffect(userId, effect, 1000000L * count); break;
+
+            // ═══════ 资源包 ═══════
+            case 11052: case 11053: case 11054: addMaterialEffect(resource, effect, id, 2000L * count); break;
+            case 11096: addMaterialEffect(resource, effect, 11052, 20000L * count); break;
+            case 11097: addMaterialEffect(resource, effect, 11053, 50000L * count); break;
+            case 11098: addMaterialEffect(resource, effect, 11054, 50000L * count); break;
+            case 11051: addRandomResourceEffect(resource, effect, 2000L * count); break;
+
+            // ═══════ 粮食包系列 ═══════
+            case 15031: addMaterialEffect(resource, effect, 11053, 1000L * count); break;
+            case 15032: addMaterialEffect(resource, effect, 11053, 2000L * count); break;
+            case 15033: addMaterialEffect(resource, effect, 11053, 3000L * count); break;
+            case 15034: addMaterialEffect(resource, effect, 11053, 5000L * count); break;
+
+            // ═══════ 精力丹 ═══════
+            case 11101:
+                int stGain = 5 * count;
+                userResourceService.addStamina(userId, stGain);
+                effect.put("type", "stamina"); effect.put("gain", stGain);
+                effect.put("message", "恢复" + stGain + "点精力");
                 break;
-                
-            case "resource_food": // 粮食包
-                int foodGain = 1000 * count;
-                resource.setFood(resource.getFood() + foodGain);
-                resourceRepository.save(resource);
-                effect.put("type", "food");
-                effect.put("gain", foodGain);
-                effect.put("message", "获得" + foodGain + "粮食");
+
+            // ═══════ 免战牌 / 恢复符 — 状态效果 ═══════
+            case 11102:
+                effect.put("type", "shield"); effect.put("hours", 2 * count);
+                effect.put("message", "获得" + (2 * count) + "小时免战保护");
                 break;
-                
-            case "silver": // 银两包
-                int silverGain = 10000 * count;
-                resource.setSilver(resource.getSilver() + silverGain);
-                resourceRepository.save(resource);
-                effect.put("type", "silver");
-                effect.put("gain", silverGain);
-                effect.put("message", "获得" + silverGain + "银两");
+            case 11103:
+                effect.put("type", "recovery"); effect.put("times", 20 * count);
+                effect.put("message", "接下来" + (20 * count) + "次战斗自动补兵");
                 break;
-                
-            case "fame_token": // 声望符
-                int itemIdNum = 0;
-                try { itemIdNum = Integer.parseInt(item.getItemId()); } catch (Exception e) { logger.error("解析道具ID异常: {}", item.getItemId(), e); }
-                Map<String, Object> fameConfig = peerageConfigMapper.findFameTokenConfig(itemIdNum);
-                long fameGain = 500;
-                if (fameConfig != null) {
-                    Object fa = fameConfig.get("fameAmount");
-                    if (fa instanceof Number) fameGain = ((Number) fa).longValue();
-                }
-                long totalFame = fameGain * count;
-                userResourceService.addFame(userId, totalFame);
-                effect.put("type", "fame");
-                effect.put("gain", totalFame);
-                effect.put("message", "获得" + totalFame + "声望");
-                break;
-                
+
             default:
-                // 按具体道具ID处理效果
-                String effItemId = item.getItemId();
-                if (effItemId != null) {
-                    switch (effItemId) {
-                        case "14001": // 1级强化石
-                            resource.setEnhanceStone1(resource.getEnhanceStone1() + count);
-                            resourceRepository.save(resource);
-                            effect.put("type", "enhance_stone");
-                            effect.put("message", "获得" + count + "个1级强化石");
-                            break;
-                        case "15011": // 初级令牌
-                            resource.setJuniorToken(resource.getJuniorToken() + count);
-                            resourceRepository.save(resource);
-                            effect.put("type", "token");
-                            effect.put("message", "获得" + count + "个初级令牌");
-                            break;
-                        case "15001": // 合成卷轴
-                            resource.setMergeScroll(resource.getMergeScroll() + count);
-                            resourceRepository.save(resource);
-                            effect.put("type", "merge_scroll");
-                            effect.put("message", "获得" + count + "个合成卷轴");
-                            break;
-                        default:
-                            effect.put("type", "generic");
-                            effect.put("message", "使用了" + item.getName() + "x" + count);
-                    }
-                } else {
-                    effect.put("type", "unknown");
-                    effect.put("message", "使用了" + item.getName() + "x" + count);
-                }
+                effect.put("type", "generic");
+                effect.put("message", "使用了" + item.getName() + " x" + count);
+                break;
         }
-        
+
         return effect;
+    }
+
+    private void addFameEffect(String userId, Map<String, Object> e, long amount) {
+        userResourceService.addFame(userId, amount);
+        e.put("type", "fame"); e.put("gain", amount);
+        e.put("message", "获得" + amount + "声望");
+    }
+    private void addSilverEffect(UserResource r, Map<String, Object> e, long amount) {
+        r.setSilver(r.getSilver() + amount);
+        resourceRepository.save(r);
+        e.put("type", "silver"); e.put("gain", amount);
+        e.put("message", "获得" + amount + "白银");
+    }
+    private void addGoldEffect(UserResource r, Map<String, Object> e, long amount) {
+        r.setGold(r.getGold() + amount);
+        resourceRepository.save(r);
+        e.put("type", "gold"); e.put("gain", amount);
+        e.put("message", "获得" + amount + "黄金");
+    }
+    private void addBoundGoldEffect(String userId, Map<String, Object> e, long amount) {
+        userResourceService.addBoundGold(userId, amount);
+        e.put("type", "boundGold"); e.put("gain", amount);
+        e.put("message", "获得" + amount + "绑金");
+    }
+    private void addLordExpEffect(String userId, Map<String, Object> e, long amount) {
+        Map<String, Object> levelResult = levelService.addExp(userId, amount, "使用经验符");
+        e.put("type", "lordExp"); e.put("gain", amount);
+        e.put("message", "获得" + amount + "君主经验");
+        if (levelResult != null && Boolean.TRUE.equals(levelResult.get("levelUp"))) {
+            e.put("levelUp", true);
+            e.put("newLevel", levelResult.get("newLevel"));
+        }
+    }
+    private void addMaterialEffect(UserResource r, Map<String, Object> e, int matId, long amount) {
+        String matName;
+        switch (matId) {
+            case 11052: r.setMetal(r.getMetal() + amount); matName = "金属"; break;
+            case 11053: r.setFood(r.getFood() + amount); matName = "粮食"; break;
+            case 11054: r.setPaper(r.getPaper() + amount); matName = "纸张"; break;
+            default: matName = "资源"; break;
+        }
+        resourceRepository.save(r);
+        e.put("type", "material"); e.put("gain", amount);
+        e.put("message", "获得" + amount + matName);
+    }
+    private void addRandomResourceEffect(UserResource r, Map<String, Object> e, long amount) {
+        int[] matIds = {11052, 11053, 11054};
+        int pick = matIds[new java.util.Random().nextInt(matIds.length)];
+        addMaterialEffect(r, e, pick, amount);
     }
     
     /**
