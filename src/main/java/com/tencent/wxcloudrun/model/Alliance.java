@@ -19,6 +19,7 @@ public class Alliance {
     
     private String id;
     private String name;                    // 联盟名称
+    private String faction;                 // 所属国家: WEI/SHU/WU
     private String leaderId;                // 盟主用户ID
     private String leaderName;              // 盟主名称
     private Integer level;                  // 联盟等级
@@ -48,6 +49,9 @@ public class Alliance {
         private String role;                // 角色：leader/officer/member
         private Integer level;              // 等级
         private Long contribution;          // 累计贡献
+        private Integer warScore;           // 本期盟战积分
+        private Integer lastWarScore;       // 上期盟战积分
+        private Long lastLoginTime;         // 最后登录时间
         private Long joinTime;              // 加入时间
     }
     
@@ -78,10 +82,11 @@ public class Alliance {
     /**
      * 创建新联盟
      */
-    public static Alliance create(String name, String leaderId, String leaderName, Integer leaderLevel) {
+    public static Alliance create(String name, String leaderId, String leaderName, Integer leaderLevel, String faction) {
         Alliance alliance = Alliance.builder()
                 .id("alliance_" + System.currentTimeMillis())
                 .name(name)
+                .faction(faction)
                 .leaderId(leaderId)
                 .leaderName(leaderName)
                 .notice("欢迎加入" + name + "！")

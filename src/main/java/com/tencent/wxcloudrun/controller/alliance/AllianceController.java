@@ -142,7 +142,8 @@ public class AllianceController {
             Long playerPower = body.get("playerPower") != null ? 
                     ((Number) body.get("playerPower")).longValue() : 0L;
             
-            allianceService.applyToJoin(odUserId, playerName, allianceId, playerLevel, playerPower);
+            String faction = (String) body.get("faction");
+            allianceService.applyToJoin(odUserId, playerName, allianceId, playerLevel, playerPower, faction);
             
             Map<String, Object> data = new HashMap<>();
             data.put("message", "申请已提交，请等待审核");
@@ -324,6 +325,23 @@ public class AllianceController {
             return ApiResponse.success(data);
         } catch (Exception e) {
             log.error("获取申请列表异常", e);
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 弹劾盟主
+     */
+    @PostMapping("/impeach")
+    public ApiResponse<Map<String, Object>> impeachLeader(HttpServletRequest request) {
+        try {
+            String odUserId = getUserId(request);
+            allianceService.impeachLeader(odUserId);
+            Map<String, Object> data = new HashMap<>();
+            data.put("message", "弹劾成功，您已成为新盟主");
+            return ApiResponse.success(data);
+        } catch (Exception e) {
+            log.error("弹劾盟主异常", e);
             return ApiResponse.error(e.getMessage());
         }
     }

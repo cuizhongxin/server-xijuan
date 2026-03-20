@@ -36,6 +36,9 @@ public class AllianceService {
         return result != null ? result : new ArrayList<>();
     }
     
+    private static final int IMPEACH_OFFLINE_DAYS = 3;
+    private static final int IMPEACH_MIN_WAR_SCORE = 100;
+
     public Alliance createAlliance(String userId, String playerName, String allianceName,
                                    String faction, Integer playerLevel, Long playerPower) {
         if (allianceMapper.userAllianceExists(userId) > 0) {
@@ -46,7 +49,7 @@ public class AllianceService {
             throw new BusinessException("联盟名称已存在");
         }
         
-        Alliance alliance = Alliance.create(allianceName, userId, playerName, playerLevel);
+        Alliance alliance = Alliance.create(allianceName, userId, playerName, playerLevel, faction);
         saveAlliance(alliance);
         if (alliance.getMembers() != null) {
             for (AllianceMember m : alliance.getMembers()) {
@@ -61,6 +64,7 @@ public class AllianceService {
     
     public List<Alliance> getAllianceList(String faction) {
         return loadAllAlliances().stream()
+                .filter(a -> faction == null || faction.isEmpty() || faction.equals(a.getFaction()))
                 .sorted((a, b) -> Integer.compare(
                     b.getMembers() != null ? b.getMembers().size() : 0,
                     a.getMembers() != null ? a.getMembers().size() : 0))
@@ -80,12 +84,16 @@ public class AllianceService {
     }
     
     public void applyToJoin(String userId, String playerName, String allianceId,
-                           Integer playerLevel, Long playerPower) {
+                           Integer playerLevel, Long playerPower, String playerFaction) {
         if (allianceMapper.userAllianceExists(userId) > 0) {
             throw new BusinessException("您已加入联盟，请先退出当前联盟");
         }
         Alliance alliance = loadAlliance(allianceId);
         if (alliance == null) { throw new BusinessException("联盟不存在"); }
+        if (alliance.getFaction() != null && playerFaction != null
+                && !alliance.getFaction().equals(playerFaction)) {
+            throw new BusinessException("只能加入与自己同一国家的联盟");
+        }
         int memberCount = alliance.getMembers() != null ? alliance.getMembers().size() : 0;
         if (memberCount >= alliance.getMaxMembers()) { throw new BusinessException("联盟成员已满"); }
         
@@ -258,9 +266,71 @@ public class AllianceService {
         }
     }
     
+    public void impeachLeader(String userId) {
+        String allianceId = allianceMapper.findAllianceIdByUserId(userId);
+        if (allianceId == null) { throw new BusinessException("您未加入任何联盟"); }
+        Alliance alliance = loadAlliance(allianceId);
+        if (alliance == null) { throw new BusinessException("联盟不存在"); }
+        if (alliance.getLeaderId().equals(userId)) { throw new BusinessException("不能弹劾自己"); }
+
+        AllianceMember impeacher = alliance.getMembers().stream()
+                .filter(m -> m.getUserId().equals(userId)).findFirst().orElse(null);
+        if (impeacher == null) { throw new BusinessException("您不是该联盟成员"); }
+
+        int myScore = impeacher.getWarScore() != null ? impeacher.getWarScore() : 0;
+        if (myScore < IMPEACH_MIN_WAR_SCORE) {
+            throw new BusinessException("盟战积分达" + IMPEACH_MIN_WAR_SCORE + "才可弹劾盟主!");
+        }
+
+        AllianceMember leader = alliance.getMembers().stream()
+                .filter(m -> m.getUserId().equals(alliance.getLeaderId())).findFirst().orElse(null);
+        if (leader == null) { throw new BusinessException("盟主数据异常"); }
+
+        long lastLogin = leader.getLastLoginTime() != null ? leader.getLastLoginTime() : System.currentTimeMillis();
+        long offlineDays = (System.currentTimeMillis() - lastLogin) / (1000L * 60 * 60 * 24);
+        if (offlineDays < IMPEACH_OFFLINE_DAYS) {
+            throw new BusinessException("盟主" + IMPEACH_OFFLINE_DAYS + "天未登录才可被弹劾!");
+        }
+
+        String oldLeaderId = alliance.getLeaderId();
+        for (AllianceMember m : alliance.getMembers()) {
+            if (m.getUserId().equals(oldLeaderId)) { m.setRole(Role.MEMBER); allianceMapper.insertMember(allianceId, m); }
+            else if (m.getUserId().equals(userId)) { m.setRole(Role.LEADER); allianceMapper.insertMember(allianceId, m); }
+        }
+        alliance.setLeaderId(userId);
+        alliance.setLeaderName(impeacher.getName());
+        alliance.setUpdateTime(System.currentTimeMillis());
+        saveAlliance(alliance);
+        log.info("联盟 {} 盟主被弹劾，{} -> {}", alliance.getName(), oldLeaderId, userId);
+    }
+
+    public void updateMemberLogin(String userId) {
+        String allianceId = allianceMapper.findAllianceIdByUserId(userId);
+        if (allianceId != null) {
+            allianceMapper.updateMemberLastLogin(allianceId, userId, System.currentTimeMillis());
+        }
+    }
+
+    public void addWarScore(String userId, int score) {
+        String allianceId = allianceMapper.findAllianceIdByUserId(userId);
+        if (allianceId != null) {
+            Alliance alliance = loadAlliance(allianceId);
+            if (alliance != null && alliance.getMembers() != null) {
+                AllianceMember m = alliance.getMembers().stream()
+                        .filter(mem -> mem.getUserId().equals(userId)).findFirst().orElse(null);
+                if (m != null) {
+                    int newScore = (m.getWarScore() != null ? m.getWarScore() : 0) + score;
+                    allianceMapper.updateMemberWarScore(allianceId, userId, newScore);
+                }
+            }
+        }
+    }
+
     private void createTestAlliance(String name, String leaderName, int memberCount) {
         String leaderId = "test_leader_" + name;
-        Alliance alliance = Alliance.create(name, leaderId, leaderName, 60);
+        String[] factions = {"WEI", "SHU", "WU"};
+        String faction = factions[Math.abs(name.hashCode()) % factions.length];
+        Alliance alliance = Alliance.create(name, leaderId, leaderName, 60, faction);
         saveAlliance(alliance);
         if (alliance.getMembers() != null) {
             for (AllianceMember m : alliance.getMembers()) {

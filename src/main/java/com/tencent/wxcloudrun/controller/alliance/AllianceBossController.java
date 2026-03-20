@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -47,6 +48,20 @@ public class AllianceBossController {
             return ApiResponse.success(allianceBossService.feed(userId, amount));
         } catch (Exception e) {
             logger.error("投喂联盟Boss异常", e);
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
+    @PostMapping("/feed-equip")
+    @SuppressWarnings("unchecked")
+    public ApiResponse<Map<String, Object>> feedWithEquipment(@RequestBody Map<String, Object> body,
+                                                              HttpServletRequest request) {
+        try {
+            String userId = getUserId(request);
+            List<String> equipmentIds = (List<String>) body.get("equipmentIds");
+            return ApiResponse.success(allianceBossService.feedWithEquipment(userId, equipmentIds));
+        } catch (Exception e) {
+            logger.error("装备喂养联盟Boss异常", e);
             return ApiResponse.error(e.getMessage());
         }
     }

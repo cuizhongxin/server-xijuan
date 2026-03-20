@@ -39,4 +39,10 @@ public interface AllianceMapper {
     void deleteUserAllianceByAllianceId(@Param("allianceId") String allianceId);
     
     int userAllianceExists(@Param("userId") String userId);
+
+    void updateMemberWarScore(@Param("allianceId") String allianceId, @Param("userId") String userId, @Param("warScore") int warScore);
+
+    void rolloverWarScores(@Param("allianceId") String allianceId);
+
+    void updateMemberLastLogin(@Param("allianceId") String allianceId, @Param("userId") String userId, @Param("loginTime") long loginTime);
 }

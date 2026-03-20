@@ -1,7 +1,9 @@
 package com.tencent.wxcloudrun.service.alliance;
 
 import com.tencent.wxcloudrun.dao.AllianceBossMapper;
+import com.tencent.wxcloudrun.dao.EquipmentMapper;
 import com.tencent.wxcloudrun.exception.BusinessException;
+import com.tencent.wxcloudrun.model.Equipment;
 import com.tencent.wxcloudrun.model.General;
 import com.tencent.wxcloudrun.service.UserResourceService;
 import com.tencent.wxcloudrun.service.SuitConfigService;
@@ -24,6 +26,11 @@ public class AllianceBossService {
 
     private static final int MAX_DAILY_ATTACKS = 3;
     private static final int FEED_COST_GOLD = 100;
+    private static final int MIN_FEED_QUALITY = 3;
+    private static final int SUMMON_MIN_HOUR = 20;
+    private static final int SUMMON_MIN_MINUTE = 0;
+    private static final int SUMMON_MAX_HOUR = 22;
+    private static final int SUMMON_MAX_MINUTE = 0;
 
     private static final String[][] BOSS_TABLE = {
             {"远古巨兽", "1000000"},
@@ -35,6 +42,9 @@ public class AllianceBossService {
 
     @Autowired
     private AllianceBossMapper bossMapper;
+
+    @Autowired
+    private EquipmentMapper equipmentMapper;
 
     @Autowired
     private UserResourceService userResourceService;
@@ -62,6 +72,8 @@ public class AllianceBossService {
         if (boss == null) {
             throw new BusinessException(500, "Boss数据异常");
         }
+        boss.put("summonTime", String.format("%02d:%02d-%02d:%02d",
+                SUMMON_MIN_HOUR, SUMMON_MIN_MINUTE, SUMMON_MAX_HOUR, SUMMON_MAX_MINUTE));
         return boss;
     }
 
@@ -108,6 +120,62 @@ public class AllianceBossService {
     }
 
     @Transactional
+    public Map<String, Object> feedWithEquipment(String userId, List<String> equipmentIds) {
+        if (equipmentIds == null || equipmentIds.isEmpty()) {
+            throw new BusinessException(400, "请先选择喂养材料!");
+        }
+
+        Map<String, Object> boss = bossMapper.findCurrentBoss();
+        if (boss == null) {
+            throw new BusinessException(500, "Boss数据异常");
+        }
+
+        long bossId = ((Number) boss.get("id")).longValue();
+        String status = (String) boss.get("status");
+        if ("active".equals(status) || "fighting".equals(status)) {
+            throw new BusinessException(400, "Boss已激活，无需继续投喂");
+        }
+
+        int totalValue = 0;
+        List<String> consumedNames = new ArrayList<>();
+        for (String eqId : equipmentIds) {
+            Equipment eq = equipmentMapper.findById(eqId);
+            if (eq == null) continue;
+            if (!userId.equals(eq.getUserId())) continue;
+            int qualityId = (eq.getQuality() != null && eq.getQuality().getId() != null)
+                    ? eq.getQuality().getId() : (eq.getQualityValue() != null ? eq.getQualityValue() : 1);
+            if (qualityId < MIN_FEED_QUALITY) continue;
+            int value = qualityId * 10;
+            totalValue += value;
+            consumedNames.add(eq.getName());
+            equipmentMapper.deleteById(eqId);
+        }
+
+        if (totalValue <= 0) {
+            throw new BusinessException(400, "没有可喂养的装备(需蓝色品质以上)");
+        }
+
+        bossMapper.incrementFeed(bossId, totalValue);
+        bossMapper.insertRecord(userId, "feed_equip", 0, totalValue);
+
+        int feedCount = ((Number) boss.get("feedCount")).intValue() + totalValue;
+        int feedTarget = ((Number) boss.get("feedTarget")).intValue();
+
+        if (feedCount >= feedTarget) {
+            bossMapper.updateBossStatus(bossId, "active");
+            logger.info("联盟Boss已激活(装备喂养)! 进度 {}/{}", feedCount, feedTarget);
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("feedValue", totalValue);
+        result.put("consumedCount", consumedNames.size());
+        result.put("feedCount", feedCount);
+        result.put("feedTarget", feedTarget);
+        result.put("activated", feedCount >= feedTarget);
+        return result;
+    }
+
+    @Transactional
     public Map<String, Object> call(String userId) {
         Map<String, Object> boss = bossMapper.findCurrentBoss();
         if (boss == null) {
@@ -119,12 +187,25 @@ public class AllianceBossService {
             throw new BusinessException(400, "Boss未激活，无法召唤");
         }
 
+        Calendar cal = Calendar.getInstance();
+        int hour = cal.get(Calendar.HOUR_OF_DAY);
+        int minute = cal.get(Calendar.MINUTE);
+        int nowTime = hour * 100 + minute;
+        int minTime = SUMMON_MIN_HOUR * 100 + SUMMON_MIN_MINUTE;
+        int maxTime = SUMMON_MAX_HOUR * 100 + SUMMON_MAX_MINUTE;
+        if (nowTime < minTime || nowTime > maxTime) {
+            throw new BusinessException(400, String.format("召唤时间为每天%02d:%02d-%02d:%02d",
+                    SUMMON_MIN_HOUR, SUMMON_MIN_MINUTE, SUMMON_MAX_HOUR, SUMMON_MAX_MINUTE));
+        }
+
         long bossId = ((Number) boss.get("id")).longValue();
         bossMapper.updateBossStatus(bossId, "fighting");
 
         Map<String, Object> result = new HashMap<>();
         result.put("message", "Boss战斗已开始!");
         result.put("boss", bossMapper.findCurrentBoss());
+        result.put("summonTime", String.format("%02d:%02d-%02d:%02d",
+                SUMMON_MIN_HOUR, SUMMON_MIN_MINUTE, SUMMON_MAX_HOUR, SUMMON_MAX_MINUTE));
         return result;
     }
 

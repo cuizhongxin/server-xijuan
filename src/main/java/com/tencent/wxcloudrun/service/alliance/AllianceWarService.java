@@ -11,6 +11,7 @@ import com.tencent.wxcloudrun.service.SuitConfigService;
 import com.tencent.wxcloudrun.service.battle.BattleCalculator;
 import com.tencent.wxcloudrun.service.battle.BattleService;
 import com.tencent.wxcloudrun.service.formation.FormationService;
+import com.tencent.wxcloudrun.service.mail.MailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +21,7 @@ import org.springframework.stereotype.Service;
 import javax.annotation.PostConstruct;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.LinkedHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -43,6 +45,9 @@ public class AllianceWarService {
 
     @Autowired
     private SuitConfigService suitConfigService;
+
+    @Autowired
+    private MailService mailService;
     
     // 今日盟战（内存缓存，同时持久化到数据库）
     private AllianceWar todayWar;
@@ -494,6 +499,81 @@ public class AllianceWarService {
     
     private void distributeRewards() {
         log.info("发放盟战奖励...");
+
+        for (WarParticipant p : todayWar.getParticipants()) {
+            if (p.getOdUserId() == null || p.getOdUserId().startsWith("NPC_")) continue;
+            try {
+                mailService.sendSystemMail(p.getOdUserId(), "盟战参战奖励",
+                        "感谢参与盟战，获得盟战礼盒x1", buildRewardAttachments("盟战礼盒", 11062, 1));
+                allianceService.addWarScore(p.getOdUserId(), 10 + p.getWins() * 5);
+            } catch (Exception e) {
+                log.warn("发放参战奖励失败: {}", p.getOdUserId(), e);
+            }
+        }
+
+        if (todayWar.getPlayerRanks() != null) {
+            for (int i = 0; i < Math.min(5, todayWar.getPlayerRanks().size()); i++) {
+                PlayerRank pr = todayWar.getPlayerRanks().get(i);
+                if (pr.getOdUserId() == null || pr.getOdUserId().startsWith("NPC_")) continue;
+                int boxCount = 5 - i;
+                int goldAmount = 2000 - i * 300;
+                try {
+                    List<Map<String, Object>> atts = new ArrayList<>();
+                    atts.addAll(buildRewardAttachments("盟战宝箱", 11061, boxCount));
+                    atts.addAll(buildRewardAttachments("黄金", 1, goldAmount));
+                    mailService.sendSystemMail(pr.getOdUserId(), "盟战个人排名奖励",
+                            "恭喜获得盟战个人排名第" + (i + 1) + "名!", atts);
+                } catch (Exception e) {
+                    log.warn("发放个人排名奖励失败: {}", pr.getOdUserId(), e);
+                }
+            }
+        }
+
+        if (todayWar.getAllianceRanks() != null) {
+            for (AllianceRank ar : todayWar.getAllianceRanks()) {
+                int rank = ar.getRank();
+                List<Map<String, Object>> allianceAtts = new ArrayList<>();
+                if (rank <= 3) {
+                    int boxCount = rank == 1 ? 5 : (rank == 2 ? 3 : 2);
+                    int goldAmount = rank == 1 ? 5000 : (rank == 2 ? 3000 : 2000);
+                    allianceAtts.addAll(buildRewardAttachments("盟战宝箱", 11061, boxCount));
+                    allianceAtts.addAll(buildRewardAttachments("黄金", 1, goldAmount));
+                } else if (rank <= 5) {
+                    allianceAtts.addAll(buildRewardAttachments("盟战宝箱", 11061, 1));
+                    allianceAtts.addAll(buildRewardAttachments("黄金", 1, 1000));
+                }
+
+                if (ar.getTotalFlags() > 0) {
+                    allianceAtts.addAll(buildRewardAttachments("资源礼包", 11051, ar.getTotalFlags()));
+                }
+
+                for (WarParticipant p : todayWar.getParticipants()) {
+                    if (p.getAllianceId().equals(ar.getAllianceId())
+                            && p.getOdUserId() != null && !p.getOdUserId().startsWith("NPC_")) {
+                        try {
+                            if (!allianceAtts.isEmpty()) {
+                                mailService.sendSystemMail(p.getOdUserId(), "盟战联盟排名奖励",
+                                        "您的联盟[" + ar.getAllianceName() + "]获得盟战第" + rank + "名!", allianceAtts);
+                            }
+                        } catch (Exception e) {
+                            log.warn("发放联盟排名奖励失败: {}", p.getOdUserId(), e);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private List<Map<String, Object>> buildRewardAttachments(String itemName, int itemId, int count) {
+        List<Map<String, Object>> list = new ArrayList<>();
+        Map<String, Object> att = new LinkedHashMap<>();
+        att.put("itemType", "item");
+        att.put("itemId", itemId);
+        att.put("itemName", itemName);
+        att.put("itemCount", count);
+        att.put("claimed", 0);
+        list.add(att);
+        return list;
     }
     
     public List<WarBattle> getBattleHistory(String odUserId) {
