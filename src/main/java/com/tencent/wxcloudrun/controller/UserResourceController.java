@@ -58,6 +58,7 @@ public class UserResourceController {
         
         Map<String, Object> summary = new HashMap<>();
         summary.put("gold", resource.getGold());
+        summary.put("boundGold", resource.getBoundGold() != null ? resource.getBoundGold() : 0L);
         summary.put("silver", resource.getSilver());
         summary.put("diamond", resource.getDiamond());
         summary.put("stamina", resource.getStamina());
