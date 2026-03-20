@@ -36,7 +36,7 @@ public class FormationRepository {
      * 初始化用户阵型（6个空槽位）
      */
     public Formation initFormation(String odUserId) {
-        String formationId = "formation_" + UUID.randomUUID().toString().substring(0, 8);
+        String formationId = "formation_" + odUserId;
         
         List<Formation.FormationSlot> slots = new ArrayList<>();
         for (int i = 0; i < 6; i++) {
@@ -61,6 +61,7 @@ public class FormationRepository {
             .build();
         
         formationMapper.upsertFormation(formation);
+        formationMapper.deleteSlotsByFormationId(formationId);
         formationMapper.insertSlots(formationId, slots);
         return formation;
     }

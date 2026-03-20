@@ -35,9 +35,11 @@
                s.general_avatar AS slot_avatar, s.mobility AS slot_mobility
         FROM formation f
         LEFT JOIN formation_slot s ON f.id = s.formation_id
-        WHERE f.od_user_id = #{odUserId}
+        WHERE f.id = (
+            SELECT id FROM formation WHERE od_user_id = #{odUserId}
+            ORDER BY update_time DESC LIMIT 1
+        )
         ORDER BY s.position
-        LIMIT 7
     </select>
 
     <insert id="upsertFormation">
