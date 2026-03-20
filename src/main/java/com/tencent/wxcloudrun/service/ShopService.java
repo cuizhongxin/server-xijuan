@@ -89,10 +89,13 @@ public class ShopService {
         
         // 根据货币类型扣费
         boolean success;
+        boolean usedBoundGold = false;
         String currencyType = goods.getCurrency();
         switch (currencyType) {
             case "gold":
-                success = userResourceService.consumeGold(userId, totalPrice);
+                long[] result0 = userResourceService.consumeGoldPreferBound(userId, totalPrice);
+                success = result0[0] == 1;
+                usedBoundGold = result0[1] > 0;
                 break;
             case "silver":
                 success = userResourceService.consumeSilver(userId, totalPrice);
@@ -109,8 +112,8 @@ public class ShopService {
             throw new BusinessException(400, currencyName + "不足，需要" + totalPrice);
         }
         
-        // 道具放入仓库
-        String deliveredItems = deliverToWarehouse(userId, goods, item, count);
+        // 道具放入仓库（绑金购买的物品标记为绑定）
+        String deliveredItems = deliverToWarehouse(userId, goods, item, count, usedBoundGold);
         
         logger.info("用户 {} 购买商品 [{}] x{}, 花费 {} {}, 道具 [{}](item_id={}) 已放入仓库",
                 userId, goods.getName(), count, totalPrice, currencyType, item.getItemName(), item.getItemId());
@@ -125,8 +128,10 @@ public class ShopService {
         result.put("totalPrice", totalPrice);
         result.put("currency", currencyType);
         result.put("remainingGold", resource.getGold());
+        result.put("remainingBoundGold", resource.getBoundGold());
         result.put("remainingSilver", resource.getSilver());
         result.put("remainingDiamond", resource.getDiamond());
+        result.put("itemBound", usedBoundGold);
         result.put("deliveredItems", deliveredItems);
         return result;
     }
@@ -156,7 +161,7 @@ public class ShopService {
      * @param count 购买数量
      * @return 发放描述（用于前端展示）
      */
-    private String deliverToWarehouse(String userId, Shop goods, Item item, int count) {
+    private String deliverToWarehouse(String userId, Shop goods, Item item, int count, boolean bound) {
         // 用 item_id 作为仓库物品的唯一标识，保证同一道具可以堆叠
         String warehouseItemId = String.valueOf(item.getItemId());
         
@@ -178,6 +183,7 @@ public class ShopService {
                 .maxStack(9999)
                 .description(itemDesc)
                 .usable(true)
+                .bound(bound)
                 .build();
         
         warehouseService.addItem(userId, warehouseItem);

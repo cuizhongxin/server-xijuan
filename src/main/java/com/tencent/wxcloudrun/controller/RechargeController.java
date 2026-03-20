@@ -156,4 +156,29 @@ public class RechargeController {
         Map<String, Object> result = rechargeService.mockPayment(orderId);
         return ApiResponse.success(result);
     }
+
+    @GetMapping("/first-recharge")
+    public ApiResponse<Map<String, Object>> getFirstRechargeInfo(HttpServletRequest request) {
+        String userId = String.valueOf(request.getAttribute("userId"));
+        return ApiResponse.success(rechargeService.getFirstRechargeInfo(userId));
+    }
+
+    @PostMapping("/first-recharge/claim")
+    public ApiResponse<Map<String, Object>> claimFirstRecharge(@RequestBody Map<String, String> body, HttpServletRequest request) {
+        String userId = String.valueOf(request.getAttribute("userId"));
+        return ApiResponse.success(rechargeService.claimFirstRechargeBonus(userId, body.get("productId")));
+    }
+
+    @GetMapping("/activity")
+    public ApiResponse<Map<String, Object>> getActivityInfo(HttpServletRequest request) {
+        String userId = String.valueOf(request.getAttribute("userId"));
+        return ApiResponse.success(rechargeService.getRechargeActivityInfo(userId));
+    }
+
+    @PostMapping("/activity/claim")
+    public ApiResponse<Map<String, Object>> claimActivityReward(@RequestBody Map<String, Object> body, HttpServletRequest request) {
+        String userId = String.valueOf(request.getAttribute("userId"));
+        int tierId = body.get("tierId") instanceof Number ? ((Number) body.get("tierId")).intValue() : Integer.parseInt(String.valueOf(body.get("tierId")));
+        return ApiResponse.success(rechargeService.claimActivityReward(userId, tierId));
+    }
 }

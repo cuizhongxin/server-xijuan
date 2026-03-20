@@ -80,7 +80,40 @@ public class UserResourceService {
         resourceRepository.save(resource);
         logger.info("用户 {} 增加黄金 {}, 现有 {}", odUserId, amount, resource.getGold());
     }
-    
+
+    /**
+     * 增加绑金
+     */
+    public void addBoundGold(String odUserId, long amount) {
+        UserResource resource = getUserResource(odUserId);
+        long cur = resource.getBoundGold() != null ? resource.getBoundGold() : 0L;
+        resource.setBoundGold(cur + amount);
+        resourceRepository.save(resource);
+        logger.info("用户 {} 增加绑金 {}, 现有 {}", odUserId, amount, resource.getBoundGold());
+    }
+
+    /**
+     * 消耗黄金（优先扣绑金，再扣普通黄金）。
+     * 用于商城、秘境等允许绑金的场景。
+     * @return [0]=是否成功, [1]=本次消耗的绑金数, [2]=本次消耗的普通黄金数
+     */
+    public long[] consumeGoldPreferBound(String odUserId, long amount) {
+        UserResource resource = getUserResource(odUserId);
+        long bound = resource.getBoundGold() != null ? resource.getBoundGold() : 0L;
+        long gold  = resource.getGold() != null ? resource.getGold() : 0L;
+        if (bound + gold < amount) {
+            return new long[]{0, 0, 0};
+        }
+        long boundUsed = Math.min(bound, amount);
+        long goldUsed  = amount - boundUsed;
+        resource.setBoundGold(bound - boundUsed);
+        resource.setGold(gold - goldUsed);
+        resourceRepository.save(resource);
+        logger.info("用户 {} 消耗黄金 {}(绑金{} + 普通黄金{}), 剩余 绑金{} 黄金{}",
+                odUserId, amount, boundUsed, goldUsed, resource.getBoundGold(), resource.getGold());
+        return new long[]{1, boundUsed, goldUsed};
+    }
+
     /**
      * 消耗白银
      */

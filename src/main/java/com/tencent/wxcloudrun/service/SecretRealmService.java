@@ -164,11 +164,15 @@ public class SecretRealmService {
         if (count == 50) discount = 0.9;
         int totalCost = (int) Math.floor(costGold * count * discount);
 
-        if (resource.getGold() < totalCost) {
-            throw new BusinessException(400, "黄金不足，需要" + totalCost + "黄金");
+        long bound = resource.getBoundGold() != null ? resource.getBoundGold() : 0L;
+        long gold  = resource.getGold() != null ? resource.getGold() : 0L;
+        if (bound + gold < totalCost) {
+            throw new BusinessException(400, "黄金不足，需要" + totalCost + "黄金(当前黄金" + gold + "+绑金" + bound + ")");
         }
-
-        resource.setGold(resource.getGold() - totalCost);
+        long boundUsed = Math.min(bound, totalCost);
+        long goldUsed  = totalCost - boundUsed;
+        resource.setBoundGold(bound - boundUsed);
+        resource.setGold(gold - goldUsed);
         resourceRepository.save(resource);
 
         // 从数据库加载装备池和道具池
@@ -264,6 +268,7 @@ public class SecretRealmService {
                     wItem.setMaxStack(99);
                     wItem.setUsable(!"material".equals(subType));
                     wItem.setDescription(desc);
+                    wItem.setBound(true);
                     pendingItems.put(itemId, wItem);
                 }
             }
@@ -292,6 +297,7 @@ public class SecretRealmService {
         result.setSuccess(true);
         result.setTotalCost(totalCost);
         result.setRemainingGold(resource.getGold() != null ? resource.getGold().intValue() : 0);
+        result.setRemainingBoundGold(resource.getBoundGold() != null ? resource.getBoundGold().intValue() : 0);
         result.setItems(resultItems);
         result.setPityCount(countSinceEquip);
         result.setPityLimit(pityCount);
@@ -502,6 +508,7 @@ public class SecretRealmService {
         private boolean success;
         private int totalCost;
         private int remainingGold;
+        private int remainingBoundGold;
         private List<Map<String, Object>> items;
         private int pityCount;
         private int pityLimit;
@@ -512,6 +519,8 @@ public class SecretRealmService {
         public void setTotalCost(int totalCost) { this.totalCost = totalCost; }
         public int getRemainingGold() { return remainingGold; }
         public void setRemainingGold(int remainingGold) { this.remainingGold = remainingGold; }
+        public int getRemainingBoundGold() { return remainingBoundGold; }
+        public void setRemainingBoundGold(int remainingBoundGold) { this.remainingBoundGold = remainingBoundGold; }
         public List<Map<String, Object>> getItems() { return items; }
         public void setItems(List<Map<String, Object>> items) { this.items = items; }
         public int getPityCount() { return pityCount; }

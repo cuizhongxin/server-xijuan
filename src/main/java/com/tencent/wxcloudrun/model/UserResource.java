@@ -19,6 +19,7 @@ public class UserResource {
     
     // 货币
     private Long gold;          // 黄金（充值获得）
+    private Long boundGold;     // 绑定黄金（不可在市场使用，购买物品变为绑定）
     private Long silver;        // 白银（游戏内获得）
     private Long diamond;       // 钻石（充值获得）
     
@@ -106,7 +107,8 @@ public class UserResource {
         return UserResource.builder()
                 .id("res_" + System.currentTimeMillis())
                 .odUserId(odUserId)
-                .gold(0L)              // 初始1000黄金
+                .gold(0L)
+                .boundGold(0L)
                 .silver(10000L)           // 初始10000白银
                 .diamond(100L)            // 初始100钻石
                 .level(1)                 // 初始1级

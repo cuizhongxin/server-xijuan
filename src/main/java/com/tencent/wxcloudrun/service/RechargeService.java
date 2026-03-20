@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 充值服务（数据库存储）
@@ -182,5 +183,158 @@ public class RechargeService {
         resource.setUpdateTime(System.currentTimeMillis());
         resourceService.saveResource(resource);
         logger.info("用户 {} 累计充值 {}分，VIP等级更新为 {}", odUserId, totalRecharge, newVipLevel);
+    }
+
+    // ════════════════════════ 首充绑金 ════════════════════════
+    // 每个产品只能领一次首充绑金，金额 = 该产品获得的黄金数
+    private final Map<String, Set<String>> firstRechargeClaimed = new ConcurrentHashMap<>();
+
+    public Map<String, Object> getFirstRechargeInfo(String userId) {
+        Set<String> claimed = firstRechargeClaimed.getOrDefault(userId, Collections.emptySet());
+        List<RechargeOrder> paidOrders = getUserOrders(userId);
+        Set<String> paidProducts = new HashSet<>();
+        for (RechargeOrder o : paidOrders) {
+            if (RechargeOrder.Status.PAID.equals(o.getStatus())) paidProducts.add(o.getProductId());
+        }
+
+        List<Map<String, Object>> items = new ArrayList<>();
+        for (RechargeProduct p : getProducts()) {
+            Map<String, Object> item = new HashMap<>();
+            item.put("productId", p.getId());
+            item.put("name", p.getName());
+            item.put("gold", p.getGoldAmount());
+            item.put("boundGold", p.getGoldAmount());
+            boolean hasPaid = paidProducts.contains(p.getId());
+            boolean hasClaimed = claimed.contains(p.getId());
+            item.put("status", hasClaimed ? "claimed" : (hasPaid ? "canClaim" : "notPaid"));
+            items.add(item);
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("items", items);
+        result.put("hint", "主公,首次充值任意黄金即可获得等额绑金奖励!");
+        return result;
+    }
+
+    public Map<String, Object> claimFirstRechargeBonus(String userId, String productId) {
+        Set<String> claimed = firstRechargeClaimed.computeIfAbsent(userId, k -> ConcurrentHashMap.newKeySet());
+        if (claimed.contains(productId)) throw new BusinessException(400, "活动奖励已领取!");
+
+        List<RechargeOrder> orders = getUserOrders(userId);
+        boolean hasPaid = false;
+        for (RechargeOrder o : orders) {
+            if (o.getProductId().equals(productId) && RechargeOrder.Status.PAID.equals(o.getStatus())) {
+                hasPaid = true; break;
+            }
+        }
+        if (!hasPaid) throw new BusinessException(400, "还没达到领取条件,领取奖励失败!");
+
+        RechargeProduct product = getProduct(productId);
+        if (product == null) throw new BusinessException(400, "商品不存在");
+
+        long bonus = product.getGoldAmount();
+        resourceService.addBoundGold(userId, bonus);
+        claimed.add(productId);
+        logger.info("用户 {} 领取首充绑金: productId={}, bonus={}", userId, productId, bonus);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("boundGold", bonus);
+        result.put("message", "领取奖励成功!");
+        return result;
+    }
+
+    // ════════════════════════ 充值活动（自定义配置） ════════════════════════
+    // 活动档位：累充满 X 黄金 → 送道具/装备列表
+    private static final List<Map<String, Object>> ACTIVITY_TIERS;
+    static {
+        ACTIVITY_TIERS = new ArrayList<>();
+        ACTIVITY_TIERS.add(buildTier(1, 100,  "累充100黄金",  new String[][]{{"绑金", "100"}, {"初级粮食", "50"}}));
+        ACTIVITY_TIERS.add(buildTier(2, 500,  "累充500黄金",  new String[][]{{"绑金", "300"}, {"高级招贤令", "2"}, {"3级强化石", "5"}}));
+        ACTIVITY_TIERS.add(buildTier(3, 1000, "累充1000黄金", new String[][]{{"绑金", "800"}, {"高级招贤令", "5"}, {"品质石", "3"}, {"蓝色装备箱", "1"}}));
+        ACTIVITY_TIERS.add(buildTier(4, 5000, "累充5000黄金", new String[][]{{"绑金", "3000"}, {"高级招贤令", "15"}, {"5级强化石", "10"}, {"紫色装备箱", "1"}}));
+        ACTIVITY_TIERS.add(buildTier(5, 10000,"累充10000黄金",new String[][]{{"绑金", "8000"}, {"高级招贤令", "30"}, {"6级强化石", "5"}, {"橙色装备箱", "1"}, {"橙色将魂", "50"}}));
+    }
+
+    private static Map<String, Object> buildTier(int id, int threshold, String name, String[][] rewards) {
+        Map<String, Object> tier = new HashMap<>();
+        tier.put("id", id);
+        tier.put("threshold", threshold);
+        tier.put("name", name);
+        List<Map<String, Object>> rewardList = new ArrayList<>();
+        for (String[] r : rewards) {
+            Map<String, Object> ri = new HashMap<>();
+            ri.put("name", r[0]);
+            ri.put("amount", Integer.parseInt(r[1]));
+            rewardList.add(ri);
+        }
+        tier.put("rewards", rewardList);
+        return tier;
+    }
+
+    private static final String ACTIVITY_NAME = "充值活动";
+    private static final String ACTIVITY_START = "2026-01-01";
+    private static final String ACTIVITY_END   = "2026-12-31";
+
+    private final Map<String, Set<Integer>> activityClaimed = new ConcurrentHashMap<>();
+
+    public Map<String, Object> getRechargeActivityInfo(String userId) {
+        UserResource resource = resourceService.getUserResource(userId);
+        long totalRechargeGold = (resource.getTotalRecharge() != null ? resource.getTotalRecharge() : 0) / 100;
+
+        Set<Integer> claimed = activityClaimed.getOrDefault(userId, Collections.emptySet());
+
+        List<Map<String, Object>> tiers = new ArrayList<>();
+        for (Map<String, Object> t : ACTIVITY_TIERS) {
+            Map<String, Object> tier = new HashMap<>(t);
+            int id = (int) t.get("id");
+            int threshold = (int) t.get("threshold");
+            boolean reached = totalRechargeGold >= threshold;
+            boolean isClaimed = claimed.contains(id);
+            tier.put("status", isClaimed ? "claimed" : (reached ? "canClaim" : "locked"));
+            tiers.add(tier);
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("activityName", ACTIVITY_NAME);
+        result.put("startDate", ACTIVITY_START);
+        result.put("endDate", ACTIVITY_END);
+        result.put("totalRechargeGold", totalRechargeGold);
+        result.put("tiers", tiers);
+        result.put("hint", String.format("主公,在%s至%s期间,充值额度累积满指定黄金即可领取丰厚奖励!", ACTIVITY_START, ACTIVITY_END));
+        return result;
+    }
+
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> claimActivityReward(String userId, int tierId) {
+        Set<Integer> claimed = activityClaimed.computeIfAbsent(userId, k -> ConcurrentHashMap.newKeySet());
+        if (claimed.contains(tierId)) throw new BusinessException(400, "活动奖励已领取!");
+
+        Map<String, Object> tierCfg = null;
+        for (Map<String, Object> t : ACTIVITY_TIERS) {
+            if ((int) t.get("id") == tierId) { tierCfg = t; break; }
+        }
+        if (tierCfg == null) throw new BusinessException(400, "活动档位不存在");
+
+        UserResource resource = resourceService.getUserResource(userId);
+        long totalGold = (resource.getTotalRecharge() != null ? resource.getTotalRecharge() : 0) / 100;
+        int threshold = (int) tierCfg.get("threshold");
+        if (totalGold < threshold) throw new BusinessException(400, "还没达到领取条件,领取奖励失败!");
+
+        List<Map<String, Object>> rewards = (List<Map<String, Object>>) tierCfg.get("rewards");
+        for (Map<String, Object> r : rewards) {
+            String name = (String) r.get("name");
+            int amount = (int) r.get("amount");
+            if ("绑金".equals(name)) {
+                resourceService.addBoundGold(userId, amount);
+            }
+        }
+
+        claimed.add(tierId);
+        logger.info("用户 {} 领取活动奖励: tierId={}, threshold={}", userId, tierId, threshold);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("rewards", rewards);
+        result.put("message", "领取奖励成功!");
+        return result;
     }
 }

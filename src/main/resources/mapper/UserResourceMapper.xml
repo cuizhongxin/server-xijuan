@@ -6,6 +6,7 @@
         <id property="odUserId" column="od_user_id"/>
         <result property="id" column="id"/>
         <result property="gold" column="gold"/>
+        <result property="boundGold" column="bound_gold"/>
         <result property="silver" column="silver"/>
         <result property="diamond" column="diamond"/>
         <result property="level" column="level"/>
@@ -61,7 +62,7 @@
 
     <insert id="upsert">
         INSERT INTO user_resource (
-            od_user_id, id, gold, silver, diamond, level,
+            od_user_id, id, gold, bound_gold, silver, diamond, level,
             stamina, max_stamina, general_order, max_general_order, tiger_tally,
             wood, metal, food, paper,
             enhance_stone1, enhance_stone2, enhance_stone3, enhance_stone4, enhance_stone5, enhance_stone6,
@@ -76,7 +77,7 @@
             vip_level, vip_exp, total_recharge,
             create_time, update_time, last_stamina_recover_time
         ) VALUES (
-            #{odUserId}, #{id}, #{gold}, #{silver}, #{diamond}, #{level},
+            #{odUserId}, #{id}, #{gold}, #{boundGold}, #{silver}, #{diamond}, #{level},
             #{stamina}, #{maxStamina}, #{generalOrder}, #{maxGeneralOrder}, #{tigerTally},
             #{wood}, #{metal}, #{food}, #{paper},
             #{enhanceStone1}, #{enhanceStone2}, #{enhanceStone3}, #{enhanceStone4}, #{enhanceStone5}, #{enhanceStone6},
@@ -91,7 +92,7 @@
             #{vipLevel}, #{vipExp}, #{totalRecharge},
             #{createTime}, #{updateTime}, #{lastStaminaRecoverTime}
         ) ON DUPLICATE KEY UPDATE
-            id = #{id}, gold = #{gold}, silver = #{silver}, diamond = #{diamond}, level = #{level},
+            id = #{id}, gold = #{gold}, bound_gold = #{boundGold}, silver = #{silver}, diamond = #{diamond}, level = #{level},
             stamina = #{stamina}, max_stamina = #{maxStamina},
             general_order = #{generalOrder}, max_general_order = #{maxGeneralOrder}, tiger_tally = #{tigerTally},
             wood = #{wood}, metal = #{metal}, food = #{food}, paper = #{paper},
