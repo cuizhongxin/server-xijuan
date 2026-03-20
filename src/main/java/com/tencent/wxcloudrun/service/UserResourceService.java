@@ -412,12 +412,11 @@ public class UserResourceService {
     }
     
     /**
-     * 根据VIP等级获取额外武将位
+     * 根据VIP等级获取额外武将位（APK对齐：VIP1/2→+1, VIP3/4→+2, ..., VIP9/10→+5）
      */
     private int getVipBonusSlots(Integer vipLevel) {
-        if (vipLevel == null) return 0;
-        // VIP每级增加2个武将位
-        return vipLevel * 2;
+        if (vipLevel == null || vipLevel <= 0) return 0;
+        return (vipLevel + 1) / 2;
     }
     
     /**
