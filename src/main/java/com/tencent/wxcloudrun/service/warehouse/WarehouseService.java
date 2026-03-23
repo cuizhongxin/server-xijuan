@@ -484,8 +484,10 @@ public class WarehouseService {
                 break;
 
             default:
-                effect.put("type", "generic");
-                effect.put("message", "使用了" + item.getName() + " x" + count);
+                if (!applyEffectByName(userId, resource, item, count, effect)) {
+                    effect.put("type", "generic");
+                    effect.put("message", "使用了" + item.getName() + " x" + count);
+                }
                 break;
         }
 
@@ -549,7 +551,69 @@ public class WarehouseService {
         int pick = matIds[new java.util.Random().nextInt(matIds.length)];
         addMaterialEffect(r, e, pick, amount);
     }
-    
+
+    /**
+     * 按物品名称匹配效果（当 itemId 无法识别时的兜底）
+     */
+    private boolean applyEffectByName(String userId, UserResource resource, Warehouse.WarehouseItem item, int count, Map<String, Object> effect) {
+        String name = item.getName();
+        if (name == null || name.isEmpty()) return false;
+        logger.info("【applyEffectByName】按名称匹配: name={}, count={}", name, count);
+
+        // ── 白银类 ──
+        if (name.contains("银锭"))   { addSilverEffect(resource, effect, 2000L * count); return true; }
+        if (name.contains("银条"))   { addSilverEffect(resource, effect, 2000L * count); return true; }
+        if (name.contains("白银袋")) { addSilverEffect(resource, effect, 10000L * count); return true; }
+        if (name.contains("白银箱")) { addSilverEffect(resource, effect, 50000L * count); return true; }
+
+        // ── 黄金类 ──
+        if (name.contains("金锭"))   { addGoldEffect(resource, effect, 10L * count); return true; }
+        if (name.contains("金条"))   { addGoldEffect(resource, effect, 20L * count); return true; }
+
+        // ── 绑金类 ──
+        if (name.contains("绑金"))   { addBoundGoldEffect(userId, effect, 30L * count); return true; }
+
+        // ── 粮食类 ──
+        if (name.contains("粮食包")) { addMaterialEffect(resource, effect, 11053, 2000L * count); return true; }
+        if (name.contains("粮草"))   { addMaterialEffect(resource, effect, 11053, 2000L * count); return true; }
+
+        // ── 金属类 ──
+        if (name.contains("金属堆")) { addMaterialEffect(resource, effect, 11052, 2000L * count); return true; }
+        if (name.contains("金属包")) { addMaterialEffect(resource, effect, 11052, 2000L * count); return true; }
+
+        // ── 纸张类 ──
+        if (name.contains("纸张包")) { addMaterialEffect(resource, effect, 11054, 2000L * count); return true; }
+
+        // ── 声望符 ──
+        if (name.contains("高级声望符")) { addFameEffect(userId, effect, 500L * count); return true; }
+        if (name.contains("声望符"))     { addFameEffect(userId, effect, 100L * count); return true; }
+
+        // ── 经验符 ──
+        if (name.contains("君主经验符")) { addLordExpEffect(userId, effect, 5000L * count); return true; }
+
+        // ── 精力丹 ──
+        if (name.contains("精力丹")) {
+            int stGain = 5 * count;
+            userResourceService.addStamina(userId, stGain);
+            effect.put("type", "stamina"); effect.put("gain", stGain);
+            effect.put("message", "恢复" + stGain + "点精力");
+            return true;
+        }
+
+        // ── 将魂 ──
+        if (name.contains("将魂石")) {
+            int soul = 50 * count;
+            resource.setSoulPoint((resource.getSoulPoint() != null ? resource.getSoulPoint() : 0) + soul);
+            resourceRepository.save(resource);
+            effect.put("type", "soul"); effect.put("gain", soul);
+            effect.put("message", "获得" + soul + "将魂");
+            return true;
+        }
+
+        logger.warn("【applyEffectByName】无法匹配: name={}", name);
+        return false;
+    }
+
     /**
      * 出售装备
      */

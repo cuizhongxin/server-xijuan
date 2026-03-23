@@ -7,13 +7,18 @@ import com.tencent.wxcloudrun.model.UserResource;
 import com.tencent.wxcloudrun.service.UserResourceService;
 import com.tencent.wxcloudrun.service.tactics.TacticsService;
 import com.tencent.wxcloudrun.service.warehouse.WarehouseService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 
 @Service
 public class VipService {
+
+    private static final Logger logger = LoggerFactory.getLogger(VipService.class);
 
     @Autowired private VipGiftClaimMapper claimMapper;
     @Autowired private WarehouseService warehouseService;
@@ -75,7 +80,9 @@ public class VipService {
     //  领取VIP礼包
     // ═══════════════════════════════════════════
 
+    @Transactional
     public Map<String, Object> claimGift(String userId, int level) {
+        logger.info("【VIP礼包领取】userId={}, level={}", userId, level);
         UserResource resource = userResourceService.getUserResource(userId);
         int vipLevel = resource.getVipLevel() != null ? resource.getVipLevel() : 0;
         if (vipLevel < level) throw new BusinessException("VIP等级不足，需要VIP" + level);
@@ -86,6 +93,7 @@ public class VipService {
         grantRewards(userId, level, rewards);
 
         claimMapper.insertClaim(userId, level, System.currentTimeMillis());
+        logger.info("【VIP礼包领取完成】userId={}, level={}, rewards={}", userId, level, rewards);
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("level", level);
@@ -210,8 +218,14 @@ public class VipService {
                 addItems(userId, rewards, "11002", "高级声望符", 50);
                 break;
             case 10:
-                tacticsService.grantTactics(userId, "t_special_lvbu", 1);
-                rewards.add("吕布专属兵法：战神突击");
+                try {
+                    tacticsService.grantTactics(userId, "t_special_lvbu", 1);
+                    rewards.add("吕布专属兵法：辕门射戟");
+                    logger.info("【VIP10】授予兵法成功 userId={}, tacticsId=t_special_lvbu", userId);
+                } catch (Exception e) {
+                    logger.error("【VIP10】授予兵法失败 userId={}", userId, e);
+                    rewards.add("吕布专属兵法：辕门射戟（发放异常，请联系客服）");
+                }
                 addItems(userId, rewards, "14036", "6阶品质石", 30);
                 addItems(userId, rewards, "11002", "高级声望符", 50);
                 break;
@@ -271,7 +285,7 @@ public class VipService {
                 gi(items, "11002", "高级声望符", 50, "11002.jpg");
                 break;
             case 10:
-                gi(items, null, "兵法：战神突击", 1, null);
+                gi(items, null, "兵法：辕门射戟", 1, null);
                 gi(items, "14036", "6阶品质石", 30, "14036.jpg");
                 gi(items, "11002", "高级声望符", 50, "11002.jpg");
                 break;
@@ -385,6 +399,7 @@ public class VipService {
     // ═══════════════════════════════════════════
 
     private void addItems(String userId, List<String> rewards, String itemId, String name, int count) {
+        logger.info("【VIP礼包发放道具】userId={}, itemId={}, name={}, count={}", userId, itemId, name, count);
         Warehouse.WarehouseItem item = Warehouse.WarehouseItem.builder()
                 .itemId(itemId).itemType("item").name(name)
                 .icon(getIcon(itemId))
