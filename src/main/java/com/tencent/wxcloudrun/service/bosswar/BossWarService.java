@@ -187,6 +187,7 @@ public class BossWarService {
         result.put("killed", killed);
         result.put("myKill", pd.killCount);
         result.put("myTotalDamage", pd.totalDamage);
+        result.put("battleReport", report);
 
         if (killed) {
             Map<String, Object> reward = new HashMap<>();

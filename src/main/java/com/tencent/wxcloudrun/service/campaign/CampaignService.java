@@ -873,59 +873,27 @@ public class CampaignService {
         
         Campaign.Stage stage = campaign.getStages().get(stageIndex);
         
-        // 获取武将
-        General general = generalService.getGeneralById(progress.getGeneralId());
-        if (general == null) {
-            throw new BusinessException("武将不存在");
-        }
-        
-        Map<String, Integer> eqBonus = suitConfigService.calculateTotalEquipBonus(general.getId());
+        // 构建玩家全阵型战斗单位
+        List<BattleCalculator.BattleUnit> playerUnits = formationService.buildPlayerBattleUnits(odUserId);
 
-        int playerLevel = general.getLevel() != null ? general.getLevel() : 1;
-        int rawTier = general.getSoldierTier() != null ? general.getSoldierTier() : 1;
-        int rankTier = general.getSoldierRank() != null ? general.getSoldierRank() : 1;
-        int playerTier = Math.max(rawTier, rankTier);
-        int playerTroopType = BattleCalculator.parseTroopType(general.getTroopType());
-        String troopCat = general.getTroopType() != null ? general.getTroopType() : "步";
-
-        int playerMaxSoldiers = general.getSoldierMaxCount() != null ? general.getSoldierMaxCount() : 100;
-        int playerFormationLevel = BattleCalculator.maxPeopleToFormationLevel(playerMaxSoldiers);
-        int playerSoldierCount = Math.min(progress.getCurrentTroops(), playerMaxSoldiers);
-
-        BattleCalculator.BattleUnit player = BattleCalculator.assembleBattleUnit(
-                general.getName(), playerLevel,
-                (general.getAttrAttack() != null ? general.getAttrAttack() : 100),
-                (general.getAttrDefense() != null ? general.getAttrDefense() : 50),
-                (general.getAttrValor() != null ? general.getAttrValor() : 10),
-                (general.getAttrCommand() != null ? general.getAttrCommand() : 10),
-                (general.getAttrDodge() != null ? (int) Math.round(general.getAttrDodge()) : 5),
-                (general.getAttrMobility() != null ? general.getAttrMobility() : 15),
-                playerTroopType, playerTier, playerSoldierCount, playerMaxSoldiers,
-                playerFormationLevel,
-                eqBonus.getOrDefault("attack", 0), eqBonus.getOrDefault("defense", 0),
-                eqBonus.getOrDefault("speed", 0), eqBonus.getOrDefault("hit", 0),
-                eqBonus.getOrDefault("dodge", 0),
-                0, 0, 0);
-
-        if (general.getSlotId() != null && general.getSlotId() > 0) {
-            player.tacticsTriggerBonus = generalService.getTacticsTriggerBonus(general.getSlotId());
-            player.tacticsTriggerMultiplier = generalService.getTacticsTriggerMultiplier(general.getSlotId());
-        }
-
-        if (general.getTacticsId() != null) {
-            TacticsTemplate tt = tacticsConfig.getById(general.getTacticsId());
-            if (tt != null) {
-                Map<String, Object> owned = userTacticsMapper.findByUserIdAndTacticsId(
-                        general.getUserId(), general.getTacticsId());
-                int tLevel = owned != null ? ((Number) owned.get("level")).intValue() : 1;
-                player.tacticsId = tt.getId();
-                player.tacticsName = tt.getName();
-                player.tacticsLevel = tLevel;
-                player.tacticsEffectValue = TacticsConfig.calcEffect(tt, tLevel);
-                player.tacticsTriggerRate = TacticsConfig.calcTriggerRate(tt, tLevel);
+        // 按 progress.currentTroops 等比缩减玩家兵力（跨关卡持续消耗）
+        int totalMax = playerUnits.stream().mapToInt(u -> u.maxSoldierCount).sum();
+        int campaignTroops = progress.getCurrentTroops();
+        if (totalMax > 0 && campaignTroops < totalMax) {
+            double ratio = (double) campaignTroops / totalMax;
+            int distributed = 0;
+            for (int pi = 0; pi < playerUnits.size(); pi++) {
+                BattleCalculator.BattleUnit u = playerUnits.get(pi);
+                if (pi < playerUnits.size() - 1) {
+                    u.soldierCount = Math.max(0, (int)(u.maxSoldierCount * ratio));
+                    distributed += u.soldierCount;
+                } else {
+                    u.soldierCount = Math.max(0, campaignTroops - distributed);
+                }
             }
         }
 
+        // 构建敌方单位
         int enemyLevel = stage.getEnemyLevel() != null ? stage.getEnemyLevel() : 1;
         int enemyTier = stage.getEnemySoldierTier() != null ? stage.getEnemySoldierTier()
                 : Math.min(10, 1 + enemyLevel / 20);
@@ -949,31 +917,29 @@ public class CampaignService {
                 enemyFormLv,
                 0, 0, 0, 0, 0,
                 0, 0, 0);
+        enemy.position = 0;
+        List<BattleCalculator.BattleUnit> enemyUnits = Collections.singletonList(enemy);
 
-        BattleService.BattleReport report = battleService.fight(
-                Collections.singletonList(player), Collections.singletonList(enemy), 20);
+        BattleService.BattleReport report = battleService.fight(playerUnits, enemyUnits, 20);
 
         List<String> battleLog = new ArrayList<>();
-        battleLog.add(String.format("【战斗开始】%s(Lv%d) vs %s(Lv%d)",
-                player.name, player.level, enemy.name, enemy.level));
-        battleLog.add(String.format("我方 总攻:%d 总防:%d 兵:%d 兵阶:%d 阵型Lv:%d",
-                player.totalAttack, player.totalDefense, player.soldierCount,
-                playerTier, playerFormationLevel));
-        battleLog.add(String.format("敌方 总攻:%d 总防:%d 兵:%d 兵阶:%d 阵型Lv:%d",
-                enemy.totalAttack, enemy.totalDefense, enemy.soldierCount,
-                enemyTier, enemyFormLv));
         battleLog.addAll(report.toBattleLog("我方", "敌方"));
 
         boolean victory = report.victoryA;
+        int remainingTroops = playerUnits.stream().mapToInt(u -> Math.max(0, u.soldierCount)).sum();
+        int troopsLost = campaignTroops - remainingTroops;
         
-        int troopsLost = progress.getCurrentTroops() - player.soldierCount;
-        
+        String troopCat = playerUnits.size() > 0 ? "步" : "步";
+        General leadGeneral = generalService.getGeneralById(progress.getGeneralId());
+        if (leadGeneral != null && leadGeneral.getTroopType() != null) troopCat = leadGeneral.getTroopType();
+
         CampaignProgress.BattleResult result = CampaignProgress.BattleResult.builder()
                 .victory(victory)
                 .stageNum(progress.getCurrentStage())
-                .remainingTroops(player.soldierCount)
+                .remainingTroops(remainingTroops)
                 .troopsLost(troopsLost)
                 .battleLog(battleLog)
+                .battleReport(report)
                 .isLastStage(progress.getCurrentStage() >= campaign.getStages().size())
                 .playerTroopType(troopCat)
                 .enemyTroopType(stage.getEnemyTroopType() != null ? stage.getEnemyTroopType() : "步")
@@ -994,10 +960,12 @@ public class CampaignService {
             List<CampaignProgress.DropItem> drops = processDrops(stage.getDrops(), dropRandom);
             result.setDrops(drops);
             
-            // 更新武将经验
-            long currentExp = general.getExp() != null ? general.getExp() : 0;
-            general.setExp(currentExp + expGained);
-            generalService.saveGeneral(general);
+            // 更新主将经验
+            if (leadGeneral != null) {
+                long currentExp = leadGeneral.getExp() != null ? leadGeneral.getExp() : 0;
+                leadGeneral.setExp(currentExp + expGained);
+                generalService.saveGeneral(leadGeneral);
+            }
             
             // 更新资源
             UserResource resource = userResourceService.getUserResource(odUserId);
@@ -1016,7 +984,7 @@ public class CampaignService {
             result.setIsFirstClear(isFirstClear);
             
             // 更新进度
-            progress.setCurrentTroops(player.soldierCount);
+            progress.setCurrentTroops(remainingTroops);
             progress.setTotalExpGained(progress.getTotalExpGained() + expGained);
             progress.setTotalSilverGained(progress.getTotalSilverGained() + silverGained);
             

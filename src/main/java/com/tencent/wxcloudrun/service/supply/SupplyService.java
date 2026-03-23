@@ -424,6 +424,7 @@ public class SupplyService {
         result.put("todayRobbery", todayRobbery + 1);
         result.put("playerPower", sideA.stream().mapToInt(u -> u.totalAttack + u.totalDefense).sum());
         result.put("defPower", sideB.stream().mapToInt(u -> u.totalAttack + u.totalDefense).sum());
+        result.put("battleReport", report);
         logger.info("用户 {} {}抢夺 {} 的军需", userId, victory ? "成功" : "失败", defName);
         return result;
     }

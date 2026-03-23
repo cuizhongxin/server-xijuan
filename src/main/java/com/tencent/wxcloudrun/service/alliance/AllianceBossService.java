@@ -321,6 +321,7 @@ public class AllianceBossService {
             result.put("rewardGold", rewardGold);
             result.put("rewardSilver", rewardSilver);
         }
+        result.put("battleReport", report);
         return result;
     }
 

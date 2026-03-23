@@ -1,5 +1,6 @@
 package com.tencent.wxcloudrun.service.formation;
 
+import com.tencent.wxcloudrun.config.TacticsConfig;
 import com.tencent.wxcloudrun.exception.BusinessException;
 import com.tencent.wxcloudrun.model.Equipment;
 import com.tencent.wxcloudrun.model.Formation;
@@ -7,6 +8,8 @@ import com.tencent.wxcloudrun.model.General;
 import com.tencent.wxcloudrun.repository.EquipmentRepository;
 import com.tencent.wxcloudrun.repository.FormationRepository;
 import com.tencent.wxcloudrun.repository.GeneralRepository;
+import com.tencent.wxcloudrun.service.battle.BattleCalculator;
+import com.tencent.wxcloudrun.dao.UserTacticsMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +37,15 @@ public class FormationService {
 
     @Autowired
     private com.tencent.wxcloudrun.service.SuitConfigService suitConfigService;
+
+    @Autowired
+    private TacticsConfig tacticsConfig;
+
+    @Autowired
+    private UserTacticsMapper userTacticsMapper;
+
+    @Autowired
+    private com.tencent.wxcloudrun.service.general.GeneralService generalService;
 
     
     /**
@@ -310,6 +322,76 @@ public class FormationService {
             .filter(slot -> slot.getGeneralId() != null)
             .map(Formation.FormationSlot::getGeneralId)
             .collect(Collectors.toList());
+    }
+
+    /**
+     * 从用户阵型构建完整的战斗单位列表（含装备加成、兵法、天赋等）
+     */
+    public List<BattleCalculator.BattleUnit> buildPlayerBattleUnits(String odUserId) {
+        Formation formation = getFormation(odUserId);
+        List<BattleCalculator.BattleUnit> units = new ArrayList<>();
+
+        for (Formation.FormationSlot slot : formation.getSlots()) {
+            if (slot.getGeneralId() == null) continue;
+            General g = generalRepository.findById(slot.getGeneralId());
+            if (g == null) continue;
+
+            int level = g.getLevel() != null ? g.getLevel() : 1;
+            int rawTier = g.getSoldierTier() != null ? g.getSoldierTier() : 1;
+            int rankTier = g.getSoldierRank() != null ? g.getSoldierRank() : 1;
+            int tier = Math.max(rawTier, rankTier);
+            int troopType = BattleCalculator.parseTroopType(g.getTroopType());
+            int maxSoldiers = g.getSoldierMaxCount() != null ? g.getSoldierMaxCount() : 100;
+            int formLv = BattleCalculator.maxPeopleToFormationLevel(maxSoldiers);
+            int sc = g.getSoldierCount() != null ? g.getSoldierCount() : maxSoldiers;
+
+            Map<String, Integer> eq = calculateEquipmentBonus(g.getId());
+
+            BattleCalculator.BattleUnit u = BattleCalculator.assembleBattleUnit(
+                    g.getName(), level,
+                    g.getAttrAttack() != null ? g.getAttrAttack() : 100,
+                    g.getAttrDefense() != null ? g.getAttrDefense() : 50,
+                    g.getAttrValor() != null ? g.getAttrValor() : 10,
+                    g.getAttrCommand() != null ? g.getAttrCommand() : 10,
+                    g.getAttrDodge() != null ? (int) Math.round(g.getAttrDodge()) : 5,
+                    g.getAttrMobility() != null ? g.getAttrMobility() : 15,
+                    troopType, tier, sc, maxSoldiers, formLv,
+                    eq.getOrDefault("attack", 0), eq.getOrDefault("defense", 0),
+                    eq.getOrDefault("speed", 0), eq.getOrDefault("hit", 0),
+                    eq.getOrDefault("dodge", 0),
+                    0, 0, 0);
+            u.position = slot.getIndex();
+
+            if (g.getSlotId() != null && g.getSlotId() > 0) {
+                u.tacticsTriggerBonus = generalService.getTacticsTriggerBonus(g.getSlotId());
+                u.tacticsTriggerMultiplier = generalService.getTacticsTriggerMultiplier(g.getSlotId());
+            }
+            if (g.getTacticsId() != null) {
+                TacticsConfig.TacticsTemplate tt = tacticsConfig.getById(g.getTacticsId());
+                if (tt != null) {
+                    Map<String, Object> owned = userTacticsMapper.findByUserIdAndTacticsId(
+                            g.getUserId(), g.getTacticsId());
+                    int tLevel = owned != null ? ((Number) owned.get("level")).intValue() : 1;
+                    u.tacticsId = tt.getId();
+                    u.tacticsName = tt.getName();
+                    u.tacticsLevel = tLevel;
+                    u.tacticsEffectValue = TacticsConfig.calcEffect(tt, tLevel);
+                    u.tacticsTriggerRate = TacticsConfig.calcTriggerRate(tt, tLevel);
+                }
+            }
+
+            units.add(u);
+        }
+
+        if (units.isEmpty()) {
+            BattleCalculator.BattleUnit fallback = BattleCalculator.assembleBattleUnit(
+                    "默认武将", 1, 100, 50, 10, 10, 0, 15,
+                    1, 1, 100, 100, 1, 0, 0, 0, 0, 0, 0, 0, 0);
+            fallback.position = 0;
+            units.add(fallback);
+        }
+
+        return units;
     }
 }
 

@@ -370,6 +370,7 @@ public class PlunderService {
         result.put("battleLog", battleLog);
         result.put("rounds", report.totalRounds);
         result.put("generalCount", myGenerals.size());
+        result.put("battleReport", report);
 
         logger.info("用户 {} {}掠夺 {} (Lv.{}), {}将参战, {}回合", userId, victory ? "成功" : "失败", targetName, targetLevel, myGenerals.size(), report.totalRounds);
         return result;

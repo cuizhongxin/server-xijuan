@@ -232,5 +232,10 @@ public class CampaignProgress {
          * 剩余重生次数
          */
         private Integer reviveCount;
+
+        /**
+         * 完整战斗报告（含每回合 actions/hits，前端用于回放渲染）
+         */
+        private Object battleReport;
     }
 }
