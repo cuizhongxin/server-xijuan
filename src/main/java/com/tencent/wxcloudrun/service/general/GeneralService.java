@@ -54,7 +54,7 @@ public class GeneralService {
         if (!existing.isEmpty()) return existing.get(0);
 
         General starter = buildGeneral(gameUserId, "梁婉", "群",
-                5, "紫色", "#9370DB", 1.3, 4, "步", 1, 7);
+                5, "紫色", "#9370DB", 1.3, 4, "步", 1, 121);
         return generalRepository.saveAll(Collections.singletonList(starter)).get(0);
     }
 
