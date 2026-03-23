@@ -372,6 +372,8 @@ public class WarehouseService {
      * 使用物品
      */
     public Map<String, Object> useItem(String userId, String itemId, int count) {
+        logger.info("【物品使用】userId={}, itemId={}, count={}", userId, itemId, count);
+
         Warehouse warehouse = getWarehouse(userId);
         Warehouse.ItemStorage storage = warehouse.getItemStorage();
         
@@ -384,18 +386,22 @@ public class WarehouseService {
         }
         
         if (targetItem == null) {
+            logger.warn("【物品使用】物品不存在 userId={}, itemId={}", userId, itemId);
             throw new BusinessException(400, "物品不存在");
         }
         
         if (targetItem.getCount() < count) {
+            logger.warn("【物品使用】数量不足 userId={}, itemId={}, 拥有={}, 需要={}", userId, itemId, targetItem.getCount(), count);
             throw new BusinessException(400, "物品数量不足");
         }
         
         // 根据物品类型执行效果
         Map<String, Object> effect = applyItemEffect(userId, targetItem, count);
+        logger.info("【物品使用】效果={}", effect);
         
         // 扣除物品
         removeItem(userId, itemId, count);
+        logger.info("【物品使用】完成 userId={}, itemId={}, 扣除数量={}", userId, itemId, count);
         
         return effect;
     }
@@ -406,6 +412,9 @@ public class WarehouseService {
     private Map<String, Object> applyItemEffect(String userId, Warehouse.WarehouseItem item, int count) {
         Map<String, Object> effect = new HashMap<>();
         UserResource resource = userResourceService.getUserResource(userId);
+        logger.info("【applyItemEffect】userId={}, itemId={}, name={}, count={}, 当前silver={}, food={}, metal={}, paper={}",
+                userId, item.getItemId(), item.getName(), count,
+                resource.getSilver(), resource.getFood(), resource.getMetal(), resource.getPaper());
 
         int id = 0;
         try { id = Integer.parseInt(item.getItemId()); } catch (Exception ignored) {}
@@ -489,8 +498,10 @@ public class WarehouseService {
         e.put("message", "获得" + amount + "声望");
     }
     private void addSilverEffect(UserResource r, Map<String, Object> e, long amount) {
-        r.setSilver((r.getSilver() != null ? r.getSilver() : 0L) + amount);
+        long before = r.getSilver() != null ? r.getSilver() : 0L;
+        r.setSilver(before + amount);
         resourceRepository.save(r);
+        logger.info("【addSilverEffect】before={}, add={}, after={}", before, amount, r.getSilver());
         e.put("type", "silver"); e.put("gain", amount);
         e.put("message", "获得" + amount + "白银");
     }
@@ -529,6 +540,7 @@ public class WarehouseService {
             default: matName = "资源"; break;
         }
         resourceRepository.save(r);
+        logger.info("【addMaterialEffect】matId={}, matName={}, add={}", matId, matName, amount);
         e.put("type", "material"); e.put("gain", amount);
         e.put("message", "获得" + amount + matName);
     }
