@@ -221,7 +221,11 @@ public class BattleCalculator {
         } else {
             soldierLoss = Math.max(1, (int) Math.round(finalDamage * KILL_MULTIPLIER / Math.max(1, soldierLife)));
         }
-        soldierLoss = Math.min(soldierLoss, target.soldierCount);
+        if (target.soldierCount > 0) {
+            soldierLoss = Math.max(1, Math.min(soldierLoss, target.soldierCount));
+        } else {
+            soldierLoss = 0;
+        }
 
         boolean isCrit = false;
         return new DamageResult(soldierLoss, isCrit, false, soldierLoss);
@@ -312,7 +316,7 @@ public class BattleCalculator {
             attacker.totalAttack = origAtk + bonusAtk;
             DamageResult dr = calcDamage(attacker, target);
             dr.soldierLoss = Math.max(1, (int)(dr.soldierLoss * dmgMul));
-            dr.soldierLoss = Math.min(dr.soldierLoss, target.soldierCount);
+            dr.soldierLoss = Math.max(1, Math.min(dr.soldierLoss, target.soldierCount));
             result.damages.add(dr);
             attacker.totalAttack = origAtk;
             return result;
@@ -338,7 +342,7 @@ public class BattleCalculator {
                 attacker.totalAttack = origAtk + bonusAtk;
                 DamageResult dr = calcDamage(attacker, target);
                 dr.soldierLoss = Math.max(1, (int)(dr.soldierLoss * dmgMul));
-                dr.soldierLoss = Math.min(dr.soldierLoss, target.soldierCount);
+                dr.soldierLoss = Math.max(1, Math.min(dr.soldierLoss, target.soldierCount));
                 result.damages.add(dr);
                 result.effectDesc = "铁骑冲锋！";
                 attacker.totalAttack = origAtk;
@@ -359,7 +363,7 @@ public class BattleCalculator {
                 attacker.totalAttack = origAtk + bonusAtk;
                 DamageResult dr = calcDamage(attacker, actualTarget);
                 dr.soldierLoss = Math.max(1, (int)(dr.soldierLoss * dmgMul));
-                dr.soldierLoss = Math.min(dr.soldierLoss, actualTarget.soldierCount);
+                dr.soldierLoss = Math.max(1, Math.min(dr.soldierLoss, actualTarget.soldierCount));
                 result.damages.add(dr);
                 if (!archers.isEmpty()) result.specialTarget = actualTarget.name;
                 attacker.totalAttack = origAtk;
@@ -371,7 +375,7 @@ public class BattleCalculator {
                 int origAtk = attacker.totalAttack;
                 DamageResult dr = calcDamage(attacker, target);
                 dr.soldierLoss = Math.max(1, (int)(dr.soldierLoss * Math.max(0.3, dmgRatio)));
-                dr.soldierLoss = Math.min(dr.soldierLoss, target.soldierCount);
+                dr.soldierLoss = Math.max(1, Math.min(dr.soldierLoss, target.soldierCount));
                 result.damages.add(dr);
                 attacker.totalAttack = origAtk;
                 break;
@@ -385,7 +389,7 @@ public class BattleCalculator {
                         if (e.soldierCount > 0 && e.position % 2 == atkRow) {
                             DamageResult dr = calcDamage(attacker, e);
                             dr.soldierLoss = Math.max(1, (int)(dr.soldierLoss * pierceRatio));
-                            dr.soldierLoss = Math.min(dr.soldierLoss, e.soldierCount);
+                            dr.soldierLoss = Math.max(1, Math.min(dr.soldierLoss, e.soldierCount));
                             result.damages.add(dr);
                         }
                     }
@@ -411,7 +415,7 @@ public class BattleCalculator {
                         if (e.soldierCount > 0 && e.position % 2 == atkRow) {
                             DamageResult dr = calcDamage(attacker, e);
                             dr.soldierLoss = Math.max(1, (int)(dr.soldierLoss * aoeRatio));
-                            dr.soldierLoss = Math.min(dr.soldierLoss, e.soldierCount);
+                            dr.soldierLoss = Math.max(1, Math.min(dr.soldierLoss, e.soldierCount));
                             result.damages.add(dr);
                         }
                     }
