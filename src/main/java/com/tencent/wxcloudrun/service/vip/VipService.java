@@ -285,7 +285,7 @@ public class VipService {
                 gi(items, "11002", "高级声望符", 50, "11002.jpg");
                 break;
             case 10:
-                gi(items, null, "兵法：辕门射戟", 1, null);
+                gi(items, null, "兵法：战神突击", 1, null);
                 gi(items, "14036", "6阶品质石", 30, "14036.jpg");
                 gi(items, "11002", "高级声望符", 50, "11002.jpg");
                 break;
