@@ -364,8 +364,7 @@ public class SupplyService {
         UserResource myRes = userResourceRepository.findByUserId(userId);
         int myLevel = myRes != null && myRes.getLevel() != null ? myRes.getLevel() : 1;
 
-        List<General> myGenerals = formationService.getBattleOrder(userId);
-        List<BattleCalculator.BattleUnit> sideA = buildBattleUnits(myGenerals);
+        List<BattleCalculator.BattleUnit> sideA = formationService.buildPlayerBattleUnits(userId);
 
         List<General> defGenerals = formationService.getBattleOrder(defenderId);
         if (defGenerals.isEmpty()) defGenerals = generalRepository.findByUserId(defenderId);

@@ -115,10 +115,7 @@ public class LevelService {
         return addExp(userId, LevelConfig.DAILY_QUEST_EXP, "每日任务");
     }
     
-    /**
-     * 副本战斗获得经验
-     */
-    public Map<String, Object> addDungeonExp(String userId, int baseExp, boolean isFirstClear) {
+    public Map<String, Object> addBattleExp(String userId, int baseExp, boolean isFirstClear) {
         long exp = baseExp;
         if (isFirstClear) {
             exp = (long)(baseExp * LevelConfig.FIRST_CLEAR_BONUS);

@@ -292,7 +292,7 @@ CREATE TABLE IF NOT EXISTS `equipment` (
   `qa_hp` INT DEFAULT 0 COMMENT '品质生命',
   `qa_crit_rate` DOUBLE DEFAULT 0 COMMENT '品质暴击率',
   `qa_crit_damage` DOUBLE DEFAULT 0 COMMENT '品质暴击伤害',
-  `source_type` VARCHAR(32) COMMENT '来源类型：dungeon/craft/market',
+  `source_type` VARCHAR(32) COMMENT '来源类型：craft/market/campaign',
   `source_name` VARCHAR(64) COMMENT '来源名称',
   `source_detail` VARCHAR(128) COMMENT '来源详情',
   `set_info_json` TEXT COMMENT '套装信息JSON',
@@ -561,22 +561,6 @@ CREATE TABLE IF NOT EXISTS `campaign_progress` (
   UNIQUE KEY `uk_cp_user_campaign` (`user_id`, `campaign_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='战役进度表';
 
--- =============================================
--- 16. 副本进度表
--- =============================================
-CREATE TABLE IF NOT EXISTS `dungeon_progress` (
-  `user_id` VARCHAR(64) NOT NULL COMMENT '用户ID',
-  `dungeon_id` VARCHAR(64) NOT NULL COMMENT '副本ID',
-  `current_progress` INT DEFAULT 0 COMMENT '当前进度（已击败NPC数）',
-  `defeated_npcs` TEXT COMMENT '已击败NPC编号逗号分隔',
-  `today_entries` INT DEFAULT 0 COMMENT '今日进入次数',
-  `last_entry_date` VARCHAR(8) COMMENT '上次进入日期(yyyyMMdd)',
-  `cleared` TINYINT(1) DEFAULT 0 COMMENT '是否已通关',
-  `clear_count` INT DEFAULT 0 COMMENT '通关次数',
-  `create_time` BIGINT COMMENT '创建时间戳',
-  `update_time` BIGINT COMMENT '更新时间戳',
-  PRIMARY KEY (`user_id`, `dungeon_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='副本进度表';
 
 -- =============================================
 -- 17. 掠夺数据表

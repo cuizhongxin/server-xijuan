@@ -174,9 +174,9 @@ public class PlunderService {
         UserResource myResource = userResourceRepository.findByUserId(userId);
         int myLevel = myResource != null && myResource.getLevel() != null ? myResource.getLevel() : 1;
 
-        // 获取阵型武将（按机动性排序，含装备加成）
-        List<General> myGenerals = formationService.getBattleOrder(userId);
-        if (myGenerals.isEmpty()) {
+        // 获取完整阵型（含装备+兵法+天赋加成）
+        List<BattleCalculator.BattleUnit> playerBattleUnits = formationService.buildPlayerBattleUnits(userId);
+        if (playerBattleUnits.isEmpty()) {
             throw new BusinessException(400, "请先配置阵型再进行掠夺");
         }
 
@@ -213,7 +213,7 @@ public class PlunderService {
             faction = npc.getFaction();
 
             // NPC生成虚拟武将（数量与玩家阵型一致）
-            int npcCount = Math.max(1, myGenerals.size());
+            int npcCount = Math.max(1, playerBattleUnits.size());
             int npcPower = npc.getPower();
             enemyUnits = new ArrayList<>();
             for (int i = 0; i < npcCount; i++) {
@@ -252,32 +252,6 @@ public class PlunderService {
         }
 
         // ========== 使用统一战斗系统 ==========
-        List<BattleCalculator.BattleUnit> playerBattleUnits = new ArrayList<>();
-        for (int i = 0; i < myGenerals.size(); i++) {
-            General g = myGenerals.get(i);
-            Map<String, Integer> eqBonus = suitConfigService.calculateTotalEquipBonus(g.getId());
-            int rawTier = g.getSoldierTier() != null ? g.getSoldierTier() : 1;
-            int sRank = g.getSoldierRank() != null ? g.getSoldierRank() : 1;
-            int tier = Math.max(rawTier, sRank);
-            int troopType = BattleCalculator.parseTroopType(g.getTroopType());
-            int maxSc = g.getSoldierMaxCount() != null ? g.getSoldierMaxCount() : 100;
-            int formLv = BattleCalculator.maxPeopleToFormationLevel(maxSc);
-            int sc = g.getSoldierCount() != null ? Math.min(g.getSoldierCount(), maxSc) : maxSc;
-            playerBattleUnits.add(BattleCalculator.assembleBattleUnit(
-                    g.getName() != null ? g.getName() : "武将" + (i + 1),
-                    g.getLevel() != null ? g.getLevel() : 1,
-                    g.getAttrAttack() != null ? g.getAttrAttack() : 100,
-                    g.getAttrDefense() != null ? g.getAttrDefense() : 50,
-                    g.getAttrValor() != null ? g.getAttrValor() : 10,
-                    g.getAttrCommand() != null ? g.getAttrCommand() : 10,
-                    g.getAttrDodge() != null ? (int) Math.round(g.getAttrDodge()) : 5,
-                    g.getAttrMobility() != null ? g.getAttrMobility() : 15,
-                    troopType, tier, sc, maxSc, formLv,
-                    eqBonus.getOrDefault("attack", 0), eqBonus.getOrDefault("defense", 0),
-                    eqBonus.getOrDefault("speed", 0), eqBonus.getOrDefault("hit", 0),
-                    eqBonus.getOrDefault("dodge", 0), 0, 0, 0));
-            playerBattleUnits.get(i).position = i;
-        }
 
         List<BattleCalculator.BattleUnit> enemyBattleUnits = new ArrayList<>();
         for (int i = 0; i < enemyUnits.size(); i++) {
@@ -299,7 +273,7 @@ public class PlunderService {
         boolean victory = report.victoryA;
 
         List<String> battleLog = new ArrayList<>();
-        battleLog.add(String.format("【掠夺战斗开始】我方 %d 将 vs %s (Lv.%d)", myGenerals.size(), targetName, targetLevel));
+        battleLog.add(String.format("【掠夺战斗开始】我方 %d 将 vs %s (Lv.%d)", playerBattleUnits.size(), targetName, targetLevel));
         battleLog.addAll(report.toBattleLog("我方", "敌方"));
 
         // ========== 奖励计算（不变） ==========
@@ -369,10 +343,10 @@ public class PlunderService {
         result.put("targetPower", enemyBattleUnits.stream().mapToInt(u -> u.totalAttack + u.totalDefense).sum());
         result.put("battleLog", battleLog);
         result.put("rounds", report.totalRounds);
-        result.put("generalCount", myGenerals.size());
+        result.put("generalCount", playerBattleUnits.size());
         result.put("battleReport", report);
 
-        logger.info("用户 {} {}掠夺 {} (Lv.{}), {}将参战, {}回合", userId, victory ? "成功" : "失败", targetName, targetLevel, myGenerals.size(), report.totalRounds);
+        logger.info("用户 {} {}掠夺 {} (Lv.{}), {}将参战, {}回合", userId, victory ? "成功" : "失败", targetName, targetLevel, playerBattleUnits.size(), report.totalRounds);
         return result;
     }
 

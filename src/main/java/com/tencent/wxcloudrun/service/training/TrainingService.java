@@ -199,7 +199,7 @@ public class TrainingService {
         }
         
         // 增加主公经验
-        Map<String, Object> lordExpResult = levelService.addDungeonExp(userId, lordExp, false);
+        Map<String, Object> lordExpResult = levelService.addBattleExp(userId, lordExp, false);
         
         // 增加武将经验
         Map<String, Object> generalExpResult = generalService.addGeneralExp(generalId, generalExp);

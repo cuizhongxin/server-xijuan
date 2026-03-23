@@ -561,41 +561,6 @@ public class EquipmentService {
         return materials;
     }
     
-    /**
-     * 副本掉落装备
-     */
-    public Equipment dungeonDropEquipment(String userId, Integer level, String dungeonName) {
-        // 副本品质：蓝色50%，紫色40%，橙色10%
-        int roll = random.nextInt(100);
-        int qualityId;
-        if (roll < 50) {
-            qualityId = 3;  // 蓝色
-        } else if (roll < 90) {
-            qualityId = 4;  // 紫色
-        } else {
-            qualityId = 5;  // 橙色
-        }
-        
-        // 随机槽位
-        int slotTypeId = random.nextInt(6) + 1;
-        
-        // 随机套装
-        List<Equipment.SetInfo> sets = equipmentConfig.getEquipmentSetsByLevel(level);
-        String setId = null;
-        if (!sets.isEmpty() && random.nextInt(100) < 30) {  // 30%概率掉落套装
-            setId = sets.get(random.nextInt(sets.size())).getSetId();
-        }
-        
-        Equipment equipment = generateEquipment(userId, slotTypeId, level, qualityId,
-            Equipment.Source.builder()
-                .type("DUNGEON")
-                .name("副本掉落")
-                .detail(dungeonName)
-                .build(),
-            setId);
-        
-        return equipmentRepository.save(equipment);
-    }
     
     /**
      * 秘境寻宝获取装备

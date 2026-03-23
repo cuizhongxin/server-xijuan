@@ -231,35 +231,8 @@ public class AllianceBossService {
         long maxHp = ((Number) boss.get("maxHp")).longValue();
         int bossLevel = ((Number) boss.get("bossLevel")).intValue();
 
-        // 构建玩家阵型
-        List<General> myGenerals = formationService.getBattleOrder(userId);
-        List<BattleCalculator.BattleUnit> sideA = new ArrayList<>();
-        for (int i = 0; i < myGenerals.size(); i++) {
-            General g = myGenerals.get(i);
-            Map<String, Integer> eq = suitConfigService.calculateTotalEquipBonus(g.getId());
-            int rawTier = g.getSoldierTier() != null ? g.getSoldierTier() : 1;
-            int sRank = g.getSoldierRank() != null ? g.getSoldierRank() : 1;
-            int tier = Math.max(rawTier, sRank);
-            int troopType = BattleCalculator.parseTroopType(g.getTroopType());
-            int maxSc = g.getSoldierMaxCount() != null ? g.getSoldierMaxCount() : 100;
-            int formLv = BattleCalculator.maxPeopleToFormationLevel(maxSc);
-            int sc = g.getSoldierCount() != null ? Math.min(g.getSoldierCount(), maxSc) : maxSc;
-            BattleCalculator.BattleUnit u = BattleCalculator.assembleBattleUnit(
-                    g.getName() != null ? g.getName() : "武将" + (i + 1),
-                    g.getLevel() != null ? g.getLevel() : 1,
-                    g.getAttrAttack() != null ? g.getAttrAttack() : 100,
-                    g.getAttrDefense() != null ? g.getAttrDefense() : 50,
-                    g.getAttrValor() != null ? g.getAttrValor() : 10,
-                    g.getAttrCommand() != null ? g.getAttrCommand() : 10,
-                    g.getAttrDodge() != null ? (int) Math.round(g.getAttrDodge()) : 5,
-                    g.getAttrMobility() != null ? g.getAttrMobility() : 15,
-                    troopType, tier, sc, maxSc, formLv,
-                    eq.getOrDefault("attack", 0), eq.getOrDefault("defense", 0),
-                    eq.getOrDefault("speed", 0), eq.getOrDefault("hit", 0),
-                    eq.getOrDefault("dodge", 0), 0, 0, 0);
-            u.position = i;
-            sideA.add(u);
-        }
+        // 构建玩家阵型（含装备+兵法+天赋加成）
+        List<BattleCalculator.BattleUnit> sideA = formationService.buildPlayerBattleUnits(userId);
 
         // Boss 作为高属性单个单位
         int bossHp = (int) Math.min(currentHp, Integer.MAX_VALUE);

@@ -173,12 +173,12 @@ public class HeroRankService {
             throw new RuntimeException("只能挑战排名高于自己的对手");
         }
 
-        List<BattleCalculator.BattleUnit> sideA = buildPlayerUnits(userId);
+        List<BattleCalculator.BattleUnit> sideA = formationService.buildPlayerBattleUnits(userId);
         List<BattleCalculator.BattleUnit> sideB;
         if (targetId.startsWith("npc_hero_")) {
             sideB = buildNpcUnits(target, sideA.size());
         } else {
-            sideB = buildPlayerUnits(targetId);
+            sideB = formationService.buildPlayerBattleUnits(targetId);
             if (sideB.isEmpty()) sideB = buildNpcUnits(target, sideA.size());
         }
 
