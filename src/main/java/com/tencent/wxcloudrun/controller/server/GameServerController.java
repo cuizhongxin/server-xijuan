@@ -3,6 +3,11 @@ package com.tencent.wxcloudrun.controller.server;
 import com.tencent.wxcloudrun.dao.ChatMapper;
 import com.tencent.wxcloudrun.dao.GameServerMapper;
 import com.tencent.wxcloudrun.dto.ApiResponse;
+import com.tencent.wxcloudrun.model.General;
+import com.tencent.wxcloudrun.service.general.GeneralService;
+import com.tencent.wxcloudrun.service.formation.FormationService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -13,11 +18,19 @@ import java.util.*;
 @RequestMapping("/server")
 public class GameServerController {
 
+    private static final Logger logger = LoggerFactory.getLogger(GameServerController.class);
+
     @Autowired
     private GameServerMapper serverMapper;
 
     @Autowired
     private ChatMapper chatMapper;
+
+    @Autowired
+    private GeneralService generalService;
+
+    @Autowired
+    private FormationService formationService;
 
     /**
      * 获取区服列表 + 公告 + 玩家已有角色信息
@@ -116,10 +129,29 @@ public class GameServerController {
         serverMapper.insertPlayerServer(userId, serverId, validated, System.currentTimeMillis());
         serverMapper.incrementServerPlayers(serverId);
 
+        // 赠送初始武将并上阵
+        String gameUserId = userId + "_" + serverId;
+        String starterName = null;
+        try {
+            logger.info("开始为新玩家 {} 创建初始武将...", gameUserId);
+            General starter = generalService.grantStarterGeneral(gameUserId);
+            if (starter == null || starter.getId() == null) {
+                logger.error("grantStarterGeneral 返回 null, userId={}", gameUserId);
+            } else {
+                starterName = starter.getName();
+                logger.info("初始武将已创建: id={}, name={}, 准备设置阵型", starter.getId(), starterName);
+                formationService.setFormation(gameUserId, Collections.singletonList(starter.getId()));
+                logger.info("新玩家 {} 初始武将 {} 已创建并上阵", gameUserId, starterName);
+            }
+        } catch (Exception e) {
+            logger.error("创建初始武将失败 userId={}", gameUserId, e);
+        }
+
         Map<String, Object> result = new HashMap<>();
         result.put("serverId", serverId);
         result.put("serverName", server.get("serverName"));
         result.put("lordName", validated);
+        result.put("starterGeneral", starterName);
         return ApiResponse.success(result);
     }
 

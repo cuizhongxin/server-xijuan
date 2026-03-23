@@ -46,6 +46,18 @@ public class GeneralService {
         return generalRepository.findById(generalId);
     }
     
+    /**
+     * 新玩家初始赠送：一个步兵将领（梁婉），level 1
+     */
+    public General grantStarterGeneral(String gameUserId) {
+        List<General> existing = generalRepository.findByUserId(gameUserId);
+        if (!existing.isEmpty()) return existing.get(0);
+
+        General starter = buildGeneral(gameUserId, "梁婉", "群",
+                5, "紫色", "#9370DB", 1.3, 4, "步", 1, 7);
+        return generalRepository.saveAll(Collections.singletonList(starter)).get(0);
+    }
+
     public List<General> initUserGenerals(String userId) {
         if ("1".equals(userId)) { return new ArrayList<>(); }
         List<General> existing = generalRepository.findByUserId(userId);
