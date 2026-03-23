@@ -18,9 +18,11 @@
     <select id="findPlayerServers" resultType="java.util.HashMap">
         SELECT us.server_id AS serverId, gs.name AS serverName,
                gs.status AS serverStatus, us.lord_name AS lordName,
-               us.last_login_time AS lastLoginTime
+               us.last_login_time AS lastLoginTime,
+               IFNULL(ul.level, 1) AS roleLevel
         FROM user_server us
         JOIN game_server gs ON us.server_id = gs.id
+        LEFT JOIN user_level ul ON ul.user_id = CONCAT(us.user_id, '_', us.server_id)
         WHERE us.user_id = #{userId}
         ORDER BY us.last_login_time DESC
     </select>

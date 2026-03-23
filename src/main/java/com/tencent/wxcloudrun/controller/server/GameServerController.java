@@ -31,17 +31,17 @@ public class GameServerController {
                 ? serverMapper.findPlayerServers(userId) : Collections.emptyList();
         List<Map<String, Object>> announcements = chatMapper.findActiveAnnouncements(System.currentTimeMillis());
 
-        Set<Integer> joinedIds = new HashSet<>();
-        Map<Integer, String> nameMap = new HashMap<>();
+        Map<Integer, Map<String, Object>> playerMap = new HashMap<>();
         for (Map<String, Object> ps : playerServers) {
             int sid = ((Number) ps.get("serverId")).intValue();
-            joinedIds.add(sid);
-            nameMap.put(sid, (String) ps.get("lordName"));
+            playerMap.put(sid, ps);
         }
         for (Map<String, Object> s : servers) {
             int sid = ((Number) s.get("id")).intValue();
-            s.put("hasRole", joinedIds.contains(sid));
-            s.put("lordName", nameMap.getOrDefault(sid, ""));
+            Map<String, Object> ps = playerMap.get(sid);
+            s.put("hasRole", ps != null);
+            s.put("lordName", ps != null ? ps.getOrDefault("lordName", "") : "");
+            s.put("roleLevel", ps != null ? ((Number) ps.getOrDefault("roleLevel", 1)).intValue() : 0);
         }
 
         Map<String, Object> result = new HashMap<>();
