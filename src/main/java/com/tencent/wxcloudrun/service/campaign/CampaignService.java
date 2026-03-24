@@ -744,7 +744,7 @@ public class CampaignService {
         
         CampaignProgress progress = getOrCreateProgress(odUserId, campaignId);
         
-        // 检查今日次数（新手引导期间不受限制）
+        // 检查今日挑战次数（仅发动战役消耗，进攻关卡不消耗；引导期间豁免）
         String today = new SimpleDateFormat("yyyyMMdd").format(new Date());
         if (!today.equals(progress.getTodayDate())) {
             progress.setTodayChallengeCount(0);

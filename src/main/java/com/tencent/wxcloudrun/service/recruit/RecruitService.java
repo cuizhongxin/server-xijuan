@@ -14,6 +14,8 @@ import com.tencent.wxcloudrun.service.chat.ChatService;
 import com.tencent.wxcloudrun.service.general.GeneralService;
 import com.tencent.wxcloudrun.service.nationwar.NationWarService;
 import com.tencent.wxcloudrun.service.warehouse.WarehouseService;
+import com.tencent.wxcloudrun.dao.StoryProgressMapper;
+import com.tencent.wxcloudrun.model.StoryProgress;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -67,6 +69,9 @@ public class RecruitService {
     @Autowired private GeneralService generalService;
     @Autowired private GameServerMapper gameServerMapper;
     @Autowired private ChatService chatService;
+    @Autowired private StoryProgressMapper storyProgressMapper;
+    
+    private static final String GUIDE_RECRUIT_GENERAL = "马腾";
     
     /** 红色(4)/紫色(5)/橙色(6) 以上发全服通告 */
     private static final int ANNOUNCE_MIN_QUALITY_ID = 4;
@@ -230,6 +235,24 @@ public class RecruitService {
         int maxSlots = userResourceService.getMaxGeneralSlots(userId);
         if (currentCount >= maxSlots) {
             throw new BusinessException(400, "武将位已满（" + currentCount + "/" + maxSlots + "）");
+        }
+        
+        // 引导期间高级招募：免费 + 固定马腾
+        if (isInGuide(userId) && "SENIOR".equalsIgnoreCase(tokenType)) {
+            General maTeng = tryGuideRecruit(userId);
+            if (maTeng != null) {
+                userResourceService.updateGeneralCount(userId, currentCount + 1);
+                generalRepository.saveAll(Collections.singletonList(maTeng));
+                UserResource resource = getUserResource(userId);
+                logger.info("引导招募: userId={}, 固定获得马腾", userId);
+                return RecruitResult.builder()
+                        .general(maTeng)
+                        .soulPointGained(0)
+                        .totalSoulPoint(resource.getSoulPoint() != null ? resource.getSoulPoint() : 0)
+                        .remainingTokens(resource.getSeniorToken() != null ? resource.getSeniorToken() : 0)
+                        .tokenType(tokenType)
+                        .build();
+            }
         }
         
         // 检查并消耗招贤令
@@ -465,6 +488,43 @@ public class RecruitService {
             return candidates.get(random.nextInt(candidates.size()));
         }
         return nonNo8.get(random.nextInt(nonNo8.size()));
+    }
+    
+    private boolean isInGuide(String userId) {
+        try {
+            int idx = userId.lastIndexOf('_');
+            String rawUserId = idx > 0 ? userId.substring(0, idx) : userId;
+            int serverId = idx > 0 ? Integer.parseInt(userId.substring(idx + 1)) : 1;
+            StoryProgress sp = storyProgressMapper.findByUserAndServer(rawUserId, serverId);
+            return sp == null || !Boolean.TRUE.equals(sp.getCompleted());
+        } catch (Exception e) {
+            return false;
+        }
+    }
+    
+    private General tryGuideRecruit(String userId) {
+        try {
+            List<GeneralConfig.GeneralTemplate> purples = generalConfig.getAllGeneralsByQuality("purple");
+            GeneralConfig.GeneralTemplate maTeng = purples.stream()
+                    .filter(t -> GUIDE_RECRUIT_GENERAL.equals(t.name))
+                    .findFirst()
+                    .orElse(null);
+            if (maTeng == null) {
+                logger.warn("引导招募: 未找到马腾模板");
+                return null;
+            }
+            // 检查是否已拥有马腾（避免重复）
+            List<General> owned = generalRepository.findByUserId(userId);
+            boolean alreadyOwned = owned.stream().anyMatch(g -> GUIDE_RECRUIT_GENERAL.equals(g.getName()));
+            if (alreadyOwned) {
+                logger.info("引导招募: 用户已拥有马腾, 走正常招募流程");
+                return null;
+            }
+            return createGeneralFromTemplate(userId, maTeng);
+        } catch (Exception e) {
+            logger.warn("引导招募异常, userId={}", userId, e);
+            return null;
+        }
     }
     
     /**
