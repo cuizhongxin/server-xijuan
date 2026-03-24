@@ -17,6 +17,7 @@ import com.tencent.wxcloudrun.service.battle.BattleService;
 import com.tencent.wxcloudrun.config.TacticsConfig;
 import com.tencent.wxcloudrun.config.TacticsConfig.TacticsTemplate;
 import com.tencent.wxcloudrun.dao.UserTacticsMapper;
+import com.tencent.wxcloudrun.dao.StoryProgressMapper;
 
 import javax.annotation.PostConstruct;
 import java.text.SimpleDateFormat;
@@ -40,6 +41,7 @@ public class CampaignService {
     private final com.tencent.wxcloudrun.service.formation.FormationService formationService;
     private final com.tencent.wxcloudrun.service.SuitConfigService suitConfigService;
     private final BattleService battleService;
+    private final StoryProgressMapper storyProgressMapper;
     
     // 战役配置
     private final Map<String, Campaign> campaignConfigs = new ConcurrentHashMap<>();
@@ -742,13 +744,13 @@ public class CampaignService {
         
         CampaignProgress progress = getOrCreateProgress(odUserId, campaignId);
         
-        // 检查今日次数
+        // 检查今日次数（新手引导期间不受限制）
         String today = new SimpleDateFormat("yyyyMMdd").format(new Date());
         if (!today.equals(progress.getTodayDate())) {
             progress.setTodayChallengeCount(0);
             progress.setTodayDate(today);
         }
-        if (progress.getTodayChallengeCount() >= campaign.getDailyLimit()) {
+        if (progress.getTodayChallengeCount() >= campaign.getDailyLimit() && !isInGuide(odUserId)) {
             throw new BusinessException("今日挑战次数已用完");
         }
         
@@ -1309,6 +1311,18 @@ public class CampaignService {
                 .build();
     }
     
+    private boolean isInGuide(String odUserId) {
+        try {
+            int idx = odUserId.lastIndexOf('_');
+            String rawUserId = idx > 0 ? odUserId.substring(0, idx) : odUserId;
+            int serverId = idx > 0 ? Integer.parseInt(odUserId.substring(idx + 1)) : 1;
+            StoryProgress sp = storyProgressMapper.findByUserAndServer(rawUserId, serverId);
+            return sp == null || !Boolean.TRUE.equals(sp.getCompleted());
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     private CampaignProgress getOrCreateProgress(String odUserId, String campaignId) {
         CampaignProgress progress = campaignRepository.findByUserIdAndCampaignId(odUserId, campaignId);
         if (progress == null) {
