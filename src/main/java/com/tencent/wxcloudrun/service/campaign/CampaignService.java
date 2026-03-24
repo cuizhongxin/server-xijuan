@@ -527,11 +527,23 @@ public class CampaignService {
             }
 
             int npcCount;
-            if (fullFormation || isBoss) {
+            if (fullFormation) {
                 npcCount = 6;
+            } else if (npcLevel <= 3) {
+                npcCount = 1;
+            } else if (npcLevel <= 5) {
+                npcCount = 2;
+            } else if (npcLevel <= 10) {
+                npcCount = 3;
+            } else if (npcLevel <= 20) {
+                npcCount = Math.min(4, 3 + (i - 1) / Math.max(1, stageCount / 3));
+            } else if (npcLevel <= 40) {
+                npcCount = Math.min(5, 4 + (i - 1) / Math.max(1, stageCount / 3));
             } else {
-                npcCount = Math.min(6, 3 + (i - 1) * 3 / Math.max(1, stageCount - 1));
-                npcCount = Math.max(3, npcCount);
+                npcCount = Math.min(6, 5 + (i - 1) / Math.max(1, stageCount / 3));
+            }
+            if (isBoss) {
+                npcCount = Math.min(6, npcCount + 1);
             }
             List<Campaign.StageNpc> formation = new ArrayList<>();
             for (int pos = 0; pos < npcCount; pos++) {
