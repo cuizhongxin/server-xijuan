@@ -732,6 +732,33 @@ public class CampaignService {
             throw new BusinessException("战役不存在");
         }
         
+        CampaignProgress progress = getOrCreateProgress(odUserId, campaignId);
+        String curStatus = progress.getStatus();
+        
+        // 如果战役已经在进行中或暂停，不要重置进度，直接返回当前状态
+        if ("IN_PROGRESS".equals(curStatus)) {
+            log.info("startCampaign: 战役已在进行中, campaignId={}, stage={}", campaignId, progress.getCurrentStage());
+            Map<String, Object> result = new HashMap<>();
+            result.put("success", true);
+            result.put("progress", progress);
+            result.put("campaign", campaign);
+            int si = Math.min(progress.getCurrentStage(), campaign.getStages().size()) - 1;
+            result.put("currentStage", campaign.getStages().get(Math.max(0, si)));
+            return result;
+        }
+        if ("PAUSED".equals(curStatus)) {
+            log.info("startCampaign: 战役已暂停, 恢复进行, campaignId={}, stage={}", campaignId, progress.getCurrentStage());
+            progress.setStatus("IN_PROGRESS");
+            campaignRepository.save(progress);
+            Map<String, Object> result = new HashMap<>();
+            result.put("success", true);
+            result.put("progress", progress);
+            result.put("campaign", campaign);
+            int si = Math.min(progress.getCurrentStage(), campaign.getStages().size()) - 1;
+            result.put("currentStage", campaign.getStages().get(Math.max(0, si)));
+            return result;
+        }
+        
         UserResource resource = userResourceService.getUserResource(odUserId);
         int userLevel = resource.getLevel() != null ? resource.getLevel() : 1;
         
@@ -743,8 +770,6 @@ public class CampaignService {
         if (resource.getStamina() < campaign.getStaminaCost()) {
             throw new BusinessException("精力不足");
         }
-        
-        CampaignProgress progress = getOrCreateProgress(odUserId, campaignId);
         
         // 检查今日挑战次数（仅发动战役消耗，进攻关卡不消耗；引导期间豁免）
         String today = new SimpleDateFormat("yyyyMMdd").format(new Date());
@@ -806,7 +831,7 @@ public class CampaignService {
         resource.setStamina(resource.getStamina() - campaign.getStaminaCost());
         userResourceService.saveUserResource(resource);
         
-        // 更新进度
+        // 更新进度（只有 IDLE/COMPLETED 时才从头开始）
         progress.setStatus("IN_PROGRESS");
         progress.setCurrentStage(1);
         progress.setCurrentTroops(troops);
