@@ -511,12 +511,13 @@ public class CampaignService {
             String mainGeneral = generals[gIdx];
             String troopType = troopTypes[gIdx];
 
-            // APK风格: NPC属性 = NPC士兵属性(20xxx) + 阵型加成, 无武将四维
+            // APK风格: NPC属性 = NPC士兵属性(20xxx) + 阵型加成(低级NPC缩减), 无武将四维
             int npcFormationLevel = BattleCalculator.levelToFormationLevel(npcLevel);
             int npcTier = npcFormationLevel;
             int npcTroopInt = BattleCalculator.parseTroopType(troopType);
             int[] npcSoldier = BattleCalculator.getNpcSoldierStats(npcTroopInt, npcTier);
             int npcSoldiers = BattleCalculator.getFormationMaxPeople(npcFormationLevel);
+            double npcFormScale = npcLevel <= 5 ? 0.5 : (npcLevel <= 10 ? 0.7 : (npcLevel <= 20 ? 0.85 : 1.0));
             int npcValor = 0, npcCommand = 0, npcDodge = npcSoldier[5], npcMobility = npcSoldier[3];
 
             if (isBoss) {
@@ -547,8 +548,9 @@ public class CampaignService {
                 int fFormLv = BattleCalculator.levelToFormationLevel(lv);
                 int ft = fFormLv;
                 int[] fSoldier = BattleCalculator.getNpcSoldierStats(fTroopInt, ft);
-                int fa = fSoldier[1] + BattleCalculator.getFormationAddAtt(fFormLv);
-                int fd = fSoldier[2] + BattleCalculator.getFormationAddDef(fFormLv);
+                double fScale = lv <= 5 ? 0.5 : (lv <= 10 ? 0.7 : (lv <= 20 ? 0.85 : 1.0));
+                int fa = fSoldier[1] + (int)(BattleCalculator.getFormationAddAtt(fFormLv) * fScale);
+                int fd = fSoldier[2] + (int)(BattleCalculator.getFormationAddDef(fFormLv) * fScale);
                 int fs = BattleCalculator.getFormationMaxPeople(fFormLv);
                 int fValor = 0, fCommand = 0;
                 if (boss) {
@@ -975,6 +977,13 @@ public class CampaignService {
                 enemyFormLv,
                 stage.getEnemyValor() != null ? stage.getEnemyValor() : 0,
                 stage.getEnemyCommand() != null ? stage.getEnemyCommand() : 0);
+        double eFormScale = enemyLevel <= 5 ? 0.5 : (enemyLevel <= 10 ? 0.7 : (enemyLevel <= 20 ? 0.85 : 1.0));
+        if (eFormScale < 1.0) {
+            int cutAtt = (int)(BattleCalculator.getFormationAddAtt(enemyFormLv) * (1.0 - eFormScale));
+            int cutDef = (int)(BattleCalculator.getFormationAddDef(enemyFormLv) * (1.0 - eFormScale));
+            enemy.totalAttack = Math.max(enemy.totalAttack - cutAtt, 1);
+            enemy.totalDefense = Math.max(enemy.totalDefense - cutDef, 1);
+        }
         enemy.position = 0;
         List<BattleCalculator.BattleUnit> enemyUnits = Collections.singletonList(enemy);
 

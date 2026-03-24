@@ -54,7 +54,7 @@ public class GeneralService {
         if (!existing.isEmpty()) return existing.get(0);
 
         General starter = buildGeneral(gameUserId, "梁婉", "群",
-                5, "紫色", "#9370DB", 1.3, 4, "步", 1, 121);
+                3, "蓝色", "#4169E1", 1.0, 3, "步", 1, 121);
         return generalRepository.saveAll(Collections.singletonList(starter)).get(0);
     }
 
@@ -64,18 +64,15 @@ public class GeneralService {
         if (!existing.isEmpty()) { return existing; }
         
         List<General> initials = new ArrayList<>();
-        // 步兵将领：擅长防御，皮糙血厚
-        // slotId 1=orange步统帅, 7=purple步统帅
+        // 步兵将领 — slotId 对应实际 DB: 1=orange步统帅, 10=purple步猛将
         initials.add(buildGeneral(userId, "赵云", "蜀", 6, "橙色", "#FF8C00", 1.5, 5, "步", 50, 1));
-        initials.add(buildGeneral(userId, "张飞", "蜀", 5, "紫色", "#9370DB", 1.3, 4, "步", 46, 7));
-        // 骑兵将领：机动高，攻击力强
-        // slotId 9=purple骑统帅, 3=orange骑猛将
-        initials.add(buildGeneral(userId, "关羽", "蜀", 5, "紫色", "#9370DB", 1.3, 4, "骑", 48, 9));
+        initials.add(buildGeneral(userId, "张飞", "蜀", 5, "紫色", "#9370DB", 1.3, 4, "步", 46, 10));
+        // 骑兵将领 — slotId: 3=orange骑猛将, 13=purple骑统帅
+        initials.add(buildGeneral(userId, "关羽", "蜀", 5, "紫色", "#9370DB", 1.3, 4, "骑", 48, 13));
         initials.add(buildGeneral(userId, "吕布", "群", 6, "橙色", "#FF8C00", 1.5, 5, "骑", 42, 3));
-        // 弓兵将领：最强杀伤力，可靠的伤害输出者
-        // slotId 5=orange弓智将, 17=red弓智将
+        // 弓兵将领 — slotId: 5=orange弓智将, 76=red弓智将
         initials.add(buildGeneral(userId, "诸葛亮", "蜀", 6, "橙色", "#FF8C00", 1.5, 5, "弓", 45, 5));
-        initials.add(buildGeneral(userId, "貂蝉", "群", 4, "红色", "#DC143C", 1.1, 4, "弓", 43, 17));
+        initials.add(buildGeneral(userId, "貂蝉", "群", 4, "红色", "#DC143C", 1.1, 4, "弓", 43, 76));
         
         List<General> saved = generalRepository.saveAll(initials);
         logger.info("初始化完成，创建了{}个武将", saved.size());
