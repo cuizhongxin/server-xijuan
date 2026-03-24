@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.dao.HeroRankMapper">
+
+    <select id="findByUserId" resultType="java.util.HashMap">
+        SELECT user_id AS userId, user_name AS userName, level, power, fame,
+               rank_name AS rankName, ranking, nation,
+               today_challenge AS todayChallenge, today_wins AS todayWins,
+               today_purchased AS todayPurchased, last_reset_date AS lastResetDate,
+               last_challenge_time AS lastChallengeTime,
+               pending_fame AS pendingFame, pending_silver AS pendingSilver,
+               pending_exp AS pendingExp, reward_claimed AS rewardClaimed,
+               settle_date AS settleDate, update_time AS updateTime
+        FROM hero_rank WHERE user_id = #{userId} LIMIT 1
+    </select>
+
+    <insert id="upsert">
+        INSERT INTO hero_rank (user_id, user_name, level, power, fame, rank_name, ranking, rank_position, nation,
+                               today_challenge, today_wins, today_purchased,
+                               last_reset_date, last_challenge_time,
+                               pending_fame, pending_silver, pending_exp,
+                               reward_claimed, settle_date, update_time)
+        VALUES (#{userId}, #{userName}, #{level}, #{power}, #{fame}, #{rankName}, #{ranking}, #{ranking}, #{nation},
+                #{todayChallenge}, #{todayWins}, #{todayPurchased},
+                #{lastResetDate}, #{lastChallengeTime},
+                #{pendingFame}, #{pendingSilver}, #{pendingExp},
+                #{rewardClaimed}, #{settleDate}, #{updateTime})
+        ON DUPLICATE KEY UPDATE
+            user_name = #{userName}, level = #{level}, power = #{power}, fame = #{fame},
+            rank_name = #{rankName}, ranking = #{ranking}, rank_position = #{ranking}, nation = #{nation},
+            today_challenge = #{todayChallenge}, today_wins = #{todayWins},
+            today_purchased = #{todayPurchased}, last_reset_date = #{lastResetDate},
+            last_challenge_time = #{lastChallengeTime},
+            pending_fame = #{pendingFame}, pending_silver = #{pendingSilver},
+            pending_exp = #{pendingExp}, reward_claimed = #{rewardClaimed},
+            settle_date = #{settleDate}, update_time = #{updateTime}
+    </insert>
+
+    <!-- 按排名升序 -->
+    <select id="findByRanking" resultType="java.util.HashMap">
+        SELECT user_id AS userId, user_name AS userName, level, power, fame,
+               rank_name AS rankName, ranking, nation
+        FROM hero_rank ORDER BY ranking ASC LIMIT #{offset}, #{limit}
+    </select>
+
+    <!-- 按排名范围随机取N条 -->
+    <select id="findRandomInRange" resultType="java.util.HashMap">
+        SELECT user_id AS userId, user_name AS userName, level, power, fame,
+               rank_name AS rankName, ranking, nation
+        FROM hero_rank
+        WHERE ranking BETWEEN #{minRank} AND #{maxRank}
+          AND user_id != #{excludeUserId}
+        ORDER BY RAND()
+        LIMIT #{limit}
+    </select>
+
+    <select id="countAll" resultType="int">
+        SELECT COUNT(*) FROM hero_rank
+    </select>
+
+    <select id="findAllOrderByRanking" resultType="java.util.HashMap">
+        SELECT user_id AS userId, user_name AS userName, level, power, fame,
+               rank_name AS rankName, ranking
+        FROM hero_rank ORDER BY ranking ASC
+    </select>
+
+    <select id="findAllOrderByPower" resultType="java.util.HashMap">
+        SELECT user_id AS userId, user_name AS userName, level, power, fame,
+               rank_name AS rankName, ranking
+        FROM hero_rank ORDER BY power DESC
+    </select>
+
+    <update id="updateRanking">
+        UPDATE hero_rank SET ranking = #{ranking}, update_time = #{updateTime}
+        WHERE user_id = #{userId}
+    </update>
+
+    <!-- 交换两人排名（原子操作） -->
+    <update id="swapRanking">
+        UPDATE hero_rank SET
+            ranking = CASE
+                WHEN user_id = #{userA} THEN #{rankB}
+                WHEN user_id = #{userB} THEN #{rankA}
+            END,
+            update_time = #{updateTime}
+        WHERE user_id IN (#{userA}, #{userB})
+    </update>
+
+    <!-- 设置待领取奖励 -->
+    <update id="setPendingReward">
+        UPDATE hero_rank SET
+            pending_fame = #{pendingFame}, pending_silver = #{pendingSilver},
+            pending_exp = #{pendingExp}, reward_claimed = 0,
+            settle_date = #{settleDate}
+        WHERE user_id = #{userId}
+    </update>
+
+    <!-- 标记奖励已领取 -->
+    <update id="markRewardClaimed">
+        UPDATE hero_rank SET reward_claimed = 1 WHERE user_id = #{userId}
+    </update>
+
+    <!-- 挑战记录（含排名变动+战报JSON） -->
+    <insert id="insertBattle">
+        INSERT INTO hero_rank_battle (attacker_id, attacker_name, attacker_level,
+                                       defender_id, defender_name, defender_level,
+                                       victory, fame_gain,
+                                       atk_old_rank, atk_new_rank,
+                                       def_old_rank, def_new_rank,
+                                       battle_report,
+                                       create_time, create_date)
+        VALUES (#{attackerId}, #{attackerName}, #{attackerLevel},
+                #{defenderId}, #{defenderName}, #{defenderLevel},
+                #{victory}, #{fameGain},
+                #{atkOldRank}, #{atkNewRank},
+                #{defOldRank}, #{defNewRank},
+                #{battleReport},
+                #{createTime}, #{createDate})
+    </insert>
+
+    <select id="findBattleReportById" resultType="java.util.HashMap">
+        SELECT id, battle_report AS battleReport
+        FROM hero_rank_battle WHERE id = #{id} LIMIT 1
+    </select>
+
+    <!-- 查询与我相关的战报（攻+守） -->
+    <select id="findBattlesByUser" resultType="java.util.HashMap">
+        SELECT id, attacker_id AS attackerId, attacker_name AS attackerName, attacker_level AS attackerLevel,
+               defender_id AS defenderId, defender_name AS defenderName, defender_level AS defenderLevel,
+               victory, fame_gain AS fameGain,
+               atk_old_rank AS atkOldRank, atk_new_rank AS atkNewRank,
+               def_old_rank AS defOldRank, def_new_rank AS defNewRank,
+               create_time AS createTime, create_date AS createDate
+        FROM hero_rank_battle
+        WHERE attacker_id = #{userId} OR defender_id = #{userId}
+        ORDER BY create_time DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 奖励日志 -->
+    <insert id="insertRewardLog">
+        INSERT INTO hero_rank_reward_log (user_id, ranking, fame_reward, silver_reward, settle_date, create_time)
+        VALUES (#{userId}, #{ranking}, #{fameReward}, #{silverReward}, #{settleDate}, #{createTime})
+    </insert>
+
+    <select id="findRewardLogs" resultType="java.util.HashMap">
+        SELECT id, user_id AS userId, ranking, fame_reward AS fameReward,
+               silver_reward AS silverReward, settle_date AS settleDate, create_time AS createTime
+        FROM hero_rank_reward_log
+        WHERE user_id = #{userId}
+        ORDER BY create_time DESC
+        LIMIT #{limit}
+    </select>
+
+</mapper>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.dao.UserIdMappingMapper">
+
+    <select id="findUserIdByOpenId" resultType="java.lang.Long">
+        SELECT user_id FROM user_id_mapping WHERE open_id = #{openId}
+    </select>
+
+    <select id="findOpenIdByUserId" resultType="java.lang.String">
+        SELECT open_id FROM user_id_mapping WHERE user_id = #{userId}
+    </select>
+
+    <insert id="insert">
+        INSERT IGNORE INTO user_id_mapping (open_id) VALUES (#{openId})
+    </insert>
+
+    <select id="getMaxUserId" resultType="java.lang.Long">
+        SELECT MAX(user_id) FROM user_id_mapping
+    </select>
+
+</mapper>

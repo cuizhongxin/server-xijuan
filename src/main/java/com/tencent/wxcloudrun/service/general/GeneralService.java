@@ -58,6 +58,28 @@ public class GeneralService {
         return generalRepository.saveAll(Collections.singletonList(starter)).get(0);
     }
 
+    /**
+     * VIP奖励发放专用 — 创建并保存一个指定武将给玩家
+     * @return 创建的武将实例，若玩家已拥有同名武将则返回 null
+     */
+    public General grantVipGeneral(String userId, String name, String faction,
+                                   int qualityId, String qualityName, String qualityColor,
+                                   double qualityMultiplier, int qualityStar,
+                                   String troopType, int slotId) {
+        List<General> owned = generalRepository.findByUserId(userId);
+        boolean alreadyOwned = owned.stream().anyMatch(g -> name.equals(g.getName()));
+        if (alreadyOwned) {
+            logger.info("【VIP武将发放】用户 {} 已拥有武将 {}，跳过", userId, name);
+            return null;
+        }
+        General general = buildGeneral(userId, name, faction,
+                qualityId, qualityName, qualityColor,
+                qualityMultiplier, qualityStar, troopType, 1, slotId);
+        generalRepository.saveAll(Collections.singletonList(general));
+        logger.info("【VIP武将发放】用户 {} 获得武将 {}(slotId={})", userId, name, slotId);
+        return general;
+    }
+
     public List<General> initUserGenerals(String userId) {
         if ("1".equals(userId)) { return new ArrayList<>(); }
         List<General> existing = generalRepository.findByUserId(userId);

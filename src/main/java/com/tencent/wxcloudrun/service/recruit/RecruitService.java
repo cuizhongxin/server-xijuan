@@ -71,7 +71,8 @@ public class RecruitService {
     @Autowired private ChatService chatService;
     @Autowired private StoryProgressMapper storyProgressMapper;
     
-    private static final String GUIDE_RECRUIT_GENERAL = "马腾";
+    private static final String GUIDE_RECRUIT_SENIOR = "马腾";
+    private static final String GUIDE_RECRUIT_INTERMEDIATE = "韩遂";
     
     /** 红色(4)/紫色(5)/橙色(6) 以上发全服通告 */
     private static final int ANNOUNCE_MIN_QUALITY_ID = 4;
@@ -237,21 +238,32 @@ public class RecruitService {
             throw new BusinessException(400, "武将位已满（" + currentCount + "/" + maxSlots + "）");
         }
         
-        // 引导期间高级招募：免费 + 固定马腾
-        if (isInGuide(userId) && "SENIOR".equalsIgnoreCase(tokenType)) {
-            General maTeng = tryGuideRecruit(userId);
-            if (maTeng != null) {
-                userResourceService.updateGeneralCount(userId, currentCount + 1);
-                generalRepository.saveAll(Collections.singletonList(maTeng));
-                UserResource resource = getUserResource(userId);
-                logger.info("引导招募: userId={}, 固定获得马腾", userId);
-                return RecruitResult.builder()
-                        .general(maTeng)
-                        .soulPointGained(0)
-                        .totalSoulPoint(resource.getSoulPoint() != null ? resource.getSoulPoint() : 0)
-                        .remainingTokens(resource.getSeniorToken() != null ? resource.getSeniorToken() : 0)
-                        .tokenType(tokenType)
-                        .build();
+        // 引导期间招募：免费 + 固定武将
+        if (isInGuide(userId)) {
+            String fixedName = null;
+            String fixedQuality = null;
+            if ("SENIOR".equalsIgnoreCase(tokenType)) {
+                fixedName = GUIDE_RECRUIT_SENIOR;
+                fixedQuality = "purple";
+            } else if ("INTERMEDIATE".equalsIgnoreCase(tokenType)) {
+                fixedName = GUIDE_RECRUIT_INTERMEDIATE;
+                fixedQuality = "blue";
+            }
+            if (fixedName != null) {
+                General guideGeneral = tryGuideRecruit(userId, fixedName, fixedQuality);
+                if (guideGeneral != null) {
+                    userResourceService.updateGeneralCount(userId, currentCount + 1);
+                    generalRepository.saveAll(Collections.singletonList(guideGeneral));
+                    UserResource resource = getUserResource(userId);
+                    logger.info("引导招募: userId={}, 固定获得{}", userId, fixedName);
+                    return RecruitResult.builder()
+                            .general(guideGeneral)
+                            .soulPointGained(0)
+                            .totalSoulPoint(resource.getSoulPoint() != null ? resource.getSoulPoint() : 0)
+                            .remainingTokens(0)
+                            .tokenType(tokenType)
+                            .build();
+                }
             }
         }
         
@@ -502,27 +514,26 @@ public class RecruitService {
         }
     }
     
-    private General tryGuideRecruit(String userId) {
+    private General tryGuideRecruit(String userId, String generalName, String qualityCode) {
         try {
-            List<GeneralConfig.GeneralTemplate> purples = generalConfig.getAllGeneralsByQuality("purple");
-            GeneralConfig.GeneralTemplate maTeng = purples.stream()
-                    .filter(t -> GUIDE_RECRUIT_GENERAL.equals(t.name))
+            List<GeneralConfig.GeneralTemplate> pool = generalConfig.getAllGeneralsByQuality(qualityCode);
+            GeneralConfig.GeneralTemplate template = pool.stream()
+                    .filter(t -> generalName.equals(t.name))
                     .findFirst()
                     .orElse(null);
-            if (maTeng == null) {
-                logger.warn("引导招募: 未找到马腾模板");
+            if (template == null) {
+                logger.warn("引导招募: 未找到{}模板(quality={})", generalName, qualityCode);
                 return null;
             }
-            // 检查是否已拥有马腾（避免重复）
             List<General> owned = generalRepository.findByUserId(userId);
-            boolean alreadyOwned = owned.stream().anyMatch(g -> GUIDE_RECRUIT_GENERAL.equals(g.getName()));
+            boolean alreadyOwned = owned.stream().anyMatch(g -> generalName.equals(g.getName()));
             if (alreadyOwned) {
-                logger.info("引导招募: 用户已拥有马腾, 走正常招募流程");
+                logger.info("引导招募: 用户已拥有{}, 走正常招募流程", generalName);
                 return null;
             }
-            return createGeneralFromTemplate(userId, maTeng);
+            return createGeneralFromTemplate(userId, template);
         } catch (Exception e) {
-            logger.warn("引导招募异常, userId={}", userId, e);
+            logger.warn("引导招募异常, userId={}, general={}", userId, generalName, e);
             return null;
         }
     }

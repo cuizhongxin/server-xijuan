@@ -1,0 +1,110 @@
+-- 生产制造系统表 (匹配 ProductionMapper.xml 的列定义)
+-- 注意: 执行前会删除旧表, 开发环境使用
+DROP TABLE IF EXISTS production;
+
+CREATE TABLE production (
+    od_user_id VARCHAR(64) NOT NULL PRIMARY KEY,
+
+    -- 白银矿 (silver mine)
+    sm_id VARCHAR(32) DEFAULT 'silver_facility',
+    sm_name VARCHAR(32) DEFAULT '白银矿',
+    sm_type VARCHAR(16) DEFAULT 'silver',
+    sm_level INT DEFAULT 1,
+    sm_max_level INT DEFAULT 20,
+    sm_output INT DEFAULT 120,
+    sm_daily_limit INT DEFAULT 300,
+    sm_used_today INT DEFAULT 0,
+    sm_last_reset VARCHAR(16) DEFAULT '',
+    sm_icon VARCHAR(128) DEFAULT '',
+    sm_up_silver BIGINT DEFAULT 1000,
+    sm_up_metal BIGINT DEFAULT 500,
+    sm_up_food BIGINT DEFAULT 500,
+    sm_up_paper BIGINT DEFAULT 200,
+
+    -- 金属矿 (metal mine)
+    mm_id VARCHAR(32) DEFAULT 'metal_facility',
+    mm_name VARCHAR(32) DEFAULT '金属矿',
+    mm_type VARCHAR(16) DEFAULT 'metal',
+    mm_level INT DEFAULT 1,
+    mm_max_level INT DEFAULT 20,
+    mm_output INT DEFAULT 80,
+    mm_daily_limit INT DEFAULT 100,
+    mm_used_today INT DEFAULT 0,
+    mm_last_reset VARCHAR(16) DEFAULT '',
+    mm_icon VARCHAR(128) DEFAULT '',
+    mm_up_silver BIGINT DEFAULT 1000,
+    mm_up_metal BIGINT DEFAULT 500,
+    mm_up_food BIGINT DEFAULT 500,
+    mm_up_paper BIGINT DEFAULT 200,
+
+    -- 农场 (farm)
+    fm_id VARCHAR(32) DEFAULT 'food_facility',
+    fm_name VARCHAR(32) DEFAULT '农场',
+    fm_type VARCHAR(16) DEFAULT 'food',
+    fm_level INT DEFAULT 1,
+    fm_max_level INT DEFAULT 20,
+    fm_output INT DEFAULT 80,
+    fm_daily_limit INT DEFAULT 200,
+    fm_used_today INT DEFAULT 0,
+    fm_last_reset VARCHAR(16) DEFAULT '',
+    fm_icon VARCHAR(128) DEFAULT '',
+    fm_up_silver BIGINT DEFAULT 1000,
+    fm_up_metal BIGINT DEFAULT 500,
+    fm_up_food BIGINT DEFAULT 500,
+    fm_up_paper BIGINT DEFAULT 200,
+
+    -- 造纸坊 (paper mill)
+    pm_id VARCHAR(32) DEFAULT 'paper_facility',
+    pm_name VARCHAR(32) DEFAULT '造纸坊',
+    pm_type VARCHAR(16) DEFAULT 'paper',
+    pm_level INT DEFAULT 1,
+    pm_max_level INT DEFAULT 20,
+    pm_output INT DEFAULT 80,
+    pm_daily_limit INT DEFAULT 100,
+    pm_used_today INT DEFAULT 0,
+    pm_last_reset VARCHAR(16) DEFAULT '',
+    pm_icon VARCHAR(128) DEFAULT '',
+    pm_up_silver BIGINT DEFAULT 1000,
+    pm_up_metal BIGINT DEFAULT 500,
+    pm_up_food BIGINT DEFAULT 500,
+    pm_up_paper BIGINT DEFAULT 200,
+
+    -- 军械局 (arsenal)
+    ar_id VARCHAR(32) DEFAULT 'arsenal_facility',
+    ar_name VARCHAR(32) DEFAULT '军械局',
+    ar_type VARCHAR(16) DEFAULT 'arsenal',
+    ar_level INT DEFAULT 1,
+    ar_max_level INT DEFAULT 20,
+    ar_icon VARCHAR(128) DEFAULT '',
+    ar_desc VARCHAR(128) DEFAULT '制造各种将领装备',
+    ar_up_silver BIGINT DEFAULT 2000,
+    ar_up_metal BIGINT DEFAULT 1000,
+    ar_up_food BIGINT DEFAULT 1000,
+    ar_up_paper BIGINT DEFAULT 500,
+
+    -- 奇物坊 (workshop)
+    ws_id VARCHAR(32) DEFAULT 'workshop_facility',
+    ws_name VARCHAR(32) DEFAULT '奇物坊',
+    ws_type VARCHAR(16) DEFAULT 'workshop',
+    ws_level INT DEFAULT 1,
+    ws_max_level INT DEFAULT 20,
+    ws_icon VARCHAR(128) DEFAULT '',
+    ws_desc VARCHAR(128) DEFAULT '制造各种奇门道具',
+    ws_up_silver BIGINT DEFAULT 2000,
+    ws_up_metal BIGINT DEFAULT 1000,
+    ws_up_food BIGINT DEFAULT 1000,
+    ws_up_paper BIGINT DEFAULT 500,
+
+    -- 讲武堂 (academy)
+    ac_id VARCHAR(32) DEFAULT 'academy_facility',
+    ac_name VARCHAR(32) DEFAULT '讲武堂',
+    ac_type VARCHAR(16) DEFAULT 'academy',
+    ac_level INT DEFAULT 1,
+    ac_max_level INT DEFAULT 20,
+    ac_icon VARCHAR(128) DEFAULT '',
+    ac_desc VARCHAR(128) DEFAULT '制造各种兵法兵书',
+    ac_up_silver BIGINT DEFAULT 2000,
+    ac_up_metal BIGINT DEFAULT 1000,
+    ac_up_food BIGINT DEFAULT 1000,
+    ac_up_paper BIGINT DEFAULT 500
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

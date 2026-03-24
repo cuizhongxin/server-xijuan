@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.dao.UserLearnedTacticsMapper">
+
+    <select id="findByUserId" resultType="java.lang.String">
+        SELECT tactics_ids FROM user_learned_tactics WHERE user_id = #{userId}
+    </select>
+
+    <insert id="upsert">
+        INSERT INTO user_learned_tactics (user_id, tactics_ids)
+        VALUES (#{userId}, #{tacticsIds})
+        ON DUPLICATE KEY UPDATE tactics_ids = #{tacticsIds}
+    </insert>
+
+</mapper>

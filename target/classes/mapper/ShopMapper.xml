@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.dao.ShopMapper">
+    
+    <resultMap id="ShopResultMap" type="com.tencent.wxcloudrun.model.Shop">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="price" column="price"/>
+        <result property="desc" column="desc"/>
+        <result property="currency" column="currency"/>
+        <result property="icon" column="icon"/>
+        <result property="classify" column="classify"/>
+        <result property="quality" column="quality"/>
+        <result property="itemId" column="item_id"/>
+    </resultMap>
+    
+    <select id="findAll" resultMap="ShopResultMap">
+        SELECT id, name, price, `desc`, currency, icon, classify, quality, item_id
+        FROM shop
+        ORDER BY id ASC
+    </select>
+    
+    <select id="findByClassify" resultMap="ShopResultMap">
+        SELECT id, name, price, `desc`, currency, icon, classify, quality, item_id
+        FROM shop
+        WHERE classify = #{classify}
+        ORDER BY id ASC
+    </select>
+    
+    <select id="findById" resultMap="ShopResultMap">
+        SELECT id, name, price, `desc`, currency, icon, classify, quality, item_id
+        FROM shop
+        WHERE id = #{id}
+    </select>
+    
+</mapper>

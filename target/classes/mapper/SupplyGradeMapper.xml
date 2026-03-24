@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.dao.SupplyGradeMapper">
+
+    <select id="findAll" resultType="java.util.HashMap">
+        SELECT id, name, color,
+               silver_base AS silverBase, silver_level_mult AS silverLevelMult, silver_rand_max AS silverRandMax,
+               other_base AS otherBase, other_level_mult AS otherLevelMult, other_rand_max AS otherRandMax,
+               transport_minutes AS transportMinutes, refresh_probability AS refreshProbability
+        FROM supply_grade
+        ORDER BY id
+    </select>
+
+</mapper>

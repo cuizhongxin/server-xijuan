@@ -9,9 +9,9 @@ import java.util.*;
  * 兵法配置 - 12+1种兵种专属兵法 (与APK WarBookShow_cfg.json对齐)
  *
  * 弓兵: 连射(33001)、长虹贯日(33002)、落月弓(33003)
- * 骑兵: 声东击西(33004)、铁骑冲锋(33005)、以逸待劳(33006)、战神突击(33012)
+ * 骑兵: 声东击西(33004)、铁骑冲锋(33005)、以逸待劳(33006)
  * 步兵: 方圆阵(33007)、偃月阵(33008)、长蛇阵(33009)、雁行阵(33010)、却月阵(33011)
- * 吕布专属: 辕门射戟
+ * 吕布专属(VIP10): 战神突击(33012)
  */
 @Component
 public class TacticsConfig {
@@ -131,11 +131,11 @@ public class TacticsConfig {
             .craftPaper(8000).craftSilver(15000).upgradePaperPerLv(6000).upgradeSilverPerLv(12000)
             .build());
 
-        // ========== 吕布专属（VIP10获取，不可制造） ==========
+        // ========== 吕布专属（VIP10获取，不可制造，APK 33012 战神突击） ==========
         register(TacticsTemplate.builder()
-            .id("t_special_lvbu").name("辕门射戟").icon("🏹").apkIconId("33002").troopType("弓").category("穿透")
-            .description("吕布专属兵法，对同一行所有敌人造成大量伤害")
-            .effectKey("aoeDmg").minEffect(60).maxEffect(100).effectUnit("%")
+            .id("t_special_lvbu").name("战神突击").icon("⚔️").apkIconId("33012").troopType("骑").category("贯穿")
+            .description("吕布专属兵法，发挥骑兵强大的突击能力，对同一行所有敌人造成大量伤害")
+            .effectKey("pierceDmg").minEffect(50).maxEffect(68).effectUnit("%")
             .effectDesc("对同一行所有敌人造成{value}%的伤害")
             .baseTriggerRate(40)
             .craftPaper(0).craftSilver(0).upgradePaperPerLv(8000).upgradeSilverPerLv(15000)

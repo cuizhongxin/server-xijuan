@@ -1,0 +1,19 @@
+# 生产环境配置
+server:
+  port: 3000
+
+# 日志配置
+logging:
+  level:
+    root: INFO
+    com.miniprogram: INFO
+  file:
+    name: logs/miniprogram-auth.log
+
+# 微信小程序配置（生产环境请使用环境变量）
+wechat:
+  miniprogram:
+    app-id: ${WECHAT_APP_ID:your-production-appid}
+    app-secret: ${WECHAT_APP_SECRET:your-production-appsecret}
+
+

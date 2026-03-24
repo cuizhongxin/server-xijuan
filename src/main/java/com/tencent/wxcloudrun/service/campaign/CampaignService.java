@@ -42,6 +42,7 @@ public class CampaignService {
     private final com.tencent.wxcloudrun.service.SuitConfigService suitConfigService;
     private final BattleService battleService;
     private final StoryProgressMapper storyProgressMapper;
+    private final com.tencent.wxcloudrun.service.level.LevelService levelService;
     
     // 战役配置
     private final Map<String, Campaign> campaignConfigs = new ConcurrentHashMap<>();
@@ -909,12 +910,19 @@ public class CampaignService {
             List<CampaignProgress.DropItem> drops = processDrops(stage.getDrops(), dropRandom);
             result.setDrops(drops);
 
-            General general = generalService.getGeneralById(progress.getGeneralId());
-            if (general != null) {
-                long curExp = general.getExp() != null ? general.getExp() : 0;
-                general.setExp(curExp + expGained);
-                generalService.saveGeneral(general);
+            try {
+                List<String> fmGeneralIds = formationService.getFormationGeneralIds(odUserId);
+                for (String gid : fmGeneralIds) {
+                    if (gid != null) generalService.addGeneralExp(gid, expGained);
+                }
+            } catch (Exception e) {
+                log.warn("阵型武将加经验异常, 降级为主将加经验", e);
+                General general = generalService.getGeneralById(progress.getGeneralId());
+                if (general != null) generalService.addGeneralExp(general.getId(), expGained);
             }
+
+            Map<String, Object> lordInfo = levelService.addExp(odUserId, expGained, "战役战斗");
+            result.setLordLevelInfo(lordInfo);
 
             UserResource resource = userResourceService.getUserResource(odUserId);
             resource.setSilver(resource.getSilver() + silverGained);
@@ -1064,12 +1072,18 @@ public class CampaignService {
             List<CampaignProgress.DropItem> drops = processDrops(stage.getDrops(), dropRandom);
             result.setDrops(drops);
             
-            // 更新主将经验
-            if (leadGeneral != null) {
-                long currentExp = leadGeneral.getExp() != null ? leadGeneral.getExp() : 0;
-                leadGeneral.setExp(currentExp + expGained);
-                generalService.saveGeneral(leadGeneral);
+            try {
+                List<String> fmGeneralIds = formationService.getFormationGeneralIds(odUserId);
+                for (String gid : fmGeneralIds) {
+                    if (gid != null) generalService.addGeneralExp(gid, expGained);
+                }
+            } catch (Exception e) {
+                log.warn("阵型武将加经验异常, 降级为主将加经验", e);
+                if (leadGeneral != null) generalService.addGeneralExp(leadGeneral.getId(), expGained);
             }
+
+            Map<String, Object> lordInfo = levelService.addExp(odUserId, expGained, "战役战斗");
+            result.setLordLevelInfo(lordInfo);
             
             // 更新资源
             UserResource resource = userResourceService.getUserResource(odUserId);
@@ -1333,14 +1347,21 @@ public class CampaignService {
         resource.setSilver(resource.getSilver() + totalSilver);
         userResourceService.saveUserResource(resource);
         
-        // 武将获得经验
-        General general = generalService.getGeneralById(progress.getGeneralId());
-        if (general != null) {
-            long currentExp = general.getExp() != null ? general.getExp() : 0;
-            general.setExp(currentExp + totalExp);
-            generalService.saveGeneral(general);
+        // 阵型内所有武将获得经验
+        try {
+            List<String> fmGeneralIds = formationService.getFormationGeneralIds(odUserId);
+            for (String gid : fmGeneralIds) {
+                if (gid != null) generalService.addGeneralExp(gid, totalExp);
+            }
+        } catch (Exception e) {
+            log.warn("扫荡: 阵型武将加经验异常, 降级为主将加经验", e);
+            General general = generalService.getGeneralById(progress.getGeneralId());
+            if (general != null) generalService.addGeneralExp(general.getId(), totalExp);
         }
-        
+
+        // 主公获得经验
+        levelService.addExp(odUserId, totalExp, "战役扫荡");
+
         // 处理装备掉落
         for (CampaignProgress.DropItem drop : allDrops) {
             if ("EQUIP_PRE".equals(drop.getType())) {

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.dao.ContinuousLoginMapper">
+
+    <select id="findByUserId" resultType="java.util.HashMap">
+        SELECT id, user_id AS userId,
+               consecutive_days AS consecutiveDays,
+               DATE_FORMAT(last_login_date, '%Y-%m-%d') AS lastLoginDate,
+               total_login_days AS totalLoginDays,
+               claimed_days AS claimedDays
+        FROM continuous_login
+        WHERE user_id = #{userId}
+    </select>
+
+    <insert id="upsertRecord">
+        INSERT INTO continuous_login (user_id, consecutive_days, last_login_date, total_login_days, claimed_days)
+        VALUES (#{userId}, #{consecutiveDays}, #{lastLoginDate}, #{totalLoginDays}, #{claimedDays})
+        ON DUPLICATE KEY UPDATE
+            consecutive_days = #{consecutiveDays},
+            last_login_date = #{lastLoginDate},
+            total_login_days = #{totalLoginDays},
+            claimed_days = #{claimedDays}
+    </insert>
+
+</mapper>

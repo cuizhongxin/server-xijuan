@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.dao.VipGiftClaimMapper">
+
+    <select id="findClaimedLevels" resultType="java.lang.Integer">
+        SELECT vip_level FROM vip_gift_claim WHERE user_id = #{userId}
+    </select>
+
+    <select id="countClaim" resultType="int">
+        SELECT COUNT(*) FROM vip_gift_claim
+        WHERE user_id = #{userId} AND vip_level = #{vipLevel}
+    </select>
+
+    <insert id="insertClaim">
+        INSERT INTO vip_gift_claim (user_id, vip_level, claim_time)
+        VALUES (#{userId}, #{vipLevel}, #{claimTime})
+    </insert>
+
+</mapper>

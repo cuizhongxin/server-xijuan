@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.dao.SignInMapper">
+
+    <select id="findSignedDates" resultType="java.lang.String">
+        SELECT DATE_FORMAT(sign_date, '%Y-%m-%d')
+        FROM sign_in_record
+        WHERE user_id = #{userId}
+          AND DATE_FORMAT(sign_date, '%Y-%m') = #{yearMonth}
+        ORDER BY sign_date ASC
+    </select>
+
+    <select id="countSignIn" resultType="int">
+        SELECT COUNT(*)
+        FROM sign_in_record
+        WHERE user_id = #{userId}
+          AND sign_date = #{signDate}
+    </select>
+
+    <insert id="insertSignIn">
+        INSERT INTO sign_in_record (user_id, sign_date, is_makeup)
+        VALUES (#{userId}, #{signDate}, #{isMakeup})
+    </insert>
+
+    <select id="countMonthSignIn" resultType="int">
+        SELECT COUNT(*)
+        FROM sign_in_record
+        WHERE user_id = #{userId}
+          AND DATE_FORMAT(sign_date, '%Y-%m') = #{yearMonth}
+    </select>
+
+    <select id="countMonthMakeup" resultType="int">
+        SELECT COUNT(*)
+        FROM sign_in_record
+        WHERE user_id = #{userId}
+          AND DATE_FORMAT(sign_date, '%Y-%m') = #{yearMonth}
+          AND is_makeup = 1
+    </select>
+
+</mapper>

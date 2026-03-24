@@ -1,0 +1,47 @@
+# Spring Boot 配置
+server:
+  port: 3000
+  servlet:
+    context-path: /api
+
+spring:
+  jackson:
+    time-zone: Asia/Shanghai
+    date-format: yyyy-MM-dd HH:mm:ss
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${MYSQL_ADDRESS:sh-cynosdbmysql-grp-fpk6plkq.sql.tencentcdb.com:20936}/${MYSQL_DATABASE:springboot_demo-202603241646}?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:JudM29rf}
+  mvc:
+    view:
+      suffix: .html
+      prefix: /
+
+mybatis:
+  mapper-locations: classpath*:mapper/*Mapper.xml
+
+# 微信小程序配置
+wechat:
+  miniprogram:
+    app-id: wx8f7d0509e671ceb4
+    app-secret: 1ebc1ec2418ba5527088d5cc013f694c
+    # 微信API地址
+    api:
+      code2session: https://api.weixin.qq.com/sns/jscode2session
+
+# JWT配置
+jwt:
+  # JWT密钥（至少32字符/256bits）
+  secret: xiaofanxingetest123456789abcdefghijk  # 32+ 字符的安全密钥
+  expiration: 604800  # token过期时间（秒），7天
+
+# 日志配置
+logging:
+  level:
+    root: INFO
+    com.miniprogram: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+

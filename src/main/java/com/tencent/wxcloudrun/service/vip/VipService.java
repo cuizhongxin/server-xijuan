@@ -4,7 +4,9 @@ import com.tencent.wxcloudrun.dao.VipGiftClaimMapper;
 import com.tencent.wxcloudrun.exception.BusinessException;
 import com.tencent.wxcloudrun.model.Warehouse;
 import com.tencent.wxcloudrun.model.UserResource;
+import com.tencent.wxcloudrun.model.General;
 import com.tencent.wxcloudrun.service.UserResourceService;
+import com.tencent.wxcloudrun.service.general.GeneralService;
 import com.tencent.wxcloudrun.service.tactics.TacticsService;
 import com.tencent.wxcloudrun.service.warehouse.WarehouseService;
 import org.slf4j.Logger;
@@ -24,6 +26,7 @@ public class VipService {
     @Autowired private WarehouseService warehouseService;
     @Autowired private UserResourceService userResourceService;
     @Autowired private TacticsService tacticsService;
+    @Autowired private GeneralService generalService;
 
     // VIP等级阈值（元）
     private static final int[] VIP_THRESHOLDS = {0, 6, 30, 98, 198, 328, 648, 998, 1998, 6000, 20000};
@@ -213,18 +216,31 @@ public class VipService {
                 addItems(userId, rewards, "15052", "军需令", 80);
                 break;
             case 9:
-                rewards.add("名将：貂蝉（弓兵）");
+                try {
+                    General diaochan = generalService.grantVipGeneral(userId,
+                            "貂蝉", "群", 6, "橙色", "#FF8C00", 1.5, 5, "弓", 9);
+                    if (diaochan != null) {
+                        rewards.add("名将：貂蝉（弓兵）");
+                        logger.info("【VIP9】授予武将貂蝉成功 userId={}", userId);
+                    } else {
+                        rewards.add("名将：貂蝉（弓兵）（已拥有）");
+                        logger.info("【VIP9】用户已拥有貂蝉 userId={}", userId);
+                    }
+                } catch (Exception e) {
+                    logger.error("【VIP9】授予武将貂蝉失败 userId={}", userId, e);
+                    rewards.add("名将：貂蝉（弓兵）（发放异常，请联系客服）");
+                }
                 addItems(userId, rewards, ID_SELECT_HUXIAO, "指定虎啸装", 1);
                 addItems(userId, rewards, "11002", "高级声望符", 50);
                 break;
             case 10:
                 try {
                     tacticsService.grantTactics(userId, "t_special_lvbu", 1);
-                    rewards.add("吕布专属兵法：辕门射戟");
+                    rewards.add("吕布专属兵法：战神突击");
                     logger.info("【VIP10】授予兵法成功 userId={}, tacticsId=t_special_lvbu", userId);
                 } catch (Exception e) {
                     logger.error("【VIP10】授予兵法失败 userId={}", userId, e);
-                    rewards.add("吕布专属兵法：辕门射戟（发放异常，请联系客服）");
+                    rewards.add("吕布专属兵法：战神突击（发放异常，请联系客服）");
                 }
                 addItems(userId, rewards, "14036", "6阶品质石", 30);
                 addItems(userId, rewards, "11002", "高级声望符", 50);

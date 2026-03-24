@@ -1,0 +1,52 @@
+{
+  "groups": [
+    {
+      "name": "jwt",
+      "type": "com.tencent.wxcloudrun.config.JwtConfig",
+      "sourceType": "com.tencent.wxcloudrun.config.JwtConfig"
+    },
+    {
+      "name": "wechat.miniprogram",
+      "type": "com.tencent.wxcloudrun.config.WechatConfig",
+      "sourceType": "com.tencent.wxcloudrun.config.WechatConfig"
+    },
+    {
+      "name": "wechat.miniprogram.api",
+      "type": "com.tencent.wxcloudrun.config.WechatConfig$Api",
+      "sourceType": "com.tencent.wxcloudrun.config.WechatConfig"
+    }
+  ],
+  "properties": [
+    {
+      "name": "jwt.expiration",
+      "type": "java.lang.Long",
+      "description": "token过期时间（秒）",
+      "sourceType": "com.tencent.wxcloudrun.config.JwtConfig"
+    },
+    {
+      "name": "jwt.secret",
+      "type": "java.lang.String",
+      "description": "JWT密钥",
+      "sourceType": "com.tencent.wxcloudrun.config.JwtConfig"
+    },
+    {
+      "name": "wechat.miniprogram.api.code2session",
+      "type": "java.lang.String",
+      "description": "code2session接口地址",
+      "sourceType": "com.tencent.wxcloudrun.config.WechatConfig$Api"
+    },
+    {
+      "name": "wechat.miniprogram.app-id",
+      "type": "java.lang.String",
+      "description": "小程序AppID",
+      "sourceType": "com.tencent.wxcloudrun.config.WechatConfig"
+    },
+    {
+      "name": "wechat.miniprogram.app-secret",
+      "type": "java.lang.String",
+      "description": "小程序AppSecret",
+      "sourceType": "com.tencent.wxcloudrun.config.WechatConfig"
+    }
+  ],
+  "hints": []
+}

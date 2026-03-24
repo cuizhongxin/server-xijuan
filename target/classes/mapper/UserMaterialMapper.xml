@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.dao.UserMaterialMapper">
+
+    <select id="findByUserId" resultType="java.util.HashMap">
+        SELECT material_id AS materialId, count FROM user_material WHERE user_id = #{userId}
+    </select>
+
+    <select id="findCount" resultType="java.lang.Integer">
+        SELECT count FROM user_material WHERE user_id = #{userId} AND material_id = #{materialId}
+    </select>
+
+    <insert id="upsert">
+        INSERT INTO user_material (user_id, material_id, count)
+        VALUES (#{userId}, #{materialId}, #{count})
+        ON DUPLICATE KEY UPDATE count = #{count}
+    </insert>
+
+    <delete id="deleteByUserId">
+        DELETE FROM user_material WHERE user_id = #{userId}
+    </delete>
+
+    <delete id="deleteByUserIdAndMaterialId">
+        DELETE FROM user_material WHERE user_id = #{userId} AND material_id = #{materialId}
+    </delete>
+
+</mapper>

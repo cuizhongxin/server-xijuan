@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.dao.AllianceWarMapper">
+
+    <select id="findByDate" resultType="java.lang.String">
+        SELECT data FROM alliance_war WHERE war_date = #{warDate}
+    </select>
+
+    <insert id="upsert">
+        INSERT INTO alliance_war (war_date, data)
+        VALUES (#{warDate}, #{data})
+        ON DUPLICATE KEY UPDATE data = #{data}
+    </insert>
+
+</mapper>

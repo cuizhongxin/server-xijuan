@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 用户战役进度模型
@@ -237,5 +238,7 @@ public class CampaignProgress {
          * 完整战斗报告（含每回合 actions/hits，前端用于回放渲染）
          */
         private Object battleReport;
+
+        private Map<String, Object> lordLevelInfo;
     }
 }

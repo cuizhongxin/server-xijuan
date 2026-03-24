@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.dao.SupplyDataMapper">
+
+    <select id="findByUserId" resultType="java.util.HashMap">
+        SELECT user_id AS userId, today_transport AS todayTransport,
+               today_robbery AS todayRobbery, current_grade_id AS currentGradeId,
+               refresh_tokens AS refreshTokens, last_reset_date AS lastResetDate,
+               update_time AS updateTime
+        FROM supply_data
+        WHERE user_id = #{userId}
+    </select>
+
+    <insert id="upsert">
+        INSERT INTO supply_data (user_id, today_transport, today_robbery, current_grade_id,
+                                 refresh_tokens, last_reset_date, update_time)
+        VALUES (#{userId}, #{todayTransport}, #{todayRobbery}, #{currentGradeId},
+                #{refreshTokens}, #{lastResetDate}, #{updateTime})
+        ON DUPLICATE KEY UPDATE
+            today_transport = #{todayTransport},
+            today_robbery = #{todayRobbery},
+            current_grade_id = #{currentGradeId},
+            refresh_tokens = #{refreshTokens},
+            last_reset_date = #{lastResetDate},
+            update_time = #{updateTime}
+    </insert>
+
+</mapper>
