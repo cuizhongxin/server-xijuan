@@ -1165,17 +1165,22 @@ public class CampaignService {
      */
     public Map<String, Object> pauseCampaign(String odUserId, String campaignId) {
         CampaignProgress progress = campaignRepository.findByUserIdAndCampaignId(odUserId, campaignId);
-        if (progress == null || !"IN_PROGRESS".equals(progress.getStatus())) {
-            throw new BusinessException("战役未开始");
-        }
-        
-        progress.setStatus("PAUSED");
-        campaignRepository.save(progress);
-        
         Map<String, Object> result = new HashMap<>();
-        result.put("success", true);
-        result.put("message", "战役已暂停，进度已保存");
-        
+        if (progress == null) {
+            result.put("success", true);
+            result.put("message", "无进行中的战役");
+            return result;
+        }
+        String status = progress.getStatus();
+        if ("IN_PROGRESS".equals(status)) {
+            progress.setStatus("PAUSED");
+            campaignRepository.save(progress);
+            result.put("success", true);
+            result.put("message", "战役已暂停，进度已保存");
+        } else {
+            result.put("success", true);
+            result.put("message", "战役当前状态: " + status);
+        }
         return result;
     }
     

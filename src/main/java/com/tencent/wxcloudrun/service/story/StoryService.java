@@ -54,7 +54,8 @@ public class StoryService {
 
         String rewardName = null;
         Integer rewardPreId = STORY_REWARD_MAP.get(nodeId);
-        if (rewardPreId != null && progress.getCurrentNode() < nodeId) {
+        int cur = progress.getCurrentNode() != null ? progress.getCurrentNode() : 0;
+        if (rewardPreId != null && cur < nodeId) {
             rewardName = grantEquipReward(userId + "_" + serverId, rewardPreId);
         }
 
