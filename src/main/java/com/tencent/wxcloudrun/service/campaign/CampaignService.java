@@ -57,9 +57,12 @@ public class CampaignService {
         /* 3 曹军 */ {{"曹军步兵","曹军枪兵","曹军盾兵","曹军重甲","曹军精锐"},{"曹军骑兵","曹军铁骑","虎豹骑","虎豹精骑","曹军突骑"},{"曹军弓手","曹军弓将","曹军神射","曹军精弓","曹军长弓"}},
         /* 4 吕布 */ {{"陷阵步兵","陷阵枪兵","陷阵精锐","陷阵重甲","飞将步卒"},{"飞将骑兵","赤兔铁骑","飞将精骑","吕布亲卫","飞将突骑"},{"飞将弓手","陷阵弓手","飞将神射","飞将精弓","飞将长弓"}},
         /* 5 吴军 */ {{"吴军步兵","吴军枪兵","吴军盾兵","吴军重甲","吴军精锐"},{"吴军骑兵","吴军铁骑","吴军精骑","锦帆骑","吴军突骑"},{"吴军弓手","吴军弓将","吴军神射","丹阳弓手","吴军长弓"}},
-        /* 6 魏军 */ {{"魏军步兵","魏军枪兵","魏军盾兵","魏军重甲","魏军精锐"},{"魏军骑兵","魏军铁骑","魏军精骑","虎卫骑","魏军突骑"},{"魏军弓手","魏军弓将","魏军神射","魏军精弓","魏军长弓"}}
+        /* 6 魏军 */ {{"魏军步兵","魏军枪兵","魏军盾兵","魏军重甲","魏军精锐"},{"魏军骑兵","魏军铁骑","魏军精骑","虎卫骑","魏军突骑"},{"魏军弓手","魏军弓将","魏军神射","魏军精弓","魏军长弓"}},
+        /* 7 刘军 */ {{"刘军步兵","刘军枪兵","刘军盾兵","刘军重甲","荆州精锐"},{"刘军骑兵","刘军铁骑","刘军精骑","荆州骑兵","刘军突骑"},{"刘军弓手","刘军弓将","刘军神射","荆州弓手","刘军长弓"}},
+        /* 8 公孙 */ {{"公孙步兵","公孙枪兵","公孙盾兵","公孙重甲","幽州精锐"},{"白马义从","公孙铁骑","公孙精骑","幽州骑兵","公孙突骑"},{"公孙弓手","公孙弓将","公孙神射","幽州弓手","公孙长弓"}},
+        /* 9 乌桓 */ {{"乌桓步兵","乌桓枪兵","乌桓勇士","乌桓精锐","乌桓力士"},{"乌桓骑兵","乌桓铁骑","乌桓精骑","乌桓突骑","乌桓战骑"},{"乌桓弓手","乌桓射手","乌桓神射","乌桓长弓","乌桓猎手"}}
     };
-    private static final String[] FACTION_KEYS = {"黄巾","西凉","袁军","曹军","吕布","吴军","魏军"};
+    private static final String[] FACTION_KEYS = {"黄巾","西凉","袁军","曹军","吕布","吴军","魏军","刘军","公孙","乌桓"};
 
     private static int factionIdx(String f) {
         for (int i = 0; i < FACTION_KEYS.length; i++) if (FACTION_KEYS[i].equals(f)) return i;
@@ -91,6 +94,29 @@ public class CampaignService {
         NPC_PORTRAIT.put("曹性","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("成廉","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("薛兰","images/generals/g_nofind.jpg");
         NPC_PORTRAIT.put("臧霸","images/generals/2012.jpg"); NPC_PORTRAIT.put("郝萌","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("秦宜禄","images/generals/g_nofind.jpg");
         NPC_PORTRAIT.put("张超","images/generals/g_nofind.jpg");
+        // APK MonsterShow NPC portraits
+        NPC_PORTRAIT.put("管亥","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("裴元绍","images/generals/g_nofind.jpg");
+        NPC_PORTRAIT.put("邓茂","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("高升","images/generals/g_nofind.jpg");
+        NPC_PORTRAIT.put("龚都","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("马元义","images/generals/g_nofind.jpg");
+        NPC_PORTRAIT.put("杨奉","images/generals/g_nofind.jpg");
+        NPC_PORTRAIT.put("陶谦","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("刘表","images/generals/g_nofind.jpg");
+        NPC_PORTRAIT.put("曹豹","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("陈登","images/generals/g_nofind.jpg");
+        NPC_PORTRAIT.put("黄祖","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("文聘","images/generals/g_nofind.jpg");
+        NPC_PORTRAIT.put("张闿","images/generals/g_nofind.jpg");
+        NPC_PORTRAIT.put("公孙瓒","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("公孙越","images/generals/g_nofind.jpg");
+        NPC_PORTRAIT.put("严纲","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("公孙范","images/generals/g_nofind.jpg");
+        NPC_PORTRAIT.put("公孙续","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("田楷","images/generals/g_nofind.jpg");
+        NPC_PORTRAIT.put("田豫","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("公孙豹","images/generals/g_nofind.jpg");
+        NPC_PORTRAIT.put("公孙度","images/generals/g_nofind.jpg");
+        NPC_PORTRAIT.put("马腾","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("庞德","images/generals/g_nofind.jpg");
+        NPC_PORTRAIT.put("庞柔","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("成宜","images/generals/g_nofind.jpg");
+        NPC_PORTRAIT.put("马铁","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("马玩","images/generals/g_nofind.jpg");
+        NPC_PORTRAIT.put("马岱","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("马休","images/generals/g_nofind.jpg");
+        NPC_PORTRAIT.put("袁尚","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("麴义","images/generals/g_nofind.jpg");
+        NPC_PORTRAIT.put("沮授","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("田丰","images/generals/g_nofind.jpg");
+        NPC_PORTRAIT.put("李肃","images/generals/g_nofind.jpg");
+        NPC_PORTRAIT.put("蹋顿","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("丘力居","images/generals/g_nofind.jpg");
+        NPC_PORTRAIT.put("苏仆延","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("乌延","images/generals/g_nofind.jpg");
         NPC_PORTRAIT.put("孙权","images/generals/1023.jpg"); NPC_PORTRAIT.put("周瑜","images/generals/1024.jpg"); NPC_PORTRAIT.put("陆逊","images/generals/1025.jpg");
         NPC_PORTRAIT.put("吕蒙","images/generals/1026.jpg"); NPC_PORTRAIT.put("甘宁","images/generals/1009.jpg"); NPC_PORTRAIT.put("太史慈","images/generals/2018.jpg");
         NPC_PORTRAIT.put("黄盖","images/generals/2019.jpg"); NPC_PORTRAIT.put("程普","images/generals/2020.jpg"); NPC_PORTRAIT.put("鲁肃","images/generals/2021.jpg");
@@ -112,6 +138,8 @@ public class CampaignService {
         EQUIP_BOX_MAP.put(15201, new int[]{22001,22002,22003,22004,22005,22006}); // 黑铁装备 (1-15级绿)
         EQUIP_BOX_MAP.put(15202, new int[]{22011,22012,22013,22014,22015,22016}); // 精钢装备 (20级绿)
         EQUIP_BOX_MAP.put(15203, new int[]{22021,22022,22023,22024,22025,22026}); // 紫铜装备 (40级绿)
+        EQUIP_BOX_MAP.put(15204, new int[]{22031,22032,22033,22034,22035,22036}); // 亮银装备 (60级绿)
+        EQUIP_BOX_MAP.put(15205, new int[]{22041,22042,22043,22044,22045,22046}); // 百炼装备 (80级绿)
         EQUIP_BOX_MAP.put(15206, new int[]{23021,23022,23023,23024,23025,23026}); // 宣武套装 (20级蓝)
         EQUIP_BOX_MAP.put(15207, new int[]{23031,23032,23033,23034,23035,23036}); // 折冲套装 (40级蓝)
         EQUIP_BOX_MAP.put(15208, new int[]{23041,23042,23043,23044,23045,23046}); // 骁勇套装 (60级蓝)
@@ -129,6 +157,7 @@ public class CampaignService {
     private static final Map<Integer, String> EQUIP_BOX_NAME_MAP = new HashMap<>();
     static {
         EQUIP_BOX_NAME_MAP.put(15201,"黑铁装备"); EQUIP_BOX_NAME_MAP.put(15202,"精钢装备"); EQUIP_BOX_NAME_MAP.put(15203,"紫铜装备");
+        EQUIP_BOX_NAME_MAP.put(15204,"亮银装备"); EQUIP_BOX_NAME_MAP.put(15205,"百炼装备");
         EQUIP_BOX_NAME_MAP.put(15206,"宣武套装"); EQUIP_BOX_NAME_MAP.put(15207,"折冲套装"); EQUIP_BOX_NAME_MAP.put(15208,"骁勇套装");
         EQUIP_BOX_NAME_MAP.put(15209,"破俘套装"); EQUIP_BOX_NAME_MAP.put(15210,"陷阵套装"); EQUIP_BOX_NAME_MAP.put(15211,"狂战套装");
         EQUIP_BOX_NAME_MAP.put(15212,"天狼套装"); EQUIP_BOX_NAME_MAP.put(15213,"破军套装"); EQUIP_BOX_NAME_MAP.put(15214,"龙威套装");
@@ -141,10 +170,10 @@ public class CampaignService {
      */
     private static final int[][] APK_CHAPTER_EQUIP_IDS = {
         {15201, 15001},                     // Ch1 黄巾之乱: 黑铁装备, 初级合成符
-        {15201, 15202, 15001, 11001},       // Ch2 江东诸侯战董卓: 黑铁, 精钢, 初级合成符, 初级声望符
-        {15202, 15206, 11001, 15042},       // Ch3 乱世群雄: 精钢, 宣武, 初级声望符, 特训符
-        {15202, 15206, 15210, 15052},       // Ch4 威震中原: 精钢, 宣武, 陷阵, 军需令
-        {15203, 15207, 15211, 15022},       // Ch5 西凉铁骑: 紫铜, 折冲, 狂战, 鬼谷兵法
+        {15201, 15202, 15001, 11001},       // Ch2 江东诸侯战董卓: 黑铁, 青铜, 初级合成符, 初级声望符
+        {15202, 15206, 11001, 15042},       // Ch3 乱世群雄: 青铜, 宣武, 初级声望符, 特训符
+        {15202, 15206, 15210, 15052},       // Ch4 威震中原: 青铜, 宣武, 陷阵, 军需令
+        {15203, 15207, 15211, 15022},       // Ch5 西凉铁骑: 暗铁, 折冲, 狂战, 鬼谷兵法
         {15208, 15212, 15213, 15023},       // Ch6 四世三公: 骁勇, 天狼, 破军, 太公六韬
         {15209, 15214, 15215, 15024},       // Ch7 战神吕布: 破俘, 龙威, 战神, 孙子兵法
         {11104, 15221, 15024, 15222},       // Ch8 征讨乌桓: 招财符, 征戎, 孙子兵法, 诛邪
@@ -168,6 +197,8 @@ public class CampaignService {
         APK_PROP_INFO.put(15201, new String[]{"黑铁装备",   "images/item/15201.jpg"});
         APK_PROP_INFO.put(15202, new String[]{"精钢装备",   "images/item/15202.jpg"});
         APK_PROP_INFO.put(15203, new String[]{"紫铜装备",   "images/item/15203.jpg"});
+        APK_PROP_INFO.put(15204, new String[]{"亮银装备",   "images/item/15204.jpg"});
+        APK_PROP_INFO.put(15205, new String[]{"百炼装备",   "images/item/15205.jpg"});
         APK_PROP_INFO.put(15206, new String[]{"宣武套装",   "images/item/15206.jpg"});
         APK_PROP_INFO.put(15207, new String[]{"折冲套装",   "images/item/15207.jpg"});
         APK_PROP_INFO.put(15208, new String[]{"骁勇套装",   "images/item/15208.jpg"});
@@ -213,37 +244,37 @@ public class CampaignService {
      */
     private static final Map<String, int[]> APK_BOSS_DROP_MAP = new HashMap<>();
     static {
-        // 第1章 黄巾之乱 (5关)
-        APK_BOSS_DROP_MAP.put("1_3", new int[]{15201, 0});   // 张宝 Lv5 → 黑铁装备
-        APK_BOSS_DROP_MAP.put("1_5", new int[]{15201, 0});   // 张角 Lv10 → 黑铁装备
-        // 第2章 江东诸侯战董卓 (7关)
-        APK_BOSS_DROP_MAP.put("2_3", new int[]{15201, 1});   // 徐荣 Lv13 → 黑铁装备 大概率
-        APK_BOSS_DROP_MAP.put("2_4", new int[]{15201, 1});   // 华雄 Lv15 → 黑铁装备 大概率
-        APK_BOSS_DROP_MAP.put("2_5", new int[]{15201, 1});   // 牛辅 Lv18 → 黑铁装备 大概率
-        APK_BOSS_DROP_MAP.put("2_7", new int[]{15202, 1});   // 董卓 Lv20 → 精钢装备 大概率
-        // 第3章 乱世群雄 (10关)
-        APK_BOSS_DROP_MAP.put("3_5",  new int[]{15201, 0});  // 陶谦 Lv25 → 黑铁装备
-        APK_BOSS_DROP_MAP.put("3_10", new int[]{15206, 0});  // 刘表 Lv30 → 宣武套装
-        // 第4章 威震中原 (15关)
-        APK_BOSS_DROP_MAP.put("4_8",  new int[]{15206, 0});  // 公孙续 Lv35 → 宣武套装
-        APK_BOSS_DROP_MAP.put("4_15", new int[]{15210, 0});  // 公孙瓒 Lv40 → 陷阵套装
-        // 第5章 西凉铁骑 (15关)
-        APK_BOSS_DROP_MAP.put("5_8",  new int[]{15203, 0});  // 庞德 Lv44 → 紫铜装备
-        APK_BOSS_DROP_MAP.put("5_12", new int[]{15207, 0});  // 马超 Lv47 → 折冲套装
-        APK_BOSS_DROP_MAP.put("5_15", new int[]{15211, 0});  // 马腾 Lv50 → 狂战套装
-        // 第6章 四世三公 (20关)
-        APK_BOSS_DROP_MAP.put("6_8",  new int[]{15204, 1});  // 麴义 Lv44 → 亮银装备 大概率
-        APK_BOSS_DROP_MAP.put("6_12", new int[]{15208, 2});  // 张颌 Lv50 → 骁勇套装 小概率
-        APK_BOSS_DROP_MAP.put("6_16", new int[]{15212, 2});  // 颜良 Lv55 → 天狼套装 小概率
-        APK_BOSS_DROP_MAP.put("6_20", new int[]{15213, 2});  // 袁绍 Lv60 → 破军套装 小概率
-        // 第7章 战神吕布 (20关)
-        APK_BOSS_DROP_MAP.put("7_6",  new int[]{15205, 1});  // 宋宪 Lv64 → 百炼装备 大概率
-        APK_BOSS_DROP_MAP.put("7_12", new int[]{15209, 2});  // 曹性 Lv69 → 破俘套装 小概率
-        APK_BOSS_DROP_MAP.put("7_16", new int[]{15214, 2});  // 张辽 Lv75 → 龙威套装 小概率
-        APK_BOSS_DROP_MAP.put("7_20", new int[]{15215, 2});  // 吕布 Lv80 → 战神套装 小概率
-        // 第8章 征讨乌桓 (20关)
-        APK_BOSS_DROP_MAP.put("8_10", new int[]{15221, 0});  // 丘力居 Lv90 → 征戎套装
-        APK_BOSS_DROP_MAP.put("8_20", new int[]{15222, 0});  // 蹋顿 Lv100 → 诛邪套装
+        // 第1章 黄巾之乱 (20关) - MonsterShow 101-120
+        APK_BOSS_DROP_MAP.put("1_10", new int[]{15201, 0});   // 张宝 Lv5  → 黑铁装备
+        APK_BOSS_DROP_MAP.put("1_20", new int[]{15201, 0});   // 张角 Lv10 → 黑铁装备
+        // 第2章 江东诸侯战董卓 (20关) - MonsterShow 201-220
+        APK_BOSS_DROP_MAP.put("2_5",  new int[]{15201, 1});   // 徐荣 Lv13 → 黑铁 大概率
+        APK_BOSS_DROP_MAP.put("2_10", new int[]{15201, 1});   // 华雄 Lv15 → 黑铁 大概率
+        APK_BOSS_DROP_MAP.put("2_15", new int[]{15201, 1});   // 牛辅 Lv18 → 黑铁 大概率
+        APK_BOSS_DROP_MAP.put("2_20", new int[]{15202, 1});   // 董卓 Lv20 → 精钢 大概率
+        // 第3章 乱世群雄 (20关) - MonsterShow 301-320
+        APK_BOSS_DROP_MAP.put("3_10", new int[]{15201, 0});   // 陶谦 Lv25 → 黑铁装备
+        APK_BOSS_DROP_MAP.put("3_20", new int[]{15206, 0});   // 刘表 Lv30 → 宣武套装
+        // 第4章 威震中原 (20关) - MonsterShow 341-360
+        APK_BOSS_DROP_MAP.put("4_10", new int[]{15206, 0});   // 公孙续 Lv35 → 宣武套装
+        APK_BOSS_DROP_MAP.put("4_20", new int[]{15210, 0});   // 公孙瓒 Lv40 → 陷阵套装
+        // 第5章 西凉铁骑 (20关) - MonsterShow 371-390
+        APK_BOSS_DROP_MAP.put("5_10", new int[]{15203, 0});   // 庞德 Lv44 → 紫铜装备
+        APK_BOSS_DROP_MAP.put("5_15", new int[]{15207, 0});   // 马超 Lv47 → 折冲套装
+        APK_BOSS_DROP_MAP.put("5_20", new int[]{15211, 0});   // 马腾 Lv50 → 狂战套装
+        // 第6章 四世三公 (25关) - MonsterShow 401-425
+        APK_BOSS_DROP_MAP.put("6_5",  new int[]{15204, 1});   // 麴义 Lv44 → 亮银 大概率
+        APK_BOSS_DROP_MAP.put("6_10", new int[]{15208, 2});   // 张颌 Lv50 → 骁勇 小概率
+        APK_BOSS_DROP_MAP.put("6_20", new int[]{15212, 2});   // 颜良 Lv55 → 天狼 小概率
+        APK_BOSS_DROP_MAP.put("6_25", new int[]{15213, 2});   // 袁绍 Lv60 → 破军 小概率
+        // 第7章 战神吕布 (25关) - MonsterShow 501-525
+        APK_BOSS_DROP_MAP.put("7_5",  new int[]{15205, 1});   // 宋宪 Lv64 → 百炼 大概率
+        APK_BOSS_DROP_MAP.put("7_10", new int[]{15209, 2});   // 曹性 Lv69 → 破俘 小概率
+        APK_BOSS_DROP_MAP.put("7_20", new int[]{15214, 2});   // 张辽 Lv75 → 龙威 小概率
+        APK_BOSS_DROP_MAP.put("7_25", new int[]{15215, 2});   // 吕布 Lv80 → 战神 小概率
+        // 第8章 征讨乌桓 (20关) - MonsterShow 601-620
+        APK_BOSS_DROP_MAP.put("8_10", new int[]{15221, 0});   // 丘力居 Lv90 → 征戎套装
+        APK_BOSS_DROP_MAP.put("8_20", new int[]{15222, 0});   // 蹋顿 Lv100 → 诛邪套装
     }
 
     /**
@@ -259,23 +290,31 @@ public class CampaignService {
         }
     }
 
-    private static int[] getItemDropPool(int maxLv) {
-        if (maxLv <= 20) return new int[]{1,14,17,20,28,32};
-        if (maxLv <= 50) return new int[]{36,37,15,18,21,7,29,33};
-        if (maxLv <= 100) return new int[]{2,38,16,19,22,8,29,30,34};
-        return new int[0];
+    /**
+     * 从 APK_CHAPTER_EQUIP_IDS 中提取非装备道具（装备宝箱由 APK_BOSS_DROP_MAP 处理）
+     */
+    private static int[] getItemPoolForChapter(int chapterOrder) {
+        if (chapterOrder < 1 || chapterOrder > APK_CHAPTER_EQUIP_IDS.length) return new int[0];
+        int[] rawIds = APK_CHAPTER_EQUIP_IDS[chapterOrder - 1];
+        List<Integer> items = new ArrayList<>();
+        for (int id : rawIds) {
+            if (!EQUIP_BOX_MAP.containsKey(id)) {
+                items.add(id);
+            }
+        }
+        int[] result = new int[items.size()];
+        for (int i = 0; i < items.size(); i++) result[i] = items.get(i);
+        return result;
     }
 
+    /** APK PropShow.json 道具名称映射 */
     private static final Map<Integer, String> ITEM_NAME_MAP = new HashMap<>();
     static {
-        ITEM_NAME_MAP.put(1,"1级强化石"); ITEM_NAME_MAP.put(2,"4级强化石");
-        ITEM_NAME_MAP.put(7,"初级招贤令"); ITEM_NAME_MAP.put(8,"中级招贤令");
-        ITEM_NAME_MAP.put(14,"初级粮食包"); ITEM_NAME_MAP.put(15,"中级粮食包"); ITEM_NAME_MAP.put(16,"高级粮食包");
-        ITEM_NAME_MAP.put(17,"初级木材包"); ITEM_NAME_MAP.put(18,"中级木材包"); ITEM_NAME_MAP.put(19,"高级木材包");
-        ITEM_NAME_MAP.put(20,"初级纸张包"); ITEM_NAME_MAP.put(21,"中级纸张包"); ITEM_NAME_MAP.put(22,"高级纸张包");
-        ITEM_NAME_MAP.put(28,"经验丹(小)"); ITEM_NAME_MAP.put(29,"经验丹(中)"); ITEM_NAME_MAP.put(30,"经验丹(大)");
-        ITEM_NAME_MAP.put(32,"初级声望符"); ITEM_NAME_MAP.put(33,"中级声望符"); ITEM_NAME_MAP.put(34,"高级声望符");
-        ITEM_NAME_MAP.put(36,"2级强化石"); ITEM_NAME_MAP.put(37,"3级强化石"); ITEM_NAME_MAP.put(38,"5级强化石");
+        ITEM_NAME_MAP.put(15001,"初级合成符"); ITEM_NAME_MAP.put(15002,"中级合成符");
+        ITEM_NAME_MAP.put(15003,"高级合成符"); ITEM_NAME_MAP.put(15004,"特级合成符");
+        ITEM_NAME_MAP.put(15022,"鬼谷兵法"); ITEM_NAME_MAP.put(15023,"太公六韬"); ITEM_NAME_MAP.put(15024,"孙子兵法");
+        ITEM_NAME_MAP.put(11001,"初级声望符"); ITEM_NAME_MAP.put(11104,"招财符");
+        ITEM_NAME_MAP.put(15042,"特训符"); ITEM_NAME_MAP.put(15052,"军需令");
     }
 
     private static String getEquipBoxNameByPreId(int equipPreId) {
@@ -288,75 +327,95 @@ public class CampaignService {
     }
 
     /**
-     * 初始化战役配置 - 8个战役匹配APK CampaignShow_cfg.json
+     * 初始化战役配置 - 8个战役匹配APK MonsterShow_cfg.json + CampaignShow_cfg.json
      * 所有战役每日挑战上限5次，每次扣精力；战役内最多失败3次（对应3次重生）
      *
-     *  1. 黄巾之乱           Lv1-10    5关   体力3  解锁Lv1
-     *  2. 江东诸侯战董卓     Lv10-20   7关   体力5  解锁Lv10
-     *  3. 乱世群雄           Lv20-30   10关  体力8  解锁Lv20
-     *  4. 威震中原           Lv30-40   15关  体力8  解锁Lv30
-     *  5. 西凉铁骑           Lv40-50   15关  体力8  解锁Lv40
-     *  6. 四世三公           Lv50-60   20关  体力10 解锁Lv50
-     *  7. 战神吕布           Lv70-80   20关  体力10 解锁Lv70
-     *  8. 征讨乌桓           Lv80-100  20关  体力10 解锁Lv80
+     *  1. 黄巾之乱           Lv1-10    20关  体力3  解锁Lv1   MonsterShow 101-120
+     *  2. 江东诸侯战董卓     Lv10-20   20关  体力5  解锁Lv10  MonsterShow 201-220
+     *  3. 乱世群雄           Lv20-30   20关  体力8  解锁Lv20  MonsterShow 301-320
+     *  4. 威震中原           Lv30-40   20关  体力8  解锁Lv30  MonsterShow 341-360
+     *  5. 西凉铁骑           Lv40-50   20关  体力8  解锁Lv40  MonsterShow 371-390
+     *  6. 四世三公           Lv40-60   25关  体力10 解锁Lv50  MonsterShow 401-425
+     *  7. 战神吕布           Lv60-80   25关  体力10 解锁Lv70  MonsterShow 501-525
+     *  8. 征讨乌桓           Lv80-100  20关  体力10 解锁Lv80  MonsterShow 601-620
      */
     private void initCampaignConfigs() {
 
-        // ===== 战役1: 黄巾之乱 (APK Ch1) =====
+        // ===== 战役1: 黄巾之乱 (APK Ch1, 20关) =====
         regApk("campaign_huangjin","黄巾之乱",
             "苍天已死，黄天当立，岁在甲子，天下大吉。黄巾军起事不足一月，战火蔓延全国七州二十八郡，势如破竹，州郡失守、吏士逃亡，震动京都。",
-            1,10,1,5,3,1, 5,false,"黄巾","huanJ.png",
-            new String[]{"黄巾贼兵","黄巾弓手","波才","张梁","张角"},
-            new String[]{"步","弓","步","步","弓"});
+            1,10,1,5,3,1, 20,false,"黄巾","huanJ.png",
+            new String[]{"黄巾斥候","黄巾前哨","黄巾前哨","管亥","黄巾先锋","黄巾先锋","裴元绍","邓茂","高升","张宝",
+                          "龚都","黄巾中军","马元义","黄巾中军","张梁","张济","波才","黄巾卫队","黄巾卫队","张角"},
+            new String[]{"步","步","弓","步","步","弓","骑","步","骑","弓",
+                          "骑","步","步","弓","步","骑","弓","步","骑","弓"});
 
-        // ===== 战役2: 江东诸侯战董卓 (APK Ch2) =====
+        // ===== 战役2: 江东诸侯战董卓 (APK Ch2, 20关) =====
         regApk("campaign_dongzhuo","江东诸侯战董卓",
             "董卓挟天子以令诸侯，窃据高位而祸乱朝政，倒行逆施而残杀忠良，天下人群情激奋，江东诸侯起兵共讨国贼！",
-            10,20,10,5,5,2, 7,false,"西凉","jianD.png",
-            new String[]{"胡轸","李傕","郭汜","张济","徐荣","李儒","董卓"},
-            new String[]{"骑","骑","步","步","步","弓","步"});
+            10,20,10,5,5,2, 20,false,"西凉","jianD.png",
+            new String[]{"西凉前锋","西凉前锋","西凉前锋","樊稠","徐荣","西凉左翼","西凉左翼","胡轸","郭汜","华雄",
+                          "西凉右翼","西凉右翼","李傕","李儒","牛辅","张济","杨奉","西凉卫队","西凉卫队","董卓"},
+            new String[]{"步","骑","弓","骑","步","步","弓","骑","步","步",
+                          "骑","步","骑","弓","步","骑","步","步","骑","步"});
 
-        // ===== 战役3: 乱世群雄 (APK Ch3) =====
+        // ===== 战役3: 乱世群雄 (APK Ch3, 20关) =====
         regApk("campaign_luanshi","乱世群雄",
-            "群雄逐鹿，各据一方，谁能问鼎天下？",
-            20,30,20,5,8,3, 10,true,"袁军","luanS.png",
-            new String[]{"赵岑","李肃","胡轸","牛辅","张济","樊稠","吕布亲卫","高顺","张辽","华雄"},
-            new String[]{"步","弓","骑","步","步","骑","骑","步","骑","步"});
+            "群雄逐鹿，各据一方。陶谦坐拥徐州而不善兵，刘表雄踞荆州坐观天下。谁能讨灭诸侯，一统山河？",
+            20,30,20,5,8,3, 20,true,"刘军","luanS.png",
+            new String[]{"前哨部队","张闿","前锋部队","曹豹","陈登","中军部队","后军部队","臧霸","陶军卫队","陶谦",
+                          "刘军先锋","黄祖","中军部队","文聘","后军部队","甘宁","刘军卫队","刘军卫队","蔡瑁","刘表"},
+            new String[]{"步","步","骑","骑","弓","步","弓","步","步","弓",
+                          "步","弓","步","步","弓","骑","步","骑","弓","弓"});
 
-        // ===== 战役4: 威震中原 (APK Ch4) =====
+        // ===== 战役4: 威震中原 (APK Ch4, 20关) =====
         regApk("campaign_weizhong","威震中原",
-            "曹操挟天子以令诸侯，统一北方，威震中原。",
-            30,40,30,5,8,4, 15,true,"曹军","weiZ.png",
-            new String[]{"蒋奇","韩猛","吕旷","吕翔","高览","淳于琼","蒋义渠","张郃","高干","逢纪","审配","颜良","文丑","袁谭","袁绍"},
-            new String[]{"弓","骑","步","步","步","弓","骑","步","骑","弓","弓","骑","骑","弓","骑"});
+            "公孙瓒据幽州，拥白马义从天下无双。破其铁骑，方能威震中原！",
+            30,40,30,5,8,4, 20,true,"公孙","weiZ.png",
+            new String[]{"前哨部队","前哨部队","公孙越","前军部队","严纲","中军部队","中军部队","中军部队","公孙范","公孙续",
+                          "后军部队","后军部队","后军部队","田楷","田豫","白马义从","白马义从","公孙豹","公孙度","公孙瓒"},
+            new String[]{"步","弓","骑","步","步","骑","步","弓","骑","骑",
+                          "步","弓","骑","步","步","骑","骑","骑","步","骑"});
 
-        // ===== 战役5: 西凉铁骑 (APK Ch5) =====
+        // ===== 战役5: 西凉铁骑 (APK Ch5, 20关) =====
         regApk("campaign_xiliang","西凉铁骑",
-            "西凉铁骑天下无敌，马腾、马超父子横扫关中。",
-            40,50,40,5,8,5, 15,true,"西凉","xiL.png",
-            new String[]{"蔡瑁","张允","蒋干","于禁","李典","乐进","曹洪","曹仁","夏侯惇","夏侯渊","曹休","曹真","张辽","徐晃","马超"},
-            new String[]{"弓","弓","弓","步","骑","步","步","步","骑","弓","骑","骑","骑","步","骑"});
+            "西凉铁骑天下无敌，马腾、马超父子横扫关中，锐不可当！",
+            40,50,40,5,8,5, 20,true,"西凉","xiL.png",
+            new String[]{"西凉前锋","西凉前锋","西凉前锋","成宜","马铁","中军部队","中军部队","中军部队","庞柔","庞德",
+                          "后军部队","后军部队","后军部队","马玩","马超","西凉卫队","西凉卫队","马岱","马休","马腾"},
+            new String[]{"骑","步","弓","骑","骑","步","骑","弓","步","骑",
+                          "步","骑","弓","骑","骑","骑","步","骑","骑","骑"});
 
-        // ===== 战役6: 四世三公 (APK Ch6) =====
+        // ===== 战役6: 四世三公 (APK Ch6, 25关) =====
         regApk("campaign_sisisan","四世三公",
             "袁绍出身汝南望族袁氏，一门四世三公，门生故吏遍天下，据有冀、青、幽、并四州，即将成为北方霸主。",
-            50,60,50,5,10,6, 20,true,"袁军","siS.png",
-            new String[]{"曹军先锋","曹军校尉","曹洪","夏侯尚","于禁","张郃","曹仁","徐晃","曹真","曹休","张辽","许褚","典韦","夏侯惇","司马师","司马懿","张郃","夏侯渊","曹操","袁绍"},
-            new String[]{"步","骑","步","骑","步","步","步","步","骑","弓","骑","步","步","骑","弓","弓","步","弓","步","骑"});
+            40,60,50,5,10,6, 25,true,"袁军","siS.png",
+            new String[]{"袁军前锋","袁军前锋","袁军前锋","袁尚","麴义","左翼部队","左翼部队","左翼部队","沮授","张郃",
+                          "右翼部队","右翼部队","右翼部队","淳于琼","中军部队","审配","中军部队","文丑","高览","颜良",
+                          "袁军卫队","袁军卫队","袁军卫队","田丰","袁绍"},
+            new String[]{"步","骑","弓","弓","步","步","骑","弓","弓","步",
+                          "步","骑","弓","步","步","弓","骑","骑","步","骑",
+                          "步","骑","弓","弓","骑"});
 
-        // ===== 战役7: 战神吕布 (APK Ch7) =====
+        // ===== 战役7: 战神吕布 (APK Ch7, 25关) =====
         regApk("campaign_lvbu","战神吕布",
             "吕布，字奉先，以勇武著称，熟习弓马，膂力过人，使一枝方天画戟，箭法高超，乃三国第一猛将，号称飞将军，又称战神。",
-            70,80,70,5,10,7, 20,true,"吕布","zhanS.png",
-            new String[]{"宋宪","魏续","侯成","曹性","成廉","薛兰","臧霸","郝萌","秦宜禄","张超","高顺","陈宫","张辽","陷阵统领","陷阵精锐","赤兔铁骑","高顺","陈宫","张辽","吕布"},
-            new String[]{"步","步","骑","弓","骑","弓","步","骑","步","步","步","弓","骑","步","步","骑","步","弓","骑","骑"});
+            60,80,70,5,10,7, 25,true,"吕布","zhanS.png",
+            new String[]{"吕军先锋","吕军先锋","吕军先锋","成廉","宋宪","左翼部队","左翼部队","左翼部队","李肃","曹性",
+                          "右翼部队","右翼部队","右翼部队","魏续","中军部队","中军部队","中军部队","高顺","侯成","张辽",
+                          "吕军卫队","吕军卫队","吕军卫队","陈宫","吕布"},
+            new String[]{"步","骑","弓","骑","步","步","骑","弓","弓","弓",
+                          "步","骑","弓","步","步","骑","弓","步","骑","骑",
+                          "步","骑","弓","弓","骑"});
 
-        // ===== 战役8: 征讨乌桓 (APK Ch8) =====
+        // ===== 战役8: 征讨乌桓 (APK Ch8, 20关) =====
         regApk("campaign_wuhuan","征讨乌桓",
             "辽西乌桓寇略青、徐、幽、冀四州，杀略吏民。今率大军征讨，卫土安民。",
-            80,100,80,5,10,8, 20,true,"曹军","zhengT.png",
-            new String[]{"吴军斥候","吴军校尉","潘璋","马忠","朱然","步骘","凌统","吕蒙","甘宁","丁奉","韩当","周泰","太史慈","黄盖","程普","鲁肃","吕蒙","周瑜","孙权","陆逊"},
-            new String[]{"步","骑","步","弓","步","弓","骑","步","骑","步","步","步","弓","弓","步","弓","步","弓","骑","弓"});
+            80,100,80,5,10,8, 20,true,"乌桓","zhengT.png",
+            new String[]{"乌桓斥候","乌桓斥候","乌桓前锋","乌桓前锋","苏仆延","左翼部队","左翼部队","中军部队","中军部队","丘力居",
+                          "右翼部队","右翼部队","右翼部队","乌桓骑兵","乌延","乌桓勇士","乌桓勇士","首领卫队","首领卫队","蹋顿"},
+            new String[]{"步","弓","骑","步","骑","骑","弓","步","骑","步",
+                          "步","骑","弓","骑","骑","步","骑","步","骑","骑"});
 
         log.info("战役配置初始化完成，共{}个战役", campaignConfigs.size());
     }
@@ -369,7 +428,7 @@ public class CampaignService {
                         String[] generals, String[] troopTypes) {
 
         int[] equipIds = getEquipPreIdsForChapter(order);
-        int[] itemIds = getItemDropPool(lvMax);
+        int[] itemIds = getItemPoolForChapter(order);
         List<Campaign.DropPreview> dropPreviews = getDropPreviewsForChapter(order);
 
         int baseExp = calcBaseExp(lvMin, lvMax);
@@ -446,27 +505,24 @@ public class CampaignService {
             npcLevel = Math.max(npcLevel, minLv + 1);
             boolean isBoss = (i == stageCount);
 
-            double npcQuality = 1.0 + (double)(i - 1) / Math.max(1, stageCount - 1) * 0.9;
-            if (isBoss) npcQuality += 0.15;
-
             int gIdx = (i - 1) % generals.length;
             String mainGeneral = generals[gIdx];
             String troopType = troopTypes[gIdx];
 
-            int[] attrs = generalService.calcAttributes(npcQuality, troopType, npcLevel);
-            int npcAtk = attrs[0] + (int)(attrs[0] * 0.4);
-            int npcDef = attrs[1] + (int)(attrs[1] * 0.4);
-            int npcTier = Math.min(10, 1 + npcLevel / 20);
+            // APK风格: NPC属性 = NPC士兵属性(20xxx) + 阵型加成, 无武将四维
             int npcFormationLevel = BattleCalculator.levelToFormationLevel(npcLevel);
+            int npcTier = npcFormationLevel;
+            int npcTroopInt = BattleCalculator.parseTroopType(troopType);
+            int[] npcSoldier = BattleCalculator.getNpcSoldierStats(npcTroopInt, npcTier);
             int npcSoldiers = BattleCalculator.getFormationMaxPeople(npcFormationLevel);
+            int npcValor = 0, npcCommand = 0, npcDodge = npcSoldier[5], npcMobility = npcSoldier[3];
 
             if (isBoss) {
-                npcAtk = (int)(npcAtk * 1.35);
-                npcDef = (int)(npcDef * 1.35);
+                npcValor = Math.min(200, npcLevel * 2);
+                npcCommand = Math.min(200, npcLevel * 2);
                 npcSoldiers = (int)(npcSoldiers * 1.3);
             }
 
-            // 阵型: 最少3个NPC，Boss关满编6个，中间关卡按进度递增
             int npcCount;
             if (fullFormation || isBoss) {
                 npcCount = 6;
@@ -485,19 +541,25 @@ public class CampaignService {
                     nm = npcPool[ti][(pos + rng.nextInt(npcPool[ti].length)) % npcPool[ti].length];
                     lv = Math.max(1, npcLevel - 1 - rng.nextInt(3));
                 }
-                double q = pos == 0 ? npcQuality : npcQuality * 0.85;
-                int[] a = generalService.calcAttributes(q, tt, lv);
-                int fa = a[0] + (int)(a[0] * 0.35); int fd = a[1] + (int)(a[1] * 0.35);
-                if (boss) { fa = (int)(fa * 1.35); fd = (int)(fd * 1.35); }
-                int ft = Math.min(9, 1 + lv / 20);
+                int fTroopInt = BattleCalculator.parseTroopType(tt);
                 int fFormLv = BattleCalculator.levelToFormationLevel(lv);
+                int ft = fFormLv;
+                int[] fSoldier = BattleCalculator.getNpcSoldierStats(fTroopInt, ft);
+                int fa = fSoldier[1] + BattleCalculator.getFormationAddAtt(fFormLv);
+                int fd = fSoldier[2] + BattleCalculator.getFormationAddDef(fFormLv);
                 int fs = BattleCalculator.getFormationMaxPeople(fFormLv);
-                if (boss) fs = (int)(fs * 1.3);
+                int fValor = 0, fCommand = 0;
+                if (boss) {
+                    fValor = Math.min(200, lv * 2);
+                    fCommand = Math.min(200, lv * 2);
+                    fs = (int)(fs * 1.3);
+                }
 
                 formation.add(Campaign.StageNpc.builder()
                         .position(pos).name(nm).avatar(getNpcPortrait(nm))
                         .level(lv).troopType(tt).soldierCount(fs).soldierTier(ft)
-                        .attack(fa).defense(fd).valor(a[2]).command(a[3]).dodge(a[4]).mobility(a[5])
+                        .attack(fa).defense(fd).valor(fValor).command(fCommand)
+                        .dodge(fSoldier[5]).mobility(fSoldier[3])
                         .hp(300 + lv * 100 + (boss ? lv * 50 : 0)).isBoss(boss).build());
             }
 
@@ -550,9 +612,9 @@ public class CampaignService {
                     .enemyGeneralName(mainGeneral)
                     .enemyGeneralIcon(getNpcPortrait(mainGeneral))
                     .enemyLevel(npcLevel).enemyTroops(npcSoldiers)
-                    .enemyAttack(npcAtk).enemyDefense(npcDef)
-                    .enemyValor(attrs[2]).enemyCommand(attrs[3])
-                    .enemyDodge(attrs[4]).enemyMobility(attrs[5])
+                    .enemyAttack(0).enemyDefense(0)
+                    .enemyValor(npcValor).enemyCommand(npcCommand)
+                    .enemyDodge(npcDodge).enemyMobility(npcMobility)
                     .enemySoldierTier(npcTier).enemyFormationLevel(npcFormationLevel)
                     .enemyTroopType(troopType)
                     .expReward(baseExp + i * (baseExp / 2))
@@ -893,30 +955,24 @@ public class CampaignService {
             }
         }
 
-        // 构建敌方单位
+        // 构建敌方单位 (APK风格: NPC士兵属性 + 阵型加成，无武将四维)
         int enemyLevel = stage.getEnemyLevel() != null ? stage.getEnemyLevel() : 1;
         int enemyTier = stage.getEnemySoldierTier() != null ? stage.getEnemySoldierTier()
-                : Math.min(10, 1 + enemyLevel / 20);
+                : BattleCalculator.levelToFormationLevel(enemyLevel);
         int enemyFormLv = stage.getEnemyFormationLevel() != null ? stage.getEnemyFormationLevel()
                 : BattleCalculator.levelToFormationLevel(enemyLevel);
         int enemyTroopType = BattleCalculator.parseTroopType(
                 stage.getEnemyTroopType() != null ? stage.getEnemyTroopType() : "步");
         int enemyMaxSoldiers = BattleCalculator.getFormationMaxPeople(enemyFormLv);
 
-        BattleCalculator.BattleUnit enemy = BattleCalculator.assembleBattleUnit(
+        BattleCalculator.BattleUnit enemy = BattleCalculator.assembleNpcBattleUnit(
                 stage.getEnemyGeneralName(), enemyLevel,
-                stage.getEnemyAttack() != null ? stage.getEnemyAttack() : 100,
-                stage.getEnemyDefense() != null ? stage.getEnemyDefense() : 50,
-                stage.getEnemyValor() != null ? stage.getEnemyValor() : 10,
-                stage.getEnemyCommand() != null ? stage.getEnemyCommand() : 10,
-                stage.getEnemyDodge() != null ? stage.getEnemyDodge() : 5,
-                stage.getEnemyMobility() != null ? stage.getEnemyMobility() : 15,
                 enemyTroopType, enemyTier,
                 stage.getEnemyTroops() != null ? stage.getEnemyTroops() : enemyMaxSoldiers,
                 enemyMaxSoldiers,
                 enemyFormLv,
-                0, 0, 0, 0, 0,
-                0, 0, 0);
+                stage.getEnemyValor() != null ? stage.getEnemyValor() : 0,
+                stage.getEnemyCommand() != null ? stage.getEnemyCommand() : 0);
         enemy.position = 0;
         List<BattleCalculator.BattleUnit> enemyUnits = Collections.singletonList(enemy);
 

@@ -236,9 +236,9 @@ public class GeneralService {
      */
     public int[] calcAttributes(double qualityMultiplier, String troopType, int level) {
         // 白色基准值（对齐 general_slot 表 white 行: 90/90/45/45/9/45）
-        int baseAtk = 90, baseDef = 90, baseValor = 45, baseCommand = 45;
-        double baseDodge = 9.0;
-        int baseMobility = 45;
+        int baseAtk = 90, baseDef = 90, baseValor = 0, baseCommand = 0;
+        double baseDodge = 2.0;
+        int baseMobility = 10;
 
         double growthRate = 0.03; // 白色成长率作为基准
         int lvGrowth = level - 1;

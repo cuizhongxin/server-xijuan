@@ -73,6 +73,61 @@ public class BattleCalculator {
         { 320, 2600,  550,  24, 0, 0 },
     };
 
+    // ==================== NPC 专用士兵属性表（APK ArmyService.json 20xxx） ====================
+    // 高等级时比玩家士兵更强（更多生命/速度/闪避），用于战役NPC
+
+    public static final int[][] NPC_INFANTRY_STATS = {
+        {},
+        { 240,  110,  120,  15, 0, 0 },
+        { 260,  210,  250,  17, 0, 0 },
+        { 280,  290,  400,  19, 0, 0 },
+        { 310,  320,  600,  21, 0, 3 },
+        { 340,  400,  750,  23, 0, 5 },
+        { 370,  480,  900,  30, 0, 6 },
+        { 400,  560, 1050,  37, 0, 7 },
+        { 440,  640, 1200,  48, 0, 8 },
+        { 460,  720, 1350,  49, 0, 9 },
+        { 480,  800, 1500,  50, 0, 10 },
+    };
+
+    public static final int[][] NPC_CAVALRY_STATS = {
+        {},
+        { 230,  150,  110,  10, 0, 0 },
+        { 240,  300,  210,  12, 0, 0 },
+        { 250,  450,  290,  14, 0, 0 },
+        { 260,  650,  320,  16, 0, 0 },
+        { 270,  900,  400,  20, 0, 0 },
+        { 280, 1220,  480,  28, 0, 0 },
+        { 290, 1400,  560,  42, 0, 0 },
+        { 300, 1600,  640,  53, 0, 0 },
+        { 310, 1800,  720,  54, 0, 0 },
+        { 320, 2000,  800,  55, 0, 0 },
+    };
+
+    public static final int[][] NPC_ARCHER_STATS = {
+        {},
+        { 230,  200,  100,  10, 0, 0 },
+        { 240,  400,  150,  12, 0, 0 },
+        { 250,  650,  200,  14, 0, 0 },
+        { 260,  900,  250,  16, 0, 0 },
+        { 270, 1370,  300,  18, 0, 0 },
+        { 280, 1820,  350,  25, 0, 0 },
+        { 290, 2120,  400,  32, 0, 0 },
+        { 300, 2400,  450,  43, 0, 0 },
+        { 310, 2700,  500,  44, 0, 0 },
+        { 320, 3100,  550,  45, 0, 0 },
+    };
+
+    /** 获取NPC兵种属性 [life, att, def, sp, hit, mis] */
+    public static int[] getNpcSoldierStats(int troopType, int tier) {
+        tier = Math.max(1, Math.min(10, tier));
+        switch (troopType) {
+            case 2: return NPC_CAVALRY_STATS[tier];
+            case 3: return NPC_ARCHER_STATS[tier];
+            default: return NPC_INFANTRY_STATS[tier];
+        }
+    }
+
     /** 获取兵种基础属性 [life, att, def, sp, hit, mis] */
     public static int[] getSoldierStats(int troopType, int tier) {
         tier = Math.max(1, Math.min(10, tier));
@@ -279,6 +334,39 @@ public class BattleCalculator {
         u.hit = soldierStats[4] + equipArmyHit;
         u.mobility = genMobility + soldierStats[3] + equipArmySp;
         u.traitDmgBonus = traitDmgBonus;
+
+        return u;
+    }
+
+    // ==================== NPC 专用 BattleUnit 组装（APK风格：无武将四维） ====================
+
+    /**
+     * 战役NPC使用：总攻防 = NPC士兵属性 + 阵型加成，无武将四维加成
+     */
+    public static BattleUnit assembleNpcBattleUnit(
+            String name, int level, int troopType, int soldierTier,
+            int soldierCount, int maxSoldierCount, int formationLevel,
+            int valor, int command) {
+
+        int[] npcStats = getNpcSoldierStats(troopType, soldierTier);
+
+        BattleUnit u = new BattleUnit();
+        u.name = name;
+        u.level = level;
+        u.troopType = troopType;
+        u.soldierTier = soldierTier;
+        u.soldierCount = soldierCount;
+        u.maxSoldierCount = maxSoldierCount;
+        u.soldierLife = npcStats[0];
+
+        u.totalAttack = npcStats[1] + getFormationAddAtt(formationLevel);
+        u.totalDefense = npcStats[2] + getFormationAddDef(formationLevel);
+        u.valor = valor;
+        u.command = command;
+        u.dodge = npcStats[5];
+        u.hit = npcStats[4];
+        u.mobility = npcStats[3];
+        u.traitDmgBonus = 0;
 
         return u;
     }
