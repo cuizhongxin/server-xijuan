@@ -517,7 +517,7 @@ public class CampaignService {
             int npcTroopInt = BattleCalculator.parseTroopType(troopType);
             int[] npcSoldier = BattleCalculator.getNpcSoldierStats(npcTroopInt, npcTier);
             int npcSoldiers = BattleCalculator.getFormationMaxPeople(npcFormationLevel);
-            double npcFormScale = npcLevel <= 5 ? 0.5 : (npcLevel <= 10 ? 0.7 : (npcLevel <= 20 ? 0.85 : 1.0));
+            double npcFormScale = npcLevel <= 5 ? 0.15 : (npcLevel <= 10 ? 0.3 : (npcLevel <= 20 ? 0.7 : 1.0));
             int npcValor = 0, npcCommand = 0, npcDodge = npcSoldier[5], npcMobility = npcSoldier[3];
 
             if (isBoss) {
@@ -529,9 +529,9 @@ public class CampaignService {
             int npcCount;
             if (fullFormation) {
                 npcCount = 6;
-            } else if (npcLevel <= 3) {
-                npcCount = 1;
             } else if (npcLevel <= 5) {
+                npcCount = 1;
+            } else if (npcLevel <= 8) {
                 npcCount = 2;
             } else if (npcLevel <= 10) {
                 npcCount = 3;
@@ -560,7 +560,7 @@ public class CampaignService {
                 int fFormLv = BattleCalculator.levelToFormationLevel(lv);
                 int ft = fFormLv;
                 int[] fSoldier = BattleCalculator.getNpcSoldierStats(fTroopInt, ft);
-                double fScale = lv <= 5 ? 0.5 : (lv <= 10 ? 0.7 : (lv <= 20 ? 0.85 : 1.0));
+                double fScale = lv <= 5 ? 0.15 : (lv <= 10 ? 0.3 : (lv <= 20 ? 0.7 : 1.0));
                 int fa = fSoldier[1] + (int)(BattleCalculator.getFormationAddAtt(fFormLv) * fScale);
                 int fd = fSoldier[2] + (int)(BattleCalculator.getFormationAddDef(fFormLv) * fScale);
                 int fs = BattleCalculator.getFormationMaxPeople(fFormLv);
@@ -1014,7 +1014,7 @@ public class CampaignService {
                 enemyFormLv,
                 stage.getEnemyValor() != null ? stage.getEnemyValor() : 0,
                 stage.getEnemyCommand() != null ? stage.getEnemyCommand() : 0);
-        double eFormScale = enemyLevel <= 5 ? 0.5 : (enemyLevel <= 10 ? 0.7 : (enemyLevel <= 20 ? 0.85 : 1.0));
+        double eFormScale = enemyLevel <= 5 ? 0.15 : (enemyLevel <= 10 ? 0.3 : (enemyLevel <= 20 ? 0.7 : 1.0));
         if (eFormScale < 1.0) {
             int cutAtt = (int)(BattleCalculator.getFormationAddAtt(enemyFormLv) * (1.0 - eFormScale));
             int cutDef = (int)(BattleCalculator.getFormationAddDef(enemyFormLv) * (1.0 - eFormScale));
