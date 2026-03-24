@@ -649,7 +649,7 @@ public class CampaignService {
         List<Map<String, Object>> result = new ArrayList<>();
         Map<String, CampaignProgress> progressMap = campaignRepository.findAllByUserId(odUserId);
         UserResource resource = userResourceService.getUserResource(odUserId);
-        int userLevel = resource.getLevel() != null ? resource.getLevel() : 1;
+        int userLevel = levelService.getUserLevel(odUserId).getLevel();
         
         String today = new SimpleDateFormat("yyyyMMdd").format(new Date());
         
@@ -720,7 +720,7 @@ public class CampaignService {
         }
         
         UserResource resource = userResourceService.getUserResource(odUserId);
-        int userLevel = resource.getLevel() != null ? resource.getLevel() : 1;
+        int userLevel = levelService.getUserLevel(odUserId).getLevel();
         
         if (userLevel < campaign.getRequiredLevel()) {
             throw new BusinessException("君主等级不足，需要达到" + campaign.getRequiredLevel() + "级");
@@ -773,7 +773,7 @@ public class CampaignService {
         }
         
         UserResource resource = userResourceService.getUserResource(odUserId);
-        int userLevel = resource.getLevel() != null ? resource.getLevel() : 1;
+        int userLevel = levelService.getUserLevel(odUserId).getLevel();
         
         if (userLevel < campaign.getRequiredLevel()) {
             throw new BusinessException("君主等级不足");

@@ -251,19 +251,21 @@ public class RecruitService {
             }
             if (fixedName != null) {
                 General guideGeneral = tryGuideRecruit(userId, fixedName, fixedQuality);
-                if (guideGeneral != null) {
-                    userResourceService.updateGeneralCount(userId, currentCount + 1);
-                    generalRepository.saveAll(Collections.singletonList(guideGeneral));
-                    UserResource resource = getUserResource(userId);
-                    logger.info("引导招募: userId={}, 固定获得{}", userId, fixedName);
-                    return RecruitResult.builder()
-                            .general(guideGeneral)
-                            .soulPointGained(0)
-                            .totalSoulPoint(resource.getSoulPoint() != null ? resource.getSoulPoint() : 0)
-                            .remainingTokens(0)
-                            .tokenType(tokenType)
-                            .build();
+                if (guideGeneral == null) {
+                    logger.warn("引导招募: 固定武将{}获取失败, 降级为免费随机招募(quality={})", fixedName, fixedQuality);
+                    guideGeneral = recruitOneByQuality(userId, fixedQuality);
                 }
+                userResourceService.updateGeneralCount(userId, currentCount + 1);
+                generalRepository.saveAll(Collections.singletonList(guideGeneral));
+                UserResource resource = getUserResource(userId);
+                logger.info("引导招募: userId={}, 获得{}", userId, guideGeneral.getName());
+                return RecruitResult.builder()
+                        .general(guideGeneral)
+                        .soulPointGained(0)
+                        .totalSoulPoint(resource.getSoulPoint() != null ? resource.getSoulPoint() : 0)
+                        .remainingTokens(0)
+                        .tokenType(tokenType)
+                        .build();
             }
         }
         
