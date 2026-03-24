@@ -41,6 +41,9 @@ public class WarehouseService {
     
     @Autowired
     private com.tencent.wxcloudrun.service.level.LevelService levelService;
+
+    @Autowired
+    private com.tencent.wxcloudrun.service.equipment.EquipmentService equipmentService;
     
     /**
      * 获取用户仓库
@@ -320,9 +323,10 @@ public class WarehouseService {
         // 过滤掉MyBatis LEFT JOIN可能产生的空项
         storage.getItems().removeIf(i -> i == null || i.getItemId() == null);
         
-        // 检查是否可以堆叠
+        // 检查是否可以堆叠（绑定/非绑定分开堆叠）
         for (Warehouse.WarehouseItem existingItem : storage.getItems()) {
-            if (existingItem.getItemId().equals(item.getItemId())) {
+            if (existingItem.getItemId().equals(item.getItemId())
+                    && Objects.equals(existingItem.getBound(), item.getBound())) {
                 int maxStack = existingItem.getMaxStack() != null ? existingItem.getMaxStack() : 9999;
                 int newCount = existingItem.getCount() + item.getCount();
                 if (newCount <= maxStack) {
@@ -399,9 +403,13 @@ public class WarehouseService {
         Map<String, Object> effect = applyItemEffect(userId, targetItem, count);
         logger.info("【物品使用】效果={}", effect);
         
-        // 扣除物品
-        removeItem(userId, itemId, count);
-        logger.info("【物品使用】完成 userId={}, itemId={}, 扣除数量={}", userId, itemId, count);
+        // 扣除物品（指定套装选择券等需要前端二次确认的不立即扣除）
+        if (!Boolean.TRUE.equals(effect.remove("_skipRemoval"))) {
+            removeItem(userId, itemId, count);
+            logger.info("【物品使用】完成 userId={}, itemId={}, 扣除数量={}", userId, itemId, count);
+        } else {
+            logger.info("【物品使用】跳过扣除(需二次选择) userId={}, itemId={}", userId, itemId);
+        }
         
         return effect;
     }
@@ -483,6 +491,24 @@ public class WarehouseService {
                 effect.put("message", "接下来" + (20 * count) + "次战斗自动补兵");
                 break;
 
+            // ═══════ 宝箱（随机获得对应套装装备） ═══════
+            case 11091: case 11092: case 11093: case 11094:
+                openChestEffect(userId, item, id, count, effect);
+                break;
+
+            // ═══════ 指定套装选择券（需前端弹出部位选择） ═══════
+            case 16001: case 16002: case 16003: {
+                String selectSet = id == 16001 ? "鹰扬" : (id == 16002 ? "虎啸" : "天狼");
+                effect.put("type", "selectRequired");
+                effect.put("setName", selectSet);
+                effect.put("parts", Arrays.asList(
+                        selectSet + "武器", selectSet + "戒指", selectSet + "铠甲",
+                        selectSet + "项链", selectSet + "头盔", selectSet + "鞋子"));
+                effect.put("message", "请选择" + selectSet + "套装部位");
+                effect.put("_skipRemoval", true);
+                break;
+            }
+
             default:
                 if (!applyEffectByName(userId, resource, item, count, effect)) {
                     effect.put("type", "generic");
@@ -550,6 +576,33 @@ public class WarehouseService {
         int[] matIds = {11052, 11053, 11054};
         int pick = matIds[new java.util.Random().nextInt(matIds.length)];
         addMaterialEffect(r, e, pick, amount);
+    }
+
+    private static final String[][] CHEST_PARTS = {
+            {"鹰扬武器","鹰扬戒指","鹰扬铠甲","鹰扬项链","鹰扬头盔","鹰扬鞋子"},
+            {"虎啸武器","虎啸戒指","虎啸铠甲","虎啸项链","虎啸头盔","虎啸鞋子"},
+            {"宣武武器","宣武戒指","宣武铠甲","宣武项链","宣武头盔","宣武鞋子"},
+            {"天狼武器","天狼戒指","天狼铠甲","天狼项链","天狼头盔","天狼鞋子"}
+    };
+    private static final String[] CHEST_SET_NAMES = {"鹰扬", "虎啸", "宣武", "天狼"};
+
+    private void openChestEffect(String userId, Warehouse.WarehouseItem item, int chestId, int count, Map<String, Object> effect) {
+        int idx = chestId - 11091;
+        String[] parts = CHEST_PARTS[idx];
+        String setName = CHEST_SET_NAMES[idx];
+
+        List<String> obtained = new ArrayList<>();
+        Random rng = new Random();
+        for (int i = 0; i < count; i++) {
+            String part = parts[rng.nextInt(parts.length)];
+            obtained.add(part);
+            equipmentService.createSetEquipment(userId, setName, part, "CHEST", item.getName());
+        }
+        logger.info("【宝箱开启】userId={}, chest={}, obtained={}", userId, item.getName(), obtained);
+        effect.put("type", "chest");
+        effect.put("equipment", obtained.size() == 1 ? obtained.get(0) : obtained);
+        effect.put("setName", setName);
+        effect.put("message", "开启" + item.getName() + "，获得：" + String.join("、", obtained));
     }
 
     /**

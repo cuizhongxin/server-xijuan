@@ -477,6 +477,59 @@ public class EquipmentService {
 
     private int val(Integer v) { return v != null ? v : 0; }
 
+    // setName → equipment_pre APK id [武器, 戒指, 项链, 铠甲, 头盔, 靴子]
+    private static final Map<String, int[]> SUIT_PRE_IDS = new LinkedHashMap<>();
+    static {
+        SUIT_PRE_IDS.put("宣武", new int[]{23021,23022,23023,23024,23025,23026});
+        SUIT_PRE_IDS.put("折冲", new int[]{23031,23032,23033,23034,23035,23036});
+        SUIT_PRE_IDS.put("骁勇", new int[]{23041,23042,23043,23044,23045,23046});
+        SUIT_PRE_IDS.put("破俘", new int[]{23051,23052,23053,23054,23055,23056});
+        SUIT_PRE_IDS.put("陷阵", new int[]{23061,23062,23063,23064,23065,23066});
+        SUIT_PRE_IDS.put("狂战", new int[]{23071,23072,23073,23074,23075,23076});
+        SUIT_PRE_IDS.put("天狼", new int[]{23081,23082,23083,23084,23085,23086});
+        SUIT_PRE_IDS.put("征戎", new int[]{23091,23092,23093,23094,23095,23096});
+        SUIT_PRE_IDS.put("破军", new int[]{24091,24092,24093,24094,24095,24096});
+        SUIT_PRE_IDS.put("龙威", new int[]{24101,24102,24103,24104,24105,24106});
+        SUIT_PRE_IDS.put("战神", new int[]{25111,25112,25113,25114,25115,25116});
+        SUIT_PRE_IDS.put("鹰扬", new int[]{23121,23122,23123,23124,23125,23126});
+        SUIT_PRE_IDS.put("虎啸", new int[]{24131,24132,24133,24134,24135,24136});
+        SUIT_PRE_IDS.put("地煞", new int[]{24141,24142,24143,24144,24145,24146});
+        SUIT_PRE_IDS.put("天诛", new int[]{24151,24152,24153,24154,24155,24156});
+        SUIT_PRE_IDS.put("幽冥", new int[]{24161,24162,24163,24164,24165,24166});
+        SUIT_PRE_IDS.put("诛邪", new int[]{25181,25182,25183,25184,25185,25186});
+    }
+
+    private static int resolveSlotIndex(String partName) {
+        if (partName.contains("武器")) return 0;
+        if (partName.contains("戒指")) return 1;
+        if (partName.contains("项链")) return 2;
+        if (partName.contains("铠甲")) return 3;
+        if (partName.contains("头盔")) return 4;
+        if (partName.contains("鞋子") || partName.contains("靴子")) return 5;
+        throw new BusinessException(400, "无效的装备部位: " + partName);
+    }
+
+    /**
+     * 根据套装名+部件名创建真实装备实体（宝箱/指定装/VIP奖励等场景）
+     */
+    public Equipment createSetEquipment(String userId, String setName, String partName,
+                                         String sourceType, String sourceName) {
+        int[] preIds = SUIT_PRE_IDS.get(setName);
+        if (preIds == null) throw new BusinessException(400, "未知套装: " + setName);
+
+        int slotIdx = resolveSlotIndex(partName);
+        int preId = preIds[slotIdx];
+
+        EquipmentPre pre = equipmentPreRepository.findById(preId);
+        if (pre == null) throw new BusinessException(500, "装备模板不存在: " + preId);
+
+        Equipment equipment = buildEquipmentFromPre(userId, pre, sourceType, sourceName);
+        equipmentRepository.save(equipment);
+        logger.info("【套装装备创建】userId={}, set={}, part={}, preId={}, equipId={}",
+                userId, setName, partName, preId, equipment.getId());
+        return equipment;
+    }
+
     /**
      * 军械局制作资源消耗（纸张/金属/银币/木材）
      * 等级越高消耗越多

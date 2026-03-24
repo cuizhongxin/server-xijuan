@@ -17,4 +17,11 @@ public interface SignInMapper {
     int countMonthSignIn(@Param("userId") String userId, @Param("yearMonth") String yearMonth);
 
     int countMonthMakeup(@Param("userId") String userId, @Param("yearMonth") String yearMonth);
+
+    int countMilestoneClaimed(@Param("userId") String userId, @Param("yearMonth") String yearMonth, @Param("milestone") int milestone);
+
+    void insertMilestoneClaim(@Param("userId") String userId, @Param("yearMonth") String yearMonth,
+                              @Param("milestone") int milestone, @Param("rewardAmount") long rewardAmount);
+
+    List<Integer> findClaimedMilestones(@Param("userId") String userId, @Param("yearMonth") String yearMonth);
 }

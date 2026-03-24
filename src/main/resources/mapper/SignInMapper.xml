@@ -37,4 +37,25 @@
           AND is_makeup = 1
     </select>
 
+    <select id="countMilestoneClaimed" resultType="int">
+        SELECT COUNT(*)
+        FROM sign_in_milestone
+        WHERE user_id = #{userId}
+          AND year_month = #{yearMonth}
+          AND milestone = #{milestone}
+    </select>
+
+    <insert id="insertMilestoneClaim">
+        INSERT INTO sign_in_milestone (user_id, year_month, milestone, reward_amount)
+        VALUES (#{userId}, #{yearMonth}, #{milestone}, #{rewardAmount})
+    </insert>
+
+    <select id="findClaimedMilestones" resultType="java.lang.Integer">
+        SELECT milestone
+        FROM sign_in_milestone
+        WHERE user_id = #{userId}
+          AND year_month = #{yearMonth}
+        ORDER BY milestone ASC
+    </select>
+
 </mapper>

@@ -2,10 +2,12 @@ package com.tencent.wxcloudrun.service.vip;
 
 import com.tencent.wxcloudrun.dao.VipGiftClaimMapper;
 import com.tencent.wxcloudrun.exception.BusinessException;
+import com.tencent.wxcloudrun.model.Equipment;
 import com.tencent.wxcloudrun.model.Warehouse;
 import com.tencent.wxcloudrun.model.UserResource;
 import com.tencent.wxcloudrun.model.General;
 import com.tencent.wxcloudrun.service.UserResourceService;
+import com.tencent.wxcloudrun.service.equipment.EquipmentService;
 import com.tencent.wxcloudrun.service.general.GeneralService;
 import com.tencent.wxcloudrun.service.tactics.TacticsService;
 import com.tencent.wxcloudrun.service.warehouse.WarehouseService;
@@ -27,6 +29,7 @@ public class VipService {
     @Autowired private UserResourceService userResourceService;
     @Autowired private TacticsService tacticsService;
     @Autowired private GeneralService generalService;
+    @Autowired private EquipmentService equipmentService;
 
     // VIP等级阈值（元）
     private static final int[] VIP_THRESHOLDS = {0, 6, 30, 98, 198, 328, 648, 998, 1998, 6000, 20000};
@@ -111,12 +114,11 @@ public class VipService {
     public Map<String, Object> openChest(String userId, String chestItemId) {
         String[] parts;
         String setName;
-        int setLevel;
         switch (chestItemId) {
-            case ID_XUANWU_CHEST:  parts = XUANWU_PARTS;  setName = "宣武"; setLevel = 20; break;
-            case ID_YINGYANG_CHEST: parts = YINGYANG_PARTS; setName = "鹰扬"; setLevel = 40; break;
-            case ID_HUXIAO_CHEST:   parts = HUXIAO_PARTS;   setName = "虎啸"; setLevel = 60; break;
-            case ID_TIANLANG_CHEST: parts = TIANLANG_PARTS; setName = "天狼"; setLevel = 60; break;
+            case ID_XUANWU_CHEST:  parts = XUANWU_PARTS;  setName = "宣武"; break;
+            case ID_YINGYANG_CHEST: parts = YINGYANG_PARTS; setName = "鹰扬"; break;
+            case ID_HUXIAO_CHEST:   parts = HUXIAO_PARTS;   setName = "虎啸"; break;
+            case ID_TIANLANG_CHEST: parts = TIANLANG_PARTS; setName = "天狼"; break;
             default: throw new BusinessException("无效的宝箱");
         }
 
@@ -125,11 +127,13 @@ public class VipService {
         }
 
         String part = parts[new Random().nextInt(parts.length)];
-        addEquipmentToWarehouse(userId, part, setName, setLevel);
+        Equipment equip = equipmentService.createSetEquipment(userId, setName, part, "CHEST", "开启" + setName + "宝箱");
+        logger.info("【宝箱开启】userId={}, set={}, part={}, equipId={}", userId, setName, part, equip.getId());
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("equipment", part);
         result.put("setName", setName);
+        result.put("equipmentId", equip.getId());
         return result;
     }
 
@@ -139,12 +143,11 @@ public class VipService {
 
     public Map<String, Object> selectEquipment(String userId, String setName, String partName) {
         String[] parts;
-        int setLevel;
         String selectItemId;
         switch (setName) {
-            case "鹰扬": parts = YINGYANG_PARTS; setLevel = 40; selectItemId = ID_SELECT_YINGYANG; break;
-            case "虎啸": parts = HUXIAO_PARTS;   setLevel = 60; selectItemId = ID_SELECT_HUXIAO; break;
-            case "天狼": parts = TIANLANG_PARTS; setLevel = 60; selectItemId = ID_SELECT_TIANLANG; break;
+            case "鹰扬": parts = YINGYANG_PARTS; selectItemId = ID_SELECT_YINGYANG; break;
+            case "虎啸": parts = HUXIAO_PARTS;   selectItemId = ID_SELECT_HUXIAO; break;
+            case "天狼": parts = TIANLANG_PARTS; selectItemId = ID_SELECT_TIANLANG; break;
             default: throw new BusinessException("无效的套装");
         }
 
@@ -158,11 +161,13 @@ public class VipService {
             throw new BusinessException("自选券不足");
         }
 
-        addEquipmentToWarehouse(userId, partName, setName, setLevel);
+        Equipment equip = equipmentService.createSetEquipment(userId, setName, partName, "VIP_SELECT", "指定" + setName + "装");
+        logger.info("【指定装选择】userId={}, set={}, part={}, equipId={}", userId, setName, partName, equip.getId());
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("equipment", partName);
         result.put("setName", setName);
+        result.put("equipmentId", equip.getId());
         return result;
     }
 
@@ -425,24 +430,8 @@ public class VipService {
         rewards.add(name + " x" + count);
     }
 
-    private void addEquipmentToWarehouse(String userId, String name, String setName, int setLevel) {
-        String slot = "武器";
-        if (name.contains("戒指")) slot = "戒指";
-        else if (name.contains("铠甲")) slot = "铠甲";
-        else if (name.contains("项链")) slot = "项链";
-        else if (name.contains("头盔")) slot = "头盔";
-        else if (name.contains("鞋子")) slot = "鞋子";
-
-        String quality = setLevel >= 80 ? "6" : (setLevel >= 60 ? "5" : (setLevel >= 40 ? "4" : "3"));
-        Warehouse.WarehouseItem equip = Warehouse.WarehouseItem.builder()
-                .itemId(UUID.randomUUID().toString().substring(0, 8))
-                .itemType("equipment").name(name)
-                .quality(quality)
-                .count(1).maxStack(1)
-                .description(setName + "套装·" + slot + " Lv." + setLevel)
-                .usable(false).build();
-        warehouseService.addItem(userId, equip);
-    }
+    // addEquipmentToWarehouse 已移除：宝箱/指定装在用户点击"使用"时
+    // 由 openChest / selectEquipment 直接调用 equipmentService.createSetEquipment 创建真实装备
 
     private String getIcon(String itemId) {
         switch (itemId) {
