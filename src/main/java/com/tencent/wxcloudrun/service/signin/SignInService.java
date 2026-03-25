@@ -21,7 +21,8 @@ public class SignInService {
     private static final Logger logger = LoggerFactory.getLogger(SignInService.class);
 
     private static final int MAX_MAKEUP_PER_MONTH = 3;
-    private static final long MAKEUP_COST_GOLD = 200;
+    private static final String MAKEUP_SCROLL_ID = "15061";
+    private static final String MAKEUP_SCROLL_NAME = "补签令";
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final DateTimeFormatter MONTH_FMT = DateTimeFormatter.ofPattern("yyyy-MM");
@@ -114,6 +115,7 @@ public class SignInService {
             rm.put("quality", dr.quality);
             rm.put("count", dr.count);
             rm.put("type", dr.type);
+            if (dr.itemId != null) rm.put("itemId", dr.itemId);
             rewards.add(rm);
         }
 
@@ -139,7 +141,7 @@ public class SignInService {
         result.put("consecutiveDays", consecutiveDays);
         result.put("makeupCount", makeupUsed);
         result.put("maxMakeup", MAX_MAKEUP_PER_MONTH);
-        result.put("makeupCost", MAKEUP_COST_GOLD);
+        result.put("makeupScrollCount", warehouseService.getItemCount(userId, MAKEUP_SCROLL_ID));
         result.put("currentMonth", yearMonth);
         result.put("rewards", rewards);
         result.put("milestones", milestones);
@@ -209,17 +211,16 @@ public class SignInService {
             throw new BusinessException("本月补签次数已用完（最多" + MAX_MAKEUP_PER_MONTH + "次）");
         }
 
-        boolean consumed = userResourceService.consumeGold(userId, MAKEUP_COST_GOLD);
+        boolean consumed = warehouseService.consumeItem(userId, MAKEUP_SCROLL_ID, 1);
         if (!consumed) {
-            throw new BusinessException("黄金不足，补签需要" + MAKEUP_COST_GOLD + "黄金");
+            throw new BusinessException(MAKEUP_SCROLL_NAME + "不足，补签需要1个" + MAKEUP_SCROLL_NAME);
         }
 
         signInMapper.insertSignIn(userId, targetDateStr, 1);
 
-        // 补签也发放对应日期的奖励
         DayReward reward = getDayReward(day);
         deliverReward(userId, reward);
-        logger.info("用户 {} 补签成功, 日期: {}, 花费黄金: {}, 奖励: {}x{}", userId, targetDateStr, MAKEUP_COST_GOLD, reward.name, reward.count);
+        logger.info("用户 {} 补签成功, 日期: {}, 消耗补签令x1, 奖励: {}x{}", userId, targetDateStr, reward.name, reward.count);
 
         List<String> signedDates = signInMapper.findSignedDates(userId, yearMonth);
         int totalSigned = signedDates.size();
@@ -229,10 +230,11 @@ public class SignInService {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("success", true);
         result.put("date", targetDateStr);
-        result.put("cost", MAKEUP_COST_GOLD);
+        result.put("costItem", MAKEUP_SCROLL_NAME);
         result.put("dayReward", buildRewardDisplay(reward));
         result.put("milestoneReward", milestoneReward);
         result.put("makeupAvailable", MAX_MAKEUP_PER_MONTH - makeupUsed - 1);
+        result.put("makeupScrollCount", warehouseService.getItemCount(userId, MAKEUP_SCROLL_ID));
         result.put("totalSigned", totalSigned);
         result.put("consecutiveDays", consecutiveDays);
         return result;
