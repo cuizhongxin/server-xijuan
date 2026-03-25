@@ -36,11 +36,16 @@ public class CornucopiaService {
     private static final ZoneId ZONE = ZoneId.of("Asia/Shanghai");
     private static final DateTimeFormatter DT_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
+    private static final String FORTUNE_TALISMAN_ID = "11104";
+
     @Autowired
     private CornucopiaMapper mapper;
 
     @Autowired
     private UserResourceService userResourceService;
+
+    @Autowired
+    private com.tencent.wxcloudrun.service.warehouse.WarehouseService warehouseService;
 
     // ══════════════════════ 查询信息 ══════════════════════
 
@@ -85,6 +90,8 @@ public class CornucopiaService {
             last.put("firstWinnerId", lastDrawn.get("firstWinnerId"));
             result.put("lastPeriod", last);
         }
+
+        result.put("fortuneTalismanCount", warehouseService.getItemCount(userId, FORTUNE_TALISMAN_ID));
 
         return result;
     }
