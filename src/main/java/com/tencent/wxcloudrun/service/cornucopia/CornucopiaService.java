@@ -31,7 +31,6 @@ public class CornucopiaService {
 
     private static final int MAX_TICKETS_PER_PERIOD = 10;
     private static final long POOL_ADD_PER_TICKET = 10;
-    private static final long TICKET_COST_BOUND_GOLD = 10;
     private static final int LOCK_HOURS_BEFORE_DRAW = 1;
     private static final ZoneId ZONE = ZoneId.of("Asia/Shanghai");
     private static final DateTimeFormatter DT_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -76,7 +75,6 @@ public class CornucopiaService {
             result.put("myTicketCount", userTicketCount);
             result.put("maxTickets", MAX_TICKETS_PER_PERIOD);
             result.put("myTickets", myTickets);
-            result.put("ticketCost", TICKET_COST_BOUND_GOLD);
         }
 
         if (lastDrawn != null) {
@@ -121,10 +119,9 @@ public class CornucopiaService {
             throw new BusinessException(400, "每期最多购买" + MAX_TICKETS_PER_PERIOD + "份，已购" + owned + "份");
         }
 
-        long totalCost = TICKET_COST_BOUND_GOLD * count;
-        long[] consumed = userResourceService.consumeGoldPreferBound(userId, totalCost);
-        if (consumed[0] == 0) {
-            throw new BusinessException(400, "绑金/黄金不足，需要" + totalCost);
+        boolean consumed = warehouseService.consumeItem(userId, FORTUNE_TALISMAN_ID, count);
+        if (!consumed) {
+            throw new BusinessException(400, "招财符不足，需要" + count + "张（可在商店购买）");
         }
 
         List<String> numbers = new ArrayList<>();
@@ -136,13 +133,14 @@ public class CornucopiaService {
         }
         mapper.addToPool(pid, POOL_ADD_PER_TICKET * count);
 
-        logger.info("用户 {} 购买聚宝盆 {}份, 花费 {} 绑金/黄金, 号码: {}", userId, count, totalCost, numbers);
+        logger.info("用户 {} 购买聚宝盆 {}份, 消耗招财符x{}, 号码: {}", userId, count, count, numbers);
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("success", true);
         result.put("numbers", numbers);
-        result.put("cost", totalCost);
+        result.put("costItem", "招财符 x" + count);
         result.put("myTicketCount", owned + count);
+        result.put("fortuneTalismanCount", warehouseService.getItemCount(userId, FORTUNE_TALISMAN_ID));
         Map<String, Object> updatedPeriod = mapper.findPeriodById(pid);
         result.put("prizePool", updatedPeriod != null ? updatedPeriod.get("prizePool") : 0);
         return result;

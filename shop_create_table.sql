@@ -12,10 +12,12 @@ CREATE TABLE `shop` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- item 道具表
+-- item 道具表（item_id 对齐 APK PropShow.json）
 CREATE TABLE `item` (
-  `item_id` int(11) NOT NULL COMMENT '道具ID',
+  `item_id` int(11) NOT NULL COMMENT '道具ID（APK PropShow ID）',
   `item_name` varchar(50) NOT NULL COMMENT '道具名称',
   `quality` tinyint(4) NOT NULL COMMENT '道具品质，1~6：白、绿、蓝、紫、橙、红',
+  `icon` varchar(128) NOT NULL DEFAULT '' COMMENT '道具图标文件名（如 11001.jpg）',
+  `description` varchar(256) NOT NULL DEFAULT '' COMMENT '道具描述',
   PRIMARY KEY (`item_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='道具表';
