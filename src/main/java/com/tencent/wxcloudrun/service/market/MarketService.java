@@ -37,14 +37,25 @@ public class MarketService {
     @Autowired
     private EquipmentRepository equipmentRepository;
 
+    static int extractServerId(String compositeUserId) {
+        if (compositeUserId == null) return 1;
+        int idx = compositeUserId.lastIndexOf('_');
+        if (idx > 0) {
+            try { return Integer.parseInt(compositeUserId.substring(idx + 1)); }
+            catch (NumberFormatException e) { return 1; }
+        }
+        return 1;
+    }
+
     /**
-     * 浏览市场（分页 + 分类 + 搜索）
+     * 浏览市场（分页 + 分类 + 搜索），按区服隔离
      */
-    public Map<String, Object> browse(String itemType, String keyword, int page) {
+    public Map<String, Object> browse(String userId, String itemType, String keyword, int page) {
+        int serverId = extractServerId(userId);
         int offset = page * PAGE_SIZE;
         String kw = (keyword != null && !keyword.trim().isEmpty()) ? keyword.trim() : null;
-        List<Map<String, Object>> listings = marketMapper.findActive(itemType, kw, offset, PAGE_SIZE);
-        int total = marketMapper.countActive(itemType, kw);
+        List<Map<String, Object>> listings = marketMapper.findActive(serverId, itemType, kw, offset, PAGE_SIZE);
+        int total = marketMapper.countActive(serverId, itemType, kw);
 
         Map<String, Object> result = new HashMap<>();
         result.put("listings", listings);
@@ -96,7 +107,7 @@ public class MarketService {
                 equip.getName(), equip.getIcon(),
                 equip.getLevel() != null ? equip.getLevel() : 0,
                 qualityId, 1, price, commission, snapshot,
-                System.currentTimeMillis());
+                extractServerId(userId), System.currentTimeMillis());
 
         logger.info("用户 {} 挂牌装备 [{}] 售价 {} 黄金, 手续费 {} 白银", userId, equip.getName(), price, commission);
 
@@ -151,7 +162,7 @@ public class MarketService {
         marketMapper.insertListing(userId, sellerName, "item", itemId,
                 target.getName(), target.getIcon(), 0, qualityVal, count,
                 price, commission, JSON.toJSONString(snapshotMap),
-                System.currentTimeMillis());
+                extractServerId(userId), System.currentTimeMillis());
 
         logger.info("用户 {} 挂牌道具 [{}]x{} 售价 {} 黄金, 手续费 {} 白银",
                 userId, target.getName(), count, price, commission);

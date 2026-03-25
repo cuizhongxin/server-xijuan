@@ -12,6 +12,8 @@ public interface AllianceMapper {
     Alliance findById(@Param("id") String id);
     
     List<Alliance> findAll();
+
+    List<Alliance> findByServerId(@Param("serverId") int serverId);
     
     void upsertAlliance(Alliance alliance);
     

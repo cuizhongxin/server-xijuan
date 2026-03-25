@@ -11,7 +11,7 @@
                grand_winner_id AS grandWinnerId, first_winner_id AS firstWinnerId,
                grand_prize AS grandPrize, first_prize AS firstPrize
         FROM cornucopia_period
-        WHERE status = 0
+        WHERE status = 0 AND server_id = #{serverId}
         ORDER BY draw_time ASC
         LIMIT 1
     </select>
@@ -32,14 +32,14 @@
                grand_winner_id AS grandWinnerId, first_winner_id AS firstWinnerId,
                grand_prize AS grandPrize, first_prize AS firstPrize
         FROM cornucopia_period
-        WHERE status = 1
+        WHERE status = 1 AND server_id = #{serverId}
         ORDER BY draw_time DESC
         LIMIT 1
     </select>
 
     <insert id="insertPeriod">
-        INSERT INTO cornucopia_period (period_num, draw_time, carryover, prize_pool, status)
-        VALUES (#{periodNum}, #{drawTime}, #{carryover}, #{carryover}, 0)
+        INSERT INTO cornucopia_period (period_num, draw_time, carryover, prize_pool, status, server_id)
+        VALUES (#{periodNum}, #{drawTime}, #{carryover}, #{carryover}, 0, #{serverId})
     </insert>
 
     <update id="addToPool">

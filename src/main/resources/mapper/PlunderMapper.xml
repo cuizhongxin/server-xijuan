@@ -24,9 +24,10 @@
             update_time = #{updateTime}
     </insert>
 
-    <select id="findAllUserLevels" resultType="java.util.HashMap">
+    <select id="findUserLevelsByServerId" resultType="java.util.HashMap">
         SELECT od_user_id AS userId, level, silver, wood, paper, food, `rank`
         FROM user_resource
+        WHERE od_user_id LIKE CONCAT('%\_', #{serverSuffix})
     </select>
 
 </mapper>

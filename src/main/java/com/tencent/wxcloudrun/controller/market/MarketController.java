@@ -21,7 +21,7 @@ public class MarketController {
                                                     @RequestParam(defaultValue = "all") String itemType,
                                                     @RequestParam(defaultValue = "") String keyword,
                                                     @RequestParam(defaultValue = "0") int page) {
-        return ApiResponse.success(marketService.browse(itemType, keyword, page));
+        return ApiResponse.success(marketService.browse(getUserId(request), itemType, keyword, page));
     }
 
     @GetMapping("/my")

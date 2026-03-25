@@ -18,7 +18,8 @@ public interface NationWarMapper {
     // 玩家国籍
     String findPlayerNation(@Param("odUserId") String odUserId);
     
-    void upsertPlayerNation(@Param("odUserId") String odUserId, @Param("nation") String nation);
+    void upsertPlayerNation(@Param("odUserId") String odUserId, @Param("nation") String nation,
+                            @Param("serverId") int serverId);
     
     int playerNationExists(@Param("odUserId") String odUserId);
     
@@ -27,11 +28,12 @@ public interface NationWarMapper {
     
     void upsertPlayerMerit(@Param("odUserId") String odUserId, @Param("merit") int merit);
     
-    // 城市归属持久化
-    List<Map<String, Object>> findAllCityOwners();
+    // 城市归属持久化（按区服）
+    List<Map<String, Object>> findCityOwnersByServerId(@Param("serverId") int serverId);
     
-    void upsertCityOwner(@Param("cityId") String cityId, @Param("owner") String owner, @Param("updateTime") long updateTime);
+    void upsertCityOwner(@Param("cityId") String cityId, @Param("owner") String owner,
+                         @Param("serverId") int serverId, @Param("updateTime") long updateTime);
     
-    // 玩家国籍统计
-    List<Map<String, Object>> countPlayersByNation();
+    // 玩家国籍统计（按区服）
+    List<Map<String, Object>> countPlayersByNation(@Param("serverId") int serverId);
 }

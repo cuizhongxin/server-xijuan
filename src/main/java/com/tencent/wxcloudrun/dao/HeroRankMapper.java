@@ -28,20 +28,23 @@ public interface HeroRankMapper {
                 @Param("pendingExp") long pendingExp,
                 @Param("rewardClaimed") int rewardClaimed,
                 @Param("settleDate") String settleDate,
-                @Param("updateTime") long updateTime);
+                @Param("updateTime") long updateTime,
+                @Param("serverId") int serverId);
 
-    List<Map<String, Object>> findByRanking(@Param("offset") int offset, @Param("limit") int limit);
+    List<Map<String, Object>> findByRanking(@Param("serverId") int serverId,
+                                             @Param("offset") int offset, @Param("limit") int limit);
 
-    List<Map<String, Object>> findRandomInRange(@Param("minRank") int minRank,
+    List<Map<String, Object>> findRandomInRange(@Param("serverId") int serverId,
+                                                 @Param("minRank") int minRank,
                                                  @Param("maxRank") int maxRank,
                                                  @Param("excludeUserId") String excludeUserId,
                                                  @Param("limit") int limit);
 
-    int countAll();
+    int countByServerId(@Param("serverId") int serverId);
 
-    List<Map<String, Object>> findAllOrderByRanking();
+    List<Map<String, Object>> findAllOrderByRanking(@Param("serverId") int serverId);
 
-    List<Map<String, Object>> findAllOrderByPower();
+    List<Map<String, Object>> findAllOrderByPower(@Param("serverId") int serverId);
 
     void updateRanking(@Param("userId") String userId, @Param("ranking") int ranking,
                        @Param("updateTime") long updateTime);

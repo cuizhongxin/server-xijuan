@@ -57,18 +57,10 @@ public class AuthService {
         Long userId = userIdService.getOrCreateUserId(openId);
         logger.info("用户ID: openId={}, userId={}", openId, userId);
         
-        // 4. 初始化用户数据
-        String userIdStr = String.valueOf(userId);
+        // 4. 用户数据初始化已移至 GameServerController.createRole()
+        //    登录阶段只生成账号ID，不初始化区服相关数据（资源、武将等）
         
-        // 初始化用户资源
-        userResourceService.getUserResource(userIdStr);
-        logger.info("用户资源初始化完成, userId={}", userIdStr);
-        
-        // 初始化用户武将（如果是新用户）
-        generalService.initUserGenerals(userIdStr);
-        logger.info("用户武将初始化完成, userId={}", userIdStr);
-        
-        // 6. 创建或更新用户信息（实际项目中应该保存到数据库）
+        // 5. 创建或更新用户信息
         User user = User.builder()
                 .openId(openId)
                 .unionId(wxSession.getUnionId())

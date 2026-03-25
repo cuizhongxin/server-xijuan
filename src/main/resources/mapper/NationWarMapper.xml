@@ -22,8 +22,8 @@
     </select>
 
     <insert id="upsertPlayerNation">
-        INSERT INTO player_nation (od_user_id, nation)
-        VALUES (#{odUserId}, #{nation})
+        INSERT INTO player_nation (od_user_id, nation, server_id)
+        VALUES (#{odUserId}, #{nation}, #{serverId})
         ON DUPLICATE KEY UPDATE nation = #{nation}
     </insert>
 
@@ -42,20 +42,20 @@
         ON DUPLICATE KEY UPDATE merit = #{merit}
     </insert>
 
-    <!-- 城市归属持久化 -->
-    <select id="findAllCityOwners" resultType="java.util.HashMap">
-        SELECT city_id AS cityId, owner FROM nation_war_city_owner
+    <!-- 城市归属持久化（按区服） -->
+    <select id="findCityOwnersByServerId" resultType="java.util.HashMap">
+        SELECT city_id AS cityId, owner FROM nation_war_city_owner WHERE server_id = #{serverId}
     </select>
 
     <insert id="upsertCityOwner">
-        INSERT INTO nation_war_city_owner (city_id, owner, update_time)
-        VALUES (#{cityId}, #{owner}, #{updateTime})
+        INSERT INTO nation_war_city_owner (city_id, owner, server_id, update_time)
+        VALUES (#{cityId}, #{owner}, #{serverId}, #{updateTime})
         ON DUPLICATE KEY UPDATE owner = #{owner}, update_time = #{updateTime}
     </insert>
 
-    <!-- 各国玩家人数统计 -->
+    <!-- 各国玩家人数统计（按区服） -->
     <select id="countPlayersByNation" resultType="java.util.HashMap">
-        SELECT nation, COUNT(1) AS cnt FROM player_nation GROUP BY nation
+        SELECT nation, COUNT(1) AS cnt FROM player_nation WHERE server_id = #{serverId} GROUP BY nation
     </select>
 
 </mapper>

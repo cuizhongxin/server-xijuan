@@ -9,11 +9,12 @@ import java.util.Map;
 @Mapper
 public interface CornucopiaMapper {
 
-    // ── 期数 ──
-    Map<String, Object> findActivePeriod();
+    // ── 期数（按区服隔离） ──
+    Map<String, Object> findActivePeriod(@Param("serverId") int serverId);
     Map<String, Object> findPeriodById(@Param("id") long id);
-    Map<String, Object> findLastDrawnPeriod();
-    void insertPeriod(@Param("periodNum") int periodNum, @Param("drawTime") String drawTime, @Param("carryover") long carryover);
+    Map<String, Object> findLastDrawnPeriod(@Param("serverId") int serverId);
+    void insertPeriod(@Param("periodNum") int periodNum, @Param("drawTime") String drawTime,
+                      @Param("carryover") long carryover, @Param("serverId") int serverId);
     void addToPool(@Param("id") long id, @Param("amount") long amount);
     void finishDraw(@Param("id") long id, @Param("grandNumber") String grandNumber, @Param("firstNumber") String firstNumber,
                     @Param("grandWinnerId") String grandWinnerId, @Param("firstWinnerId") String firstWinnerId,

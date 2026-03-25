@@ -52,4 +52,9 @@
         UPDATE game_server SET current_players = current_players + 1 WHERE id = #{serverId}
     </update>
 
+    <insert id="insertServer">
+        INSERT INTO game_server (name, status, open_time, max_players, current_players)
+        VALUES (#{serverName}, #{status}, #{openTime}, #{maxPlayers}, 0)
+    </insert>
+
 </mapper>

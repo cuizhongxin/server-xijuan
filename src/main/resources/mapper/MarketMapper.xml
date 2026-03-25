@@ -6,10 +6,10 @@
     <insert id="insertListing">
         INSERT INTO market_listing (seller_id, seller_name, item_type, item_id, item_name,
                                      item_icon, item_level, item_quality, item_count,
-                                     price, commission, item_snapshot, status, create_time, update_time)
+                                     price, commission, item_snapshot, status, server_id, create_time, update_time)
         VALUES (#{sellerId}, #{sellerName}, #{itemType}, #{itemId}, #{itemName},
                 #{itemIcon}, #{itemLevel}, #{itemQuality}, #{itemCount},
-                #{price}, #{commission}, #{itemSnapshot}, 'active', #{createTime}, #{createTime})
+                #{price}, #{commission}, #{itemSnapshot}, 'active', #{serverId}, #{createTime}, #{createTime})
     </insert>
 
     <select id="findById" resultType="java.util.HashMap">
@@ -29,7 +29,7 @@
                item_count AS itemCount, price, commission,
                create_time AS createTime
         FROM market_listing
-        WHERE status = 'active'
+        WHERE status = 'active' AND server_id = #{serverId}
         <if test="itemType != null and itemType != '' and itemType != 'all'">
             AND item_type = #{itemType}
         </if>
@@ -41,7 +41,7 @@
     </select>
 
     <select id="countActive" resultType="int">
-        SELECT COUNT(*) FROM market_listing WHERE status = 'active'
+        SELECT COUNT(*) FROM market_listing WHERE status = 'active' AND server_id = #{serverId}
         <if test="itemType != null and itemType != '' and itemType != 'all'">
             AND item_type = #{itemType}
         </if>

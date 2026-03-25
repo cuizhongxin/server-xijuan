@@ -42,7 +42,7 @@ public class AllianceController {
             @RequestParam(required = false) String faction) {
         try {
             String odUserId = getUserId(request);
-            List<Alliance> alliances = allianceService.getAllianceList(faction);
+            List<Alliance> alliances = allianceService.getAllianceList(odUserId, faction);
             Alliance myAlliance = allianceService.getUserAlliance(odUserId);
             
             Map<String, Object> data = new HashMap<>();

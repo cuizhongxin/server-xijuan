@@ -20,12 +20,12 @@
                                today_challenge, today_wins, today_purchased,
                                last_reset_date, last_challenge_time,
                                pending_fame, pending_silver, pending_exp,
-                               reward_claimed, settle_date, update_time)
+                               reward_claimed, settle_date, update_time, server_id)
         VALUES (#{userId}, #{userName}, #{level}, #{power}, #{fame}, #{rankName}, #{ranking}, #{ranking}, #{nation},
                 #{todayChallenge}, #{todayWins}, #{todayPurchased},
                 #{lastResetDate}, #{lastChallengeTime},
                 #{pendingFame}, #{pendingSilver}, #{pendingExp},
-                #{rewardClaimed}, #{settleDate}, #{updateTime})
+                #{rewardClaimed}, #{settleDate}, #{updateTime}, #{serverId})
         ON DUPLICATE KEY UPDATE
             user_name = #{userName}, level = #{level}, power = #{power}, fame = #{fame},
             rank_name = #{rankName}, ranking = #{ranking}, rank_position = #{ranking}, nation = #{nation},
@@ -37,38 +37,37 @@
             settle_date = #{settleDate}, update_time = #{updateTime}
     </insert>
 
-    <!-- 按排名升序 -->
     <select id="findByRanking" resultType="java.util.HashMap">
         SELECT user_id AS userId, user_name AS userName, level, power, fame,
                rank_name AS rankName, ranking, nation
-        FROM hero_rank ORDER BY ranking ASC LIMIT #{offset}, #{limit}
+        FROM hero_rank WHERE server_id = #{serverId} ORDER BY ranking ASC LIMIT #{offset}, #{limit}
     </select>
 
-    <!-- 按排名范围随机取N条 -->
     <select id="findRandomInRange" resultType="java.util.HashMap">
         SELECT user_id AS userId, user_name AS userName, level, power, fame,
                rank_name AS rankName, ranking, nation
         FROM hero_rank
-        WHERE ranking BETWEEN #{minRank} AND #{maxRank}
+        WHERE server_id = #{serverId}
+          AND ranking BETWEEN #{minRank} AND #{maxRank}
           AND user_id != #{excludeUserId}
         ORDER BY RAND()
         LIMIT #{limit}
     </select>
 
-    <select id="countAll" resultType="int">
-        SELECT COUNT(*) FROM hero_rank
+    <select id="countByServerId" resultType="int">
+        SELECT COUNT(*) FROM hero_rank WHERE server_id = #{serverId}
     </select>
 
     <select id="findAllOrderByRanking" resultType="java.util.HashMap">
         SELECT user_id AS userId, user_name AS userName, level, power, fame,
                rank_name AS rankName, ranking
-        FROM hero_rank ORDER BY ranking ASC
+        FROM hero_rank WHERE server_id = #{serverId} ORDER BY ranking ASC
     </select>
 
     <select id="findAllOrderByPower" resultType="java.util.HashMap">
         SELECT user_id AS userId, user_name AS userName, level, power, fame,
                rank_name AS rankName, ranking
-        FROM hero_rank ORDER BY power DESC
+        FROM hero_rank WHERE server_id = #{serverId} ORDER BY power DESC
     </select>
 
     <update id="updateRanking">

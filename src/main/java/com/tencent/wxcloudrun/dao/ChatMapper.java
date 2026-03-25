@@ -12,12 +12,15 @@ public interface ChatMapper {
                        @Param("senderName") String senderName,
                        @Param("channel") String channel,
                        @Param("content") String content,
+                       @Param("serverId") int serverId,
                        @Param("createTime") long createTime);
 
     List<Map<String, Object>> findRecent(@Param("channel") String channel,
+                                          @Param("serverId") int serverId,
                                           @Param("limit") int limit);
 
     List<Map<String, Object>> findSince(@Param("channel") String channel,
+                                         @Param("serverId") int serverId,
                                          @Param("sinceTime") long sinceTime,
                                          @Param("limit") int limit);
 

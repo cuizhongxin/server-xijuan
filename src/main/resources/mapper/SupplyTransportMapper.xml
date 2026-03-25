@@ -5,10 +5,10 @@
     <insert id="insert">
         INSERT INTO supply_transport
             (user_id, grade_id, grade_name, silver_reward, paper_reward, food_reward, metal_reward,
-             start_time, end_time, create_date)
+             start_time, end_time, create_date, server_id)
         VALUES
             (#{userId}, #{gradeId}, #{gradeName}, #{silverReward}, #{paperReward}, #{foodReward}, #{metalReward},
-             #{startTime}, #{endTime}, #{createDate})
+             #{startTime}, #{endTime}, #{createDate}, #{serverId})
     </insert>
 
     <select id="findActiveByUserId" resultType="java.util.HashMap">
@@ -40,7 +40,7 @@
         ORDER BY start_time DESC
     </select>
 
-    <select id="findAllActive" resultType="java.util.HashMap">
+    <select id="findAllActiveByServerId" resultType="java.util.HashMap">
         SELECT id, user_id AS userId, grade_id AS gradeId, grade_name AS gradeName,
                silver_reward AS silverReward, paper_reward AS paperReward,
                food_reward AS foodReward, metal_reward AS metalReward,
@@ -50,7 +50,7 @@
                robbed_food AS robbedFood, robbed_metal AS robbedMetal,
                status
         FROM supply_transport
-        WHERE status = 'active'
+        WHERE status = 'active' AND server_id = #{serverId}
         ORDER BY start_time DESC
     </select>
 

@@ -20,16 +20,19 @@ public interface MarketMapper {
                        @Param("price") long price,
                        @Param("commission") long commission,
                        @Param("itemSnapshot") String itemSnapshot,
+                       @Param("serverId") int serverId,
                        @Param("createTime") long createTime);
 
     Map<String, Object> findById(@Param("id") long id);
 
-    List<Map<String, Object>> findActive(@Param("itemType") String itemType,
+    List<Map<String, Object>> findActive(@Param("serverId") int serverId,
+                                          @Param("itemType") String itemType,
                                           @Param("keyword") String keyword,
                                           @Param("offset") int offset,
                                           @Param("limit") int limit);
 
-    int countActive(@Param("itemType") String itemType,
+    int countActive(@Param("serverId") int serverId,
+                    @Param("itemType") String itemType,
                     @Param("keyword") String keyword);
 
     int countActiveBySeller(@Param("sellerId") String sellerId);

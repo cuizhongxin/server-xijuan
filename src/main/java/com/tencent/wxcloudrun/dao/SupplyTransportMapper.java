@@ -17,14 +17,15 @@ public interface SupplyTransportMapper {
                 @Param("metalReward") long metalReward,
                 @Param("startTime") long startTime,
                 @Param("endTime") long endTime,
-                @Param("createDate") String createDate);
+                @Param("createDate") String createDate,
+                @Param("serverId") int serverId);
 
     Map<String, Object> findActiveByUserId(@Param("userId") String userId);
 
     List<Map<String, Object>> findByUserIdAndDate(@Param("userId") String userId,
                                                    @Param("createDate") String createDate);
 
-    List<Map<String, Object>> findAllActive();
+    List<Map<String, Object>> findAllActiveByServerId(@Param("serverId") int serverId);
 
     Map<String, Object> findById(@Param("id") long id);
 

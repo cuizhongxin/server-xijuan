@@ -75,26 +75,43 @@ public class HeroRankService {
 
     private static final int[] WIN_FAME = {500, 450, 400, 350, 300, 260, 220, 180, 140, 100};
 
+    // ==================== 区服ID提取 ====================
+
+    static int extractServerId(String compositeUserId) {
+        if (compositeUserId == null) return 1;
+        int idx = compositeUserId.lastIndexOf('_');
+        if (idx > 0) {
+            try { return Integer.parseInt(compositeUserId.substring(idx + 1)); }
+            catch (NumberFormatException e) { return 1; }
+        }
+        return 1;
+    }
+
     // ==================== 初始化NPC ====================
 
-    public void ensureNpcExists() {
-        int count = heroRankMapper.countAll();
+    private static final String[] NPC_NAMES = {"张角", "董卓", "袁绍", "袁术", "公孙瓒", "刘表", "刘璋", "马腾",
+        "孟获", "祝融", "沙摩柯", "兀突骨", "张宝", "张梁", "韩遂", "张鲁",
+        "纪灵", "高览", "淳于琼", "蒋干", "于禁", "乐进", "李典", "曹洪",
+        "曹仁", "夏侯惇", "夏侯渊", "张辽", "徐晃", "张郃", "许褚", "典韦",
+        "关羽", "张飞", "赵云", "马超", "黄忠", "魏延", "姜维", "庞统",
+        "诸葛亮", "周瑜", "陆逊", "吕蒙", "甘宁", "太史慈", "孙策", "孙权",
+        "曹操", "刘备", "吕布", "司马懿", "郭嘉", "荀彧", "贾诩", "法正"};
+
+    /**
+     * 为指定区服初始化1000个英雄榜NPC
+     * NPC的user_id格式: npc_hero_s{serverId}_{序号}
+     */
+    public void ensureNpcExists(int serverId) {
+        int count = heroRankMapper.countByServerId(serverId);
         if (count >= NPC_COUNT) return;
 
-        log.info("初始化英雄榜NPC: 现有{}条，需{}条", count, NPC_COUNT);
-        String[] names = {"张角", "董卓", "袁绍", "袁术", "公孙瓒", "刘表", "刘璋", "马腾",
-            "孟获", "祝融", "沙摩柯", "兀突骨", "张宝", "张梁", "韩遂", "张鲁",
-            "纪灵", "高览", "淳于琼", "蒋干", "于禁", "乐进", "李典", "曹洪",
-            "曹仁", "夏侯惇", "夏侯渊", "张辽", "徐晃", "张郃", "许褚", "典韦",
-            "关羽", "张飞", "赵云", "马超", "黄忠", "魏延", "姜维", "庞统",
-            "诸葛亮", "周瑜", "陆逊", "吕蒙", "甘宁", "太史慈", "孙策", "孙权",
-            "曹操", "刘备", "吕布", "司马懿", "郭嘉", "荀彧", "贾诩", "法正"};
-        Random rng = new Random(42);
+        log.info("初始化英雄榜NPC: serverId={}, 现有{}条，需{}条", serverId, count, NPC_COUNT);
+        Random rng = new Random(42 + serverId);
 
         long now = System.currentTimeMillis();
         for (int i = count + 1; i <= NPC_COUNT; i++) {
-            String npcId = String.format("npc_hero_%05d", i);
-            String name = names[rng.nextInt(names.length)];
+            String npcId = String.format("npc_hero_s%d_%05d", serverId, i);
+            String name = NPC_NAMES[rng.nextInt(NPC_NAMES.length)];
             int level = Math.max(1, 50 - i / 25);
             int power = Math.max(50, (int)(800 * Math.pow(0.997, i)) + rng.nextInt(30));
             long fame = Math.max(0, 5000 - i * 5L);
@@ -102,9 +119,14 @@ public class HeroRankService {
 
             String nation = NATIONS[rng.nextInt(NATIONS.length)];
             heroRankMapper.upsert(npcId, name, level, power, fame, peerage, i, nation,
-                0, 0, 0, "", 0, 0, 0, 0, 1, "", now);
+                0, 0, 0, "", 0, 0, 0, 0, 1, "", now, serverId);
         }
-        log.info("英雄榜NPC初始化完成，共{}条", NPC_COUNT);
+        log.info("英雄榜NPC初始化完成 serverId={}, 共{}条", serverId, NPC_COUNT);
+    }
+
+    /** 兼容旧调用：从默认服1初始化 */
+    public void ensureNpcExists() {
+        ensureNpcExists(1);
     }
 
     // ==================== 查询 ====================
@@ -112,20 +134,21 @@ public class HeroRankService {
     private static final int DISPLAY_COUNT = 10;
 
     public Map<String, Object> getInfo(String userId) {
-        ensureNpcExists();
+        int serverId = extractServerId(userId);
+        ensureNpcExists(serverId);
         ensurePlayerEntry(userId);
         resetIfNewDay(userId);
 
         Map<String, Object> me = heroRankMapper.findByUserId(userId);
         int myRanking = getInt(me, "ranking");
-        int total = heroRankMapper.countAll();
+        int total = heroRankMapper.countByServerId(serverId);
 
         List<Map<String, Object>> list;
         if (myRanking <= DISPLAY_COUNT) {
-            list = heroRankMapper.findByRanking(0, DISPLAY_COUNT);
+            list = heroRankMapper.findByRanking(serverId, 0, DISPLAY_COUNT);
         } else {
             int minRank = Math.max(1, (int)(myRanking * 0.8));
-            list = heroRankMapper.findRandomInRange(minRank, myRanking, userId, DISPLAY_COUNT);
+            list = heroRankMapper.findRandomInRange(serverId, minRank, myRanking, userId, DISPLAY_COUNT);
         }
 
         long lastTime = getLong(me, "lastChallengeTime");
@@ -209,7 +232,7 @@ public class HeroRankService {
                 str(me, "lastResetDate"), now,
                 getLong(me, "pendingFame"), getLong(me, "pendingSilver"),
                 getLong(me, "pendingExp"), getInt(me, "rewardClaimed"),
-                str(me, "settleDate"), now);
+                str(me, "settleDate"), now, extractServerId(userId));
         } else {
             heroRankMapper.upsert(userId, str(me, "userName"), getInt(me, "level"),
                 getInt(me, "power"), getLong(me, "fame"), str(me, "rankName"), myRank, str(me, "nation"),
@@ -217,7 +240,7 @@ public class HeroRankService {
                 str(me, "lastResetDate"), now,
                 getLong(me, "pendingFame"), getLong(me, "pendingSilver"),
                 getLong(me, "pendingExp"), getInt(me, "rewardClaimed"),
-                str(me, "settleDate"), now);
+                str(me, "settleDate"), now, extractServerId(userId));
         }
 
         String today = new SimpleDateFormat("yyyyMMdd").format(new Date());
@@ -280,7 +303,7 @@ public class HeroRankService {
             getInt(me, "todayPurchased"), str(me, "lastResetDate"), 0,
             getLong(me, "pendingFame"), getLong(me, "pendingSilver"),
             getLong(me, "pendingExp"), getInt(me, "rewardClaimed"),
-            str(me, "settleDate"), System.currentTimeMillis());
+            str(me, "settleDate"), System.currentTimeMillis(), extractServerId(userId));
 
         Map<String, Object> result = new HashMap<>();
         result.put("success", true);
@@ -313,7 +336,7 @@ public class HeroRankService {
             getInt(me, "todayPurchased"), str(me, "lastResetDate"),
             getLong(me, "lastChallengeTime"),
             0, 0, 0, 1, str(me, "settleDate"),
-            System.currentTimeMillis());
+            System.currentTimeMillis(), extractServerId(userId));
 
         Map<String, Object> result = new HashMap<>();
         result.put("fame", fame);
@@ -347,25 +370,30 @@ public class HeroRankService {
 
     @Scheduled(cron = "0 0 0 * * ?")
     public void dailySettle() {
-        log.info("[英雄榜] 开始每日结算");
-        List<Map<String, Object>> all = heroRankMapper.findAllOrderByRanking();
+        log.info("[英雄榜] 开始每日结算（按区服）");
+        List<Map<String, Object>> servers = gameServerMapper.findAllServers();
         String today = new SimpleDateFormat("yyyyMMdd").format(new Date());
         long now = System.currentTimeMillis();
 
-        for (int i = 0; i < all.size(); i++) {
-            Map<String, Object> entry = all.get(i);
-            String uid = str(entry, "userId");
-            int rank = i + 1;
-            heroRankMapper.updateRanking(uid, rank, now);
+        for (Map<String, Object> server : servers) {
+            int sid = ((Number) server.get("id")).intValue();
+            List<Map<String, Object>> all = heroRankMapper.findAllOrderByRanking(sid);
 
-            int[] reward = getRewardForRank(rank);
-            heroRankMapper.setPendingReward(uid, reward[0], reward[1], reward[2], today);
+            for (int i = 0; i < all.size(); i++) {
+                Map<String, Object> entry = all.get(i);
+                String uid = str(entry, "userId");
+                int rank = i + 1;
+                heroRankMapper.updateRanking(uid, rank, now);
 
-            if (!uid.startsWith("npc_hero_")) {
-                heroRankMapper.insertRewardLog(uid, rank, reward[0], reward[1], today, now);
+                int[] reward = getRewardForRank(rank);
+                heroRankMapper.setPendingReward(uid, reward[0], reward[1], reward[2], today);
+
+                if (!uid.startsWith("npc_hero_")) {
+                    heroRankMapper.insertRewardLog(uid, rank, reward[0], reward[1], today, now);
+                }
             }
+            log.info("[英雄榜] serverId={} 结算完成，处理{}条", sid, all.size());
         }
-        log.info("[英雄榜] 结算完成，处理{}条", all.size());
     }
 
     // ==================== 同步战力 ====================
@@ -405,7 +433,7 @@ public class HeroRankService {
             getLong(me, "lastChallengeTime"),
             getLong(me, "pendingFame"), getLong(me, "pendingSilver"),
             getLong(me, "pendingExp"), getInt(me, "rewardClaimed"),
-            str(me, "settleDate"), System.currentTimeMillis());
+            str(me, "settleDate"), System.currentTimeMillis(), extractServerId(userId));
     }
 
     // ==================== 内部方法 ====================
@@ -415,15 +443,16 @@ public class HeroRankService {
         Map<String, Object> me = heroRankMapper.findByUserId(userId);
         if (me != null) return;
 
+        int serverId = extractServerId(userId);
         String name = getPlayerName(userId);
         String nation = getPlayerNation(userId);
         UserResource res = userResourceService.getUserResource(userId);
         int level = res.getLevel() != null ? res.getLevel() : 1;
         int power = level * 500;
-        int ranking = heroRankMapper.countAll() + 1;
+        int ranking = heroRankMapper.countByServerId(serverId) + 1;
 
         heroRankMapper.upsert(userId, name, level, power, 0, "平民", ranking, nation,
-            0, 0, 0, "", 0, 0, 0, 0, 1, "", System.currentTimeMillis());
+            0, 0, 0, "", 0, 0, 0, 0, 1, "", System.currentTimeMillis(), serverId);
 
         syncPower(userId);
     }
@@ -466,7 +495,7 @@ public class HeroRankService {
             0, 0, 0, today, 0,
             getLong(me, "pendingFame"), getLong(me, "pendingSilver"),
             getLong(me, "pendingExp"), getInt(me, "rewardClaimed"),
-            str(me, "settleDate"), System.currentTimeMillis());
+            str(me, "settleDate"), System.currentTimeMillis(), extractServerId(userId));
     }
 
     private String calcPeerage(long fame, int level) {

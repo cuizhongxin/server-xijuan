@@ -69,6 +69,16 @@ public class NationWarService {
     private static final String CHIBI_CITY_ID = "CHIBI";
     
     private static final Set<String> PLAYER_SELECTABLE_NATION_IDS = new HashSet<>(Arrays.asList("WEI", "SHU", "WU"));
+
+    static int extractServerId(String compositeUserId) {
+        if (compositeUserId == null) return 1;
+        int idx = compositeUserId.lastIndexOf('_');
+        if (idx > 0) {
+            try { return Integer.parseInt(compositeUserId.substring(idx + 1)); }
+            catch (NumberFormatException e) { return 1; }
+        }
+        return 1;
+    }
     
     public NationWarService() {
         initMapData();
@@ -80,7 +90,8 @@ public class NationWarService {
     @PostConstruct
     public void restoreFromDatabase() {
         try {
-            List<Map<String, Object>> rows = nationWarMapper.findAllCityOwners();
+            // TODO: 多区服时需按每个serverId分别恢复内存状态
+            List<Map<String, Object>> rows = nationWarMapper.findCityOwnersByServerId(1);
             if (rows != null && !rows.isEmpty()) {
                 for (Map<String, Object> row : rows) {
                     String cityId = (String) row.get("cityId");
@@ -115,7 +126,7 @@ public class NationWarService {
         }
         
         try {
-            List<Map<String, Object>> counts = nationWarMapper.countPlayersByNation();
+            List<Map<String, Object>> counts = nationWarMapper.countPlayersByNation(1);
             if (counts != null) {
                 for (Map<String, Object> row : counts) {
                     String nationId = (String) row.get("nation");
@@ -311,7 +322,7 @@ public class NationWarService {
             throw new BusinessException(400, "您已选择国家，如需更换请使用转国功能");
         }
         
-        nationWarMapper.upsertPlayerNation(odUserId, nationId);
+        nationWarMapper.upsertPlayerNation(odUserId, nationId, extractServerId(odUserId));
         
         Nation nation = nations.get(nationId);
         nation.setTotalPlayers(nation.getTotalPlayers() + 1);
@@ -374,7 +385,7 @@ public class NationWarService {
         Nation newNation = nations.get(newNationId);
         newNation.setTotalPlayers(newNation.getTotalPlayers() + 1);
         
-        nationWarMapper.upsertPlayerNation(odUserId, newNationId);
+        nationWarMapper.upsertPlayerNation(odUserId, newNationId, extractServerId(odUserId));
         
         updateMeritExchangeRate(currentNation);
         updateMeritExchangeRate(newNationId);
@@ -715,7 +726,7 @@ public class NationWarService {
         city.setOwner(newOwner);
         
         try {
-            nationWarMapper.upsertCityOwner(cityId, newOwner, System.currentTimeMillis());
+            nationWarMapper.upsertCityOwner(cityId, newOwner, 1, System.currentTimeMillis());
         } catch (Exception e) {
             logger.error("持久化城市归属失败: cityId={}, newOwner={}", cityId, newOwner, e);
         }

@@ -27,6 +27,7 @@ public class Alliance {
     private Integer maxMembers;             // 成员上限
     private Boolean autoApprove;            // 是否自动审批
     private Integer minLevel;               // 加入最低等级
+    private Integer serverId;               // 区服ID
     private Long createTime;
     private Long updateTime;
     
@@ -82,7 +83,7 @@ public class Alliance {
     /**
      * 创建新联盟
      */
-    public static Alliance create(String name, String leaderId, String leaderName, Integer leaderLevel, String faction) {
+    public static Alliance create(String name, String leaderId, String leaderName, Integer leaderLevel, String faction, int serverId) {
         Alliance alliance = Alliance.builder()
                 .id("alliance_" + System.currentTimeMillis())
                 .name(name)
@@ -94,6 +95,7 @@ public class Alliance {
                 .maxMembers(30)
                 .autoApprove(false)
                 .minLevel(1)
+                .serverId(serverId)
                 .createTime(System.currentTimeMillis())
                 .updateTime(System.currentTimeMillis())
                 .members(new ArrayList<>())

@@ -28,6 +28,16 @@ public class SupplyService {
 
     private static final Logger logger = LoggerFactory.getLogger(SupplyService.class);
 
+    static int extractServerId(String compositeUserId) {
+        if (compositeUserId == null) return 1;
+        int idx = compositeUserId.lastIndexOf('_');
+        if (idx > 0) {
+            try { return Integer.parseInt(compositeUserId.substring(idx + 1)); }
+            catch (NumberFormatException e) { return 1; }
+        }
+        return 1;
+    }
+
     private static final int DAILY_TRANSPORT_LIMIT = 3;
     private static final int DAILY_ROBBERY_LIMIT = 5;
     private static final int MAX_ROBBED_PER_TRANSPORT = 3;
@@ -195,7 +205,7 @@ public class SupplyService {
                 String.valueOf(gradeConfig.get("name")),
                 rewards.get("silver"), rewards.get("paper"),
                 rewards.get("food"), rewards.get("metal"),
-                now, endTime, todayStr());
+                now, endTime, todayStr(), extractServerId(userId));
 
         // 更新今日运送次数，重新roll一个新军需
         double rand = ThreadLocalRandom.current().nextDouble();
@@ -319,7 +329,7 @@ public class SupplyService {
     // ======================== 运送地图 ========================
 
     public Map<String, Object> getMapTransports(String userId) {
-        List<Map<String, Object>> allActive = transportMapper.findAllActive();
+        List<Map<String, Object>> allActive = transportMapper.findAllActiveByServerId(extractServerId(userId));
         long now = System.currentTimeMillis();
 
         List<Map<String, Object>> transports = new ArrayList<>();

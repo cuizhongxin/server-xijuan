@@ -28,4 +28,9 @@ public interface GameServerMapper {
                            @Param("lastLogin") long lastLogin);
 
     void incrementServerPlayers(@Param("serverId") int serverId);
+
+    void insertServer(@Param("serverName") String serverName,
+                      @Param("status") String status,
+                      @Param("openTime") long openTime,
+                      @Param("maxPlayers") int maxPlayers);
 }

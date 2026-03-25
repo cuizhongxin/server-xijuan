@@ -6,6 +6,8 @@ import com.tencent.wxcloudrun.dto.ApiResponse;
 import com.tencent.wxcloudrun.model.General;
 import com.tencent.wxcloudrun.service.general.GeneralService;
 import com.tencent.wxcloudrun.service.formation.FormationService;
+import com.tencent.wxcloudrun.service.UserResourceService;
+import com.tencent.wxcloudrun.service.herorank.HeroRankService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +33,12 @@ public class GameServerController {
 
     @Autowired
     private FormationService formationService;
+
+    @Autowired
+    private UserResourceService userResourceService;
+
+    @Autowired
+    private HeroRankService heroRankService;
 
     /**
      * 获取区服列表 + 公告 + 玩家已有角色信息
@@ -129,8 +137,24 @@ public class GameServerController {
         serverMapper.insertPlayerServer(userId, serverId, validated, System.currentTimeMillis());
         serverMapper.incrementServerPlayers(serverId);
 
-        // 赠送初始武将并上阵
         String gameUserId = userId + "_" + serverId;
+
+        // 初始化该区服的用户资源（金币、银两等）
+        try {
+            userResourceService.getUserResource(gameUserId);
+            logger.info("用户资源初始化完成, gameUserId={}", gameUserId);
+        } catch (Exception e) {
+            logger.error("初始化用户资源失败 gameUserId={}", gameUserId, e);
+        }
+
+        // 初始化该区服的英雄榜NPC（首个玩家进入时触发）
+        try {
+            heroRankService.ensureNpcExists(serverId);
+        } catch (Exception e) {
+            logger.error("初始化英雄榜NPC失败 serverId={}", serverId, e);
+        }
+
+        // 赠送初始武将并上阵
         String starterName = null;
         try {
             logger.info("开始为新玩家 {} 创建初始武将...", gameUserId);
@@ -182,6 +206,69 @@ public class GameServerController {
         if (trimmed.length() < 2 || trimmed.length() > 8) return null;
         if (!trimmed.matches("^[\\u4e00-\\u9fa5a-zA-Z0-9_]+$")) return null;
         return trimmed;
+    }
+
+    // ==================== 管理员接口（仅 userId=1） ====================
+
+    /**
+     * 创建新区服（仅管理员 userId=1 可操作）
+     */
+    @PostMapping("/admin/create")
+    public ApiResponse<Map<String, Object>> adminCreateServer(HttpServletRequest request,
+                                                               @RequestBody Map<String, Object> body) {
+        String rawUserId = getUserId(request);
+        if (!"1".equals(rawUserId)) {
+            return ApiResponse.error(403, "无权操作");
+        }
+
+        String serverName = body.get("serverName") != null ? body.get("serverName").toString().trim() : null;
+        if (serverName == null || serverName.isEmpty()) {
+            return ApiResponse.error(400, "区服名称不能为空");
+        }
+
+        int maxPlayers = 10000;
+        if (body.get("maxPlayers") instanceof Number) {
+            maxPlayers = ((Number) body.get("maxPlayers")).intValue();
+        }
+
+        long now = System.currentTimeMillis();
+        serverMapper.insertServer(serverName, "normal", now, maxPlayers);
+
+        // 查询刚创建的区服ID
+        List<Map<String, Object>> all = serverMapper.findAllServers();
+        int newServerId = 0;
+        for (Map<String, Object> s : all) {
+            int sid = ((Number) s.get("id")).intValue();
+            if (serverName.equals(s.get("serverName"))) newServerId = sid;
+        }
+
+        // 为新区服初始化英雄榜NPC
+        if (newServerId > 0) {
+            try {
+                heroRankService.ensureNpcExists(newServerId);
+                logger.info("新区服 {} (id={}) 英雄榜NPC初始化完成", serverName, newServerId);
+            } catch (Exception e) {
+                logger.error("新区服英雄榜NPC初始化失败 serverId={}", newServerId, e);
+            }
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("serverId", newServerId);
+        result.put("serverName", serverName);
+        result.put("status", "normal");
+        return ApiResponse.success(result);
+    }
+
+    /**
+     * 获取区服管理列表（仅管理员 userId=1）
+     */
+    @GetMapping("/admin/list")
+    public ApiResponse<List<Map<String, Object>>> adminListServers(HttpServletRequest request) {
+        String rawUserId = getUserId(request);
+        if (!"1".equals(rawUserId)) {
+            return ApiResponse.error(403, "无权操作");
+        }
+        return ApiResponse.success(serverMapper.findAllServers());
     }
 
     private String getUserId(HttpServletRequest request) {

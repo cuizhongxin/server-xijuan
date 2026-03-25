@@ -55,4 +55,27 @@ public class BossWarController {
             return ApiResponse.error(e.getMessage());
         }
     }
+
+    @PostMapping("/open-chest")
+    public ApiResponse<Map<String, Object>> openChest(HttpServletRequest request, @RequestBody Map<String, Object> body) {
+        try {
+            String userId = getUserId(request);
+            String chestItemId = String.valueOf(body.get("chestItemId"));
+            return ApiResponse.success(bossWarService.openBossChest(userId, chestItemId));
+        } catch (Exception e) {
+            logger.error("开启Boss宝箱失败", e);
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
+    @PostMapping("/open-tiandi")
+    public ApiResponse<Map<String, Object>> openTiandi(HttpServletRequest request) {
+        try {
+            String userId = getUserId(request);
+            return ApiResponse.success(bossWarService.openTiandiChest(userId));
+        } catch (Exception e) {
+            logger.error("开启天地宝盒失败", e);
+            return ApiResponse.error(e.getMessage());
+        }
+    }
 }

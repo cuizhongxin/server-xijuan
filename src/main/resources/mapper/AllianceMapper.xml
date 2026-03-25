@@ -13,6 +13,7 @@
         <result property="maxMembers" column="max_members"/>
         <result property="autoApprove" column="auto_approve"/>
         <result property="minLevel" column="min_level"/>
+        <result property="serverId" column="server_id"/>
         <result property="createTime" column="create_time"/>
         <result property="updateTime" column="update_time"/>
         <collection property="members" ofType="com.tencent.wxcloudrun.model.Alliance$AllianceMember"
@@ -57,11 +58,15 @@
         SELECT * FROM alliance
     </select>
 
+    <select id="findByServerId" resultMap="allianceMap">
+        SELECT * FROM alliance WHERE server_id = #{serverId}
+    </select>
+
     <insert id="upsertAlliance">
         INSERT INTO alliance (id, name, faction, leader_id, leader_name, level, notice,
-            max_members, auto_approve, min_level, create_time, update_time)
+            max_members, auto_approve, min_level, server_id, create_time, update_time)
         VALUES (#{id}, #{name}, #{faction}, #{leaderId}, #{leaderName}, #{level}, #{notice},
-            #{maxMembers}, #{autoApprove}, #{minLevel}, #{createTime}, #{updateTime})
+            #{maxMembers}, #{autoApprove}, #{minLevel}, #{serverId}, #{createTime}, #{updateTime})
         ON DUPLICATE KEY UPDATE
             name = #{name}, faction = #{faction}, leader_id = #{leaderId}, leader_name = #{leaderName},
             level = #{level}, notice = #{notice}, max_members = #{maxMembers},

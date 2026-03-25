@@ -28,6 +28,16 @@ public class PlunderService {
 
     private static final Logger logger = LoggerFactory.getLogger(PlunderService.class);
 
+    static int extractServerId(String compositeUserId) {
+        if (compositeUserId == null) return 1;
+        int idx = compositeUserId.lastIndexOf('_');
+        if (idx > 0) {
+            try { return Integer.parseInt(compositeUserId.substring(idx + 1)); }
+            catch (NumberFormatException e) { return 1; }
+        }
+        return 1;
+    }
+
     @Autowired
     private PlunderConfig plunderConfig;
 
@@ -97,7 +107,7 @@ public class PlunderService {
         }
 
         // 查找等级范围内的玩家
-        List<Map<String, Object>> allUsers = plunderRepository.findAllUserLevels();
+        List<Map<String, Object>> allUsers = plunderRepository.findUserLevelsByServerId(extractServerId(userId));
         List<Map<String, Object>> matchedPlayers = new ArrayList<>();
 
         for (Map<String, Object> u : allUsers) {

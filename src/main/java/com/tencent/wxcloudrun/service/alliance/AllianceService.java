@@ -35,7 +35,22 @@ public class AllianceService {
         List<Alliance> result = allianceMapper.findAll();
         return result != null ? result : new ArrayList<>();
     }
-    
+
+    private List<Alliance> loadServerAlliances(int serverId) {
+        List<Alliance> result = allianceMapper.findByServerId(serverId);
+        return result != null ? result : new ArrayList<>();
+    }
+
+    static int extractServerId(String compositeUserId) {
+        if (compositeUserId == null) return 1;
+        int idx = compositeUserId.lastIndexOf('_');
+        if (idx > 0) {
+            try { return Integer.parseInt(compositeUserId.substring(idx + 1)); }
+            catch (NumberFormatException e) { return 1; }
+        }
+        return 1;
+    }
+
     private static final int IMPEACH_OFFLINE_DAYS = 3;
     private static final int IMPEACH_MIN_WAR_SCORE = 100;
 
@@ -44,12 +59,13 @@ public class AllianceService {
         if (allianceMapper.userAllianceExists(userId) > 0) {
             throw new BusinessException("您已加入联盟，请先退出当前联盟");
         }
-        boolean nameExists = loadAllAlliances().stream().anyMatch(a -> a.getName().equals(allianceName));
+        int serverId = extractServerId(userId);
+        boolean nameExists = loadServerAlliances(serverId).stream().anyMatch(a -> a.getName().equals(allianceName));
         if (nameExists) {
             throw new BusinessException("联盟名称已存在");
         }
         
-        Alliance alliance = Alliance.create(allianceName, userId, playerName, playerLevel, faction);
+        Alliance alliance = Alliance.create(allianceName, userId, playerName, playerLevel, faction, serverId);
         saveAlliance(alliance);
         if (alliance.getMembers() != null) {
             for (AllianceMember m : alliance.getMembers()) {
@@ -62,8 +78,9 @@ public class AllianceService {
         return alliance;
     }
     
-    public List<Alliance> getAllianceList(String faction) {
-        return loadAllAlliances().stream()
+    public List<Alliance> getAllianceList(String userId, String faction) {
+        int serverId = extractServerId(userId);
+        return loadServerAlliances(serverId).stream()
                 .filter(a -> faction == null || faction.isEmpty() || faction.equals(a.getFaction()))
                 .sorted((a, b) -> Integer.compare(
                     b.getMembers() != null ? b.getMembers().size() : 0,

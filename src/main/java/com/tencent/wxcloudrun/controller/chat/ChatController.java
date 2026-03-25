@@ -37,16 +37,20 @@ public class ChatController {
 
     @GetMapping("/recent")
     public ApiResponse<List<Map<String, Object>>> recent(
+            HttpServletRequest request,
             @RequestParam(defaultValue = "world") String channel,
             @RequestParam(defaultValue = "30") int limit) {
-        return ApiResponse.success(chatService.getRecent(channel, limit));
+        String userId = getUserId(request);
+        return ApiResponse.success(chatService.getRecent(userId, channel, limit));
     }
 
     @GetMapping("/poll")
     public ApiResponse<List<Map<String, Object>>> poll(
+            HttpServletRequest request,
             @RequestParam(defaultValue = "world") String channel,
             @RequestParam(defaultValue = "0") long since) {
-        return ApiResponse.success(chatService.poll(channel, since));
+        String userId = getUserId(request);
+        return ApiResponse.success(chatService.poll(userId, channel, since));
     }
 
     @GetMapping("/announcements")

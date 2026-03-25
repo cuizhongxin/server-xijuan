@@ -21,6 +21,16 @@ public class ChatService {
     @Autowired
     private ChatMapper chatMapper;
 
+    static int extractServerId(String compositeUserId) {
+        if (compositeUserId == null) return 1;
+        int idx = compositeUserId.lastIndexOf('_');
+        if (idx > 0) {
+            try { return Integer.parseInt(compositeUserId.substring(idx + 1)); }
+            catch (NumberFormatException e) { return 1; }
+        }
+        return 1;
+    }
+
     /**
      * 发送聊天消息
      */
@@ -40,8 +50,9 @@ public class ChatService {
         lastSendTime.put(userId, now);
 
         if (channel == null || channel.isEmpty()) channel = "world";
+        int serverId = extractServerId(userId);
 
-        chatMapper.insertMessage(userId, userName, channel, content.trim(), now);
+        chatMapper.insertMessage(userId, userName, channel, content.trim(), serverId, now);
 
         Map<String, Object> result = new HashMap<>();
         result.put("success", true);
@@ -52,30 +63,32 @@ public class ChatService {
     /**
      * 获取最近消息
      */
-    public List<Map<String, Object>> getRecent(String channel, int limit) {
+    public List<Map<String, Object>> getRecent(String userId, String channel, int limit) {
         if (channel == null || channel.isEmpty()) channel = "world";
         if (limit <= 0 || limit > 100) limit = 30;
-        List<Map<String, Object>> msgs = chatMapper.findRecent(channel, limit);
+        int serverId = extractServerId(userId);
+        List<Map<String, Object>> msgs = chatMapper.findRecent(channel, serverId, limit);
         Collections.reverse(msgs);
         return msgs;
     }
 
     /**
-     * 轮询新消息（自某个时间戳之后的消息）
+     * 轮询新消息
      */
-    public List<Map<String, Object>> poll(String channel, long sinceTime) {
+    public List<Map<String, Object>> poll(String userId, String channel, long sinceTime) {
         if (channel == null || channel.isEmpty()) channel = "world";
-        return chatMapper.findSince(channel, sinceTime, 50);
+        int serverId = extractServerId(userId);
+        return chatMapper.findSince(channel, serverId, sinceTime, 50);
     }
 
     /**
-     * 发送系统消息（不受频率限制，用于全服通告）
+     * 发送系统消息（不受频率限制，需指定区服）
      */
-    public void sendSystemMessage(String channel, String content) {
+    public void sendSystemMessage(int serverId, String channel, String content) {
         if (content == null || content.trim().isEmpty()) return;
         if (channel == null || channel.isEmpty()) channel = "world";
-        chatMapper.insertMessage("SYSTEM", "系统公告", channel, content.trim(), System.currentTimeMillis());
-        logger.info("系统公告: {}", content);
+        chatMapper.insertMessage("SYSTEM", "系统公告", channel, content.trim(), serverId, System.currentTimeMillis());
+        logger.info("系统公告 serverId={}: {}", serverId, content);
     }
 
     /**

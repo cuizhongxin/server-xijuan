@@ -43,8 +43,8 @@ public class PlunderRepository {
                 pd.getLastResetDate(), now, now);
     }
 
-    public List<Map<String, Object>> findAllUserLevels() {
-        return plunderMapper.findAllUserLevels();
+    public List<Map<String, Object>> findUserLevelsByServerId(int serverId) {
+        return plunderMapper.findUserLevelsByServerId(String.valueOf(serverId));
     }
 
     private void resetIfNewDay(PlunderData pd) {

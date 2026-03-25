@@ -666,7 +666,8 @@ public class RecruitService {
                 default: qualityTag = "";
             }
             String msg = "恭喜玩家【" + lordName + "】成功招募到" + qualityTag + "名将【" + general.getName() + "】！";
-            chatService.sendSystemMessage("world", msg);
+            int serverId = extractServerId(userId);
+            chatService.sendSystemMessage(serverId, "world", msg);
         } catch (Exception e) {
             logger.warn("发送招募通告异常", e);
         }
@@ -693,6 +694,16 @@ public class RecruitService {
         return "无名英雄";
     }
     
+    private static int extractServerId(String compositeUserId) {
+        if (compositeUserId == null) return 1;
+        int idx = compositeUserId.lastIndexOf('_');
+        if (idx > 0) {
+            try { return Integer.parseInt(compositeUserId.substring(idx + 1)); }
+            catch (NumberFormatException e) { return 1; }
+        }
+        return 1;
+    }
+
     private String nationIdToFaction(String nationId) {
         if (nationId == null || nationId.isEmpty()) return null;
         switch (nationId.toUpperCase()) {

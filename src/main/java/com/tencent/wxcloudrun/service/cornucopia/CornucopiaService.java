@@ -46,12 +46,26 @@ public class CornucopiaService {
     @Autowired
     private com.tencent.wxcloudrun.service.warehouse.WarehouseService warehouseService;
 
+    @Autowired
+    private com.tencent.wxcloudrun.dao.GameServerMapper gameServerMapper;
+
+    static int extractServerId(String compositeUserId) {
+        if (compositeUserId == null) return 1;
+        int idx = compositeUserId.lastIndexOf('_');
+        if (idx > 0) {
+            try { return Integer.parseInt(compositeUserId.substring(idx + 1)); }
+            catch (NumberFormatException e) { return 1; }
+        }
+        return 1;
+    }
+
     // ══════════════════════ 查询信息 ══════════════════════
 
     public Map<String, Object> getInfo(String userId) {
-        ensureActivePeriod();
-        Map<String, Object> period = mapper.findActivePeriod();
-        Map<String, Object> lastDrawn = mapper.findLastDrawnPeriod();
+        int sid = extractServerId(userId);
+        ensureActivePeriod(sid);
+        Map<String, Object> period = mapper.findActivePeriod(sid);
+        Map<String, Object> lastDrawn = mapper.findLastDrawnPeriod(sid);
 
         Map<String, Object> result = new LinkedHashMap<>();
         if (period != null) {
@@ -102,8 +116,9 @@ public class CornucopiaService {
             throw new BusinessException(400, "购买数量无效（1-" + MAX_TICKETS_PER_PERIOD + "）");
         }
 
-        ensureActivePeriod();
-        Map<String, Object> period = mapper.findActivePeriod();
+        int sid = extractServerId(userId);
+        ensureActivePeriod(sid);
+        Map<String, Object> period = mapper.findActivePeriod(sid);
         if (period == null) throw new BusinessException(400, "当前无进行中的期数");
 
         long pid = ((Number) period.get("id")).longValue();
@@ -150,19 +165,23 @@ public class CornucopiaService {
 
     @Scheduled(cron = "0 0 22 * * TUE,THU,SAT", zone = "Asia/Shanghai")
     public void scheduledDraw() {
-        logger.info("聚宝盆定时开奖触发");
-        try {
-            executeDraw();
-        } catch (Exception e) {
-            logger.error("聚宝盆开奖异常", e);
+        logger.info("聚宝盆定时开奖触发（按区服）");
+        List<Map<String, Object>> servers = gameServerMapper.findAllServers();
+        for (Map<String, Object> server : servers) {
+            int sid = ((Number) server.get("id")).intValue();
+            try {
+                executeDraw(sid);
+            } catch (Exception e) {
+                logger.error("聚宝盆开奖异常 serverId={}", sid, e);
+            }
         }
     }
 
     @Transactional
-    public Map<String, Object> executeDraw() {
-        Map<String, Object> period = mapper.findActivePeriod();
+    public Map<String, Object> executeDraw(int serverId) {
+        Map<String, Object> period = mapper.findActivePeriod(serverId);
         if (period == null) {
-            logger.warn("无进行中的期数，跳过开奖");
+            logger.warn("serverId={} 无进行中的期数，跳过开奖", serverId);
             return Collections.singletonMap("message", "无进行中的期数");
         }
 
@@ -174,8 +193,8 @@ public class CornucopiaService {
         if (allTickets.isEmpty()) {
             long carryover = pool;
             mapper.finishDraw(pid, "----", "----", null, null, 0, 0);
-            createNextPeriod(carryover);
-            logger.info("第{}期无人购票，奖池 {} 全额滚入下期", periodNum, carryover);
+            createNextPeriod(carryover, serverId);
+            logger.info("第{}期(s{})无人购票，奖池 {} 全额滚入下期", periodNum, serverId, carryover);
             return Collections.singletonMap("message", "无人参与，奖池滚入下期");
         }
 
@@ -203,10 +222,10 @@ public class CornucopiaService {
         if (grandPrize > 0) userResourceService.addBoundGold(grandWinnerId, grandPrize);
         if (firstPrize > 0) userResourceService.addBoundGold(firstWinnerId, firstPrize);
 
-        createNextPeriod(carryover);
+        createNextPeriod(carryover, serverId);
 
-        logger.info("第{}期开奖完成: 奖池={}, 特等奖={}({}), 一等奖={}({}), 结转={}",
-                periodNum, pool, grandNumber, grandWinnerId, firstNumber, firstWinnerId, carryover);
+        logger.info("第{}期(s{})开奖完成: 奖池={}, 特等奖={}({}), 一等奖={}({}), 结转={}",
+                periodNum, serverId, pool, grandNumber, grandWinnerId, firstNumber, firstWinnerId, carryover);
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("periodNum", periodNum);
@@ -222,33 +241,33 @@ public class CornucopiaService {
 
     // ══════════════════════ 期数管理 ══════════════════════
 
-    private void ensureActivePeriod() {
-        Map<String, Object> active = mapper.findActivePeriod();
+    private void ensureActivePeriod(int serverId) {
+        Map<String, Object> active = mapper.findActivePeriod(serverId);
         if (active != null) {
             LocalDateTime drawDt = parseDrawTime(active.get("drawTime"));
             if (drawDt.isBefore(LocalDateTime.now(ZONE))) {
-                executeDraw();
+                executeDraw(serverId);
             }
             return;
         }
-        Map<String, Object> last = mapper.findLastDrawnPeriod();
+        Map<String, Object> last = mapper.findLastDrawnPeriod(serverId);
         long carryover = 0;
         if (last != null) {
             long pool = ((Number) last.get("prizePool")).longValue();
             carryover = (long) (pool * 0.10);
         }
-        createNextPeriod(carryover);
+        createNextPeriod(carryover, serverId);
     }
 
-    private void createNextPeriod(long carryover) {
+    private void createNextPeriod(long carryover, int serverId) {
         LocalDateTime next = nextDrawTime();
-        Map<String, Object> last = mapper.findLastDrawnPeriod();
+        Map<String, Object> last = mapper.findLastDrawnPeriod(serverId);
         int nextNum = 1;
         if (last != null && last.get("periodNum") != null) {
             nextNum = ((Number) last.get("periodNum")).intValue() + 1;
         }
-        mapper.insertPeriod(nextNum, next.format(DT_FMT), carryover);
-        logger.info("创建聚宝盆第{}期, 开奖时间: {}, 结转: {}", nextNum, next, carryover);
+        mapper.insertPeriod(nextNum, next.format(DT_FMT), carryover, serverId);
+        logger.info("创建聚宝盆第{}期(s{}), 开奖时间: {}, 结转: {}", nextNum, serverId, next, carryover);
     }
 
     private LocalDateTime nextDrawTime() {
