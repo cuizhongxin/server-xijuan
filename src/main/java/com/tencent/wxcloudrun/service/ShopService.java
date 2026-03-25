@@ -50,6 +50,7 @@ public class ShopService {
         } else {
             goods = shopMapper.findByClassify(tab);
         }
+        logger.info("【商城】getShopGoods tab={}, 返回商品数={}", tab, goods != null ? goods.size() : 0);
         return goods;
     }
     
