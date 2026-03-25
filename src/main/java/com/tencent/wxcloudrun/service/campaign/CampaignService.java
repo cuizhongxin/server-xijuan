@@ -72,64 +72,149 @@ public class CampaignService {
         return 3;
     }
 
+    // ======================== NPC头像 (对齐APK MonsterShow_cfg.json pic字段) ========================
     private static final Map<String, String> NPC_PORTRAIT = new HashMap<>();
     static {
-        NPC_PORTRAIT.put("张角","images/generals/4331.jpg"); NPC_PORTRAIT.put("张梁","images/generals/4332.jpg"); NPC_PORTRAIT.put("张宝","images/generals/4333.jpg");
-        NPC_PORTRAIT.put("波才","images/generals/4334.jpg"); NPC_PORTRAIT.put("董卓","images/generals/1031.jpg"); NPC_PORTRAIT.put("吕布","images/generals/1001.jpg");
-        NPC_PORTRAIT.put("华雄","images/generals/2014.jpg"); NPC_PORTRAIT.put("李傕","images/generals/4341.jpg"); NPC_PORTRAIT.put("郭汜","images/generals/4342.jpg");
-        NPC_PORTRAIT.put("张济","images/generals/4343.jpg"); NPC_PORTRAIT.put("徐荣","images/generals/4344.jpg"); NPC_PORTRAIT.put("李儒","images/generals/2015.jpg");
-        NPC_PORTRAIT.put("胡轸","images/generals/4345.jpg"); NPC_PORTRAIT.put("牛辅","images/generals/4346.jpg"); NPC_PORTRAIT.put("樊稠","images/generals/4347.jpg");
-        NPC_PORTRAIT.put("高顺","images/generals/2016.jpg"); NPC_PORTRAIT.put("张辽","images/generals/1002.jpg"); NPC_PORTRAIT.put("陈宫","images/generals/2017.jpg");
-        NPC_PORTRAIT.put("袁绍","images/generals/1010.jpg"); NPC_PORTRAIT.put("颜良","images/generals/2001.jpg"); NPC_PORTRAIT.put("文丑","images/generals/2002.jpg");
-        NPC_PORTRAIT.put("张郃","images/generals/1011.jpg"); NPC_PORTRAIT.put("高览","images/generals/2003.jpg"); NPC_PORTRAIT.put("淳于琼","images/generals/2004.jpg");
-        NPC_PORTRAIT.put("审配","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("逢纪","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("袁谭","images/generals/g_nofind.jpg");
-        NPC_PORTRAIT.put("高干","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("蒋奇","images/generals/4351.jpg"); NPC_PORTRAIT.put("韩猛","images/generals/4352.jpg");
-        NPC_PORTRAIT.put("吕旷","images/generals/4353.jpg"); NPC_PORTRAIT.put("吕翔","images/generals/4354.jpg"); NPC_PORTRAIT.put("蒋义渠","images/generals/4355.jpg");
+        // --- 战役1: 黄巾之乱 ---
+        NPC_PORTRAIT.put("管亥",    "images/monsters/104.jpg");
+        NPC_PORTRAIT.put("裴元绍",  "images/monsters/107.jpg");
+        NPC_PORTRAIT.put("邓茂",    "images/monsters/108.jpg");
+        NPC_PORTRAIT.put("高升",    "images/monsters/109.jpg");
+        NPC_PORTRAIT.put("张宝",    "images/monsters/110.jpg");
+        NPC_PORTRAIT.put("龚都",    "images/monsters/111.jpg");
+        NPC_PORTRAIT.put("马元义",  "images/monsters/113.jpg");
+        NPC_PORTRAIT.put("张梁",    "images/monsters/115.jpg");
+        NPC_PORTRAIT.put("波才",    "images/monsters/119.jpg");
+        NPC_PORTRAIT.put("张角",    "images/monsters/120.jpg");
+        // --- 战役2: 江东诸侯战董卓 ---
+        NPC_PORTRAIT.put("樊稠",    "images/monsters/204.jpg");
+        NPC_PORTRAIT.put("徐荣",    "images/monsters/205.jpg");
+        NPC_PORTRAIT.put("胡轸",    "images/monsters/208.jpg");
+        NPC_PORTRAIT.put("郭汜",    "images/monsters/209.jpg");
+        NPC_PORTRAIT.put("华雄",    "images/monsters/210.jpg");
+        NPC_PORTRAIT.put("李傕",    "images/monsters/213.jpg");
+        NPC_PORTRAIT.put("牛辅",    "images/monsters/215.jpg");
+        NPC_PORTRAIT.put("张济",    "images/monsters/216.jpg");
+        NPC_PORTRAIT.put("杨奉",    "images/monsters/217.jpg");
+        NPC_PORTRAIT.put("李儒",    "images/monsters/213.jpg");
+        NPC_PORTRAIT.put("董卓",    "images/monsters/220.jpg");
+        // --- 战役3: 乱世群雄 ---
+        NPC_PORTRAIT.put("张闿",    "images/monsters/302.jpg");
+        NPC_PORTRAIT.put("曹豹",    "images/monsters/304.jpg");
+        NPC_PORTRAIT.put("陈登",    "images/monsters/306.jpg");
+        NPC_PORTRAIT.put("臧霸",    "images/monsters/308.jpg");
+        NPC_PORTRAIT.put("陶谦",    "images/monsters/310.jpg");
+        NPC_PORTRAIT.put("黄祖",    "images/monsters/312.jpg");
+        NPC_PORTRAIT.put("文聘",    "images/monsters/314.jpg");
+        NPC_PORTRAIT.put("甘宁",    "images/monsters/316.jpg");
+        NPC_PORTRAIT.put("蔡瑁",    "images/monsters/319.jpg");
+        NPC_PORTRAIT.put("刘表",    "images/monsters/320.jpg");
+        // --- 战役4: 威震中原 ---
+        NPC_PORTRAIT.put("公孙越",  "images/monsters/343.jpg");
+        NPC_PORTRAIT.put("严纲",    "images/monsters/345.jpg");
+        NPC_PORTRAIT.put("公孙范",  "images/monsters/349.jpg");
+        NPC_PORTRAIT.put("公孙续",  "images/monsters/350.jpg");
+        NPC_PORTRAIT.put("田楷",    "images/monsters/354.jpg");
+        NPC_PORTRAIT.put("田豫",    "images/monsters/355.jpg");
+        NPC_PORTRAIT.put("白马义从","images/monsters/391.png");
+        NPC_PORTRAIT.put("公孙豹",  "images/monsters/358.jpg");
+        NPC_PORTRAIT.put("公孙度",  "images/monsters/359.jpg");
+        NPC_PORTRAIT.put("公孙瓒",  "images/monsters/360.jpg");
+        // --- 战役5: 西凉铁骑 ---
+        NPC_PORTRAIT.put("成宜",    "images/monsters/374.jpg");
+        NPC_PORTRAIT.put("马铁",    "images/monsters/375.jpg");
+        NPC_PORTRAIT.put("庞柔",    "images/monsters/379.jpg");
+        NPC_PORTRAIT.put("庞德",    "images/monsters/380.jpg");
+        NPC_PORTRAIT.put("马玩",    "images/monsters/384.jpg");
+        NPC_PORTRAIT.put("马超",    "images/monsters/385.jpg");
+        NPC_PORTRAIT.put("马岱",    "images/monsters/388.jpg");
+        NPC_PORTRAIT.put("马休",    "images/monsters/389.jpg");
+        NPC_PORTRAIT.put("马腾",    "images/monsters/390.jpg");
+        // --- 战役6: 四世三公 ---
+        NPC_PORTRAIT.put("袁尚",    "images/monsters/404.jpg");
+        NPC_PORTRAIT.put("麴义",    "images/monsters/405.jpg");
+        NPC_PORTRAIT.put("沮授",    "images/monsters/409.jpg");
+        NPC_PORTRAIT.put("张郃",    "images/monsters/410.jpg");
+        NPC_PORTRAIT.put("淳于琼",  "images/monsters/414.jpg");
+        NPC_PORTRAIT.put("文丑",    "images/monsters/415.jpg");
+        NPC_PORTRAIT.put("审配",    "images/monsters/416.jpg");
+        NPC_PORTRAIT.put("高览",    "images/monsters/419.jpg");
+        NPC_PORTRAIT.put("颜良",    "images/monsters/420.jpg");
+        NPC_PORTRAIT.put("田丰",    "images/monsters/424.jpg");
+        NPC_PORTRAIT.put("袁绍",    "images/monsters/425.jpg");
+        // --- 战役7: 战神吕布 ---
+        NPC_PORTRAIT.put("成廉",    "images/monsters/504.jpg");
+        NPC_PORTRAIT.put("宋宪",    "images/monsters/505.jpg");
+        NPC_PORTRAIT.put("李肃",    "images/monsters/509.jpg");
+        NPC_PORTRAIT.put("曹性",    "images/monsters/510.jpg");
+        NPC_PORTRAIT.put("魏续",    "images/monsters/514.jpg");
+        NPC_PORTRAIT.put("高顺",    "images/monsters/515.jpg");
+        NPC_PORTRAIT.put("侯成",    "images/monsters/500.jpg");
+        NPC_PORTRAIT.put("张辽",    "images/monsters/520.jpg");
+        NPC_PORTRAIT.put("陈宫",    "images/monsters/524.jpg");
+        NPC_PORTRAIT.put("吕布",    "images/monsters/525.jpg");
+        // --- 战役8: 征讨乌桓 ---
+        NPC_PORTRAIT.put("苏仆延",  "images/monsters/605.jpg");
+        NPC_PORTRAIT.put("丘力居",  "images/monsters/610.jpg");
+        NPC_PORTRAIT.put("乌延",    "images/monsters/615.jpg");
+        NPC_PORTRAIT.put("蹋顿",    "images/monsters/620.jpg");
+        // --- 战役 专属名称的杂兵 (不会跨战役重名) ---
+        NPC_PORTRAIT.put("黄巾斥候","images/monsters/100.jpg");
+        NPC_PORTRAIT.put("黄巾前哨","images/monsters/100.jpg");
+        NPC_PORTRAIT.put("黄巾先锋","images/monsters/100.jpg");
+        NPC_PORTRAIT.put("黄巾中军","images/monsters/100.jpg");
+        NPC_PORTRAIT.put("黄巾卫队","images/monsters/100.jpg");
+        NPC_PORTRAIT.put("西凉左翼","images/monsters/200.jpg");
+        NPC_PORTRAIT.put("西凉右翼","images/monsters/200.jpg");
+        NPC_PORTRAIT.put("前锋部队","images/monsters/300.jpg");
+        NPC_PORTRAIT.put("陶军卫队","images/monsters/300.jpg");
+        NPC_PORTRAIT.put("刘军先锋","images/monsters/311.jpg");
+        NPC_PORTRAIT.put("刘军卫队","images/monsters/311.jpg");
+        NPC_PORTRAIT.put("前军部队","images/monsters/340.jpg");
+        NPC_PORTRAIT.put("袁军前锋","images/monsters/400.jpg");
+        NPC_PORTRAIT.put("袁军卫队","images/monsters/400.jpg");
+        NPC_PORTRAIT.put("吕军先锋","images/monsters/500.jpg");
+        NPC_PORTRAIT.put("吕军卫队","images/monsters/500.jpg");
+        NPC_PORTRAIT.put("乌桓斥候","images/monsters/601.jpg");
+        NPC_PORTRAIT.put("乌桓前锋","images/monsters/603.jpg");
+        NPC_PORTRAIT.put("乌桓骑兵","images/monsters/614.jpg");
+        NPC_PORTRAIT.put("乌桓勇士","images/monsters/616.jpg");
+        NPC_PORTRAIT.put("首领卫队","images/monsters/618.jpg");
+        // --- 非战役将领 (联盟BOSS/掠夺等其他系统用) ---
         NPC_PORTRAIT.put("曹操","images/generals/1020.jpg"); NPC_PORTRAIT.put("曹仁","images/generals/1021.jpg"); NPC_PORTRAIT.put("曹洪","images/generals/2005.jpg");
-        NPC_PORTRAIT.put("夏侯惇","images/generals/1003.jpg"); NPC_PORTRAIT.put("夏侯渊","images/generals/1004.jpg"); NPC_PORTRAIT.put("张辽","images/generals/1002.jpg");
+        NPC_PORTRAIT.put("夏侯惇","images/generals/1003.jpg"); NPC_PORTRAIT.put("夏侯渊","images/generals/1004.jpg");
         NPC_PORTRAIT.put("徐晃","images/generals/1005.jpg"); NPC_PORTRAIT.put("许褚","images/generals/1006.jpg"); NPC_PORTRAIT.put("典韦","images/generals/1007.jpg");
         NPC_PORTRAIT.put("于禁","images/generals/2006.jpg"); NPC_PORTRAIT.put("李典","images/generals/2007.jpg"); NPC_PORTRAIT.put("乐进","images/generals/2008.jpg");
         NPC_PORTRAIT.put("曹休","images/generals/2009.jpg"); NPC_PORTRAIT.put("曹真","images/generals/2010.jpg"); NPC_PORTRAIT.put("司马懿","images/generals/1022.jpg");
-        NPC_PORTRAIT.put("司马师","images/generals/2011.jpg"); NPC_PORTRAIT.put("夏侯尚","images/generals/g_nofind.jpg");
-        NPC_PORTRAIT.put("马超","images/generals/1008.jpg"); NPC_PORTRAIT.put("蔡瑁","images/generals/4025.jpg"); NPC_PORTRAIT.put("张允","images/generals/g_nofind.jpg");
-        NPC_PORTRAIT.put("蒋干","images/generals/g_nofind.jpg");
-        NPC_PORTRAIT.put("宋宪","images/generals/4022.jpg"); NPC_PORTRAIT.put("魏续","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("侯成","images/generals/g_nofind.jpg");
-        NPC_PORTRAIT.put("曹性","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("成廉","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("薛兰","images/generals/g_nofind.jpg");
-        NPC_PORTRAIT.put("臧霸","images/generals/2012.jpg"); NPC_PORTRAIT.put("郝萌","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("秦宜禄","images/generals/g_nofind.jpg");
-        NPC_PORTRAIT.put("张超","images/generals/g_nofind.jpg");
-        // APK MonsterShow NPC portraits
-        NPC_PORTRAIT.put("管亥","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("裴元绍","images/generals/g_nofind.jpg");
-        NPC_PORTRAIT.put("邓茂","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("高升","images/generals/g_nofind.jpg");
-        NPC_PORTRAIT.put("龚都","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("马元义","images/generals/g_nofind.jpg");
-        NPC_PORTRAIT.put("杨奉","images/generals/g_nofind.jpg");
-        NPC_PORTRAIT.put("陶谦","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("刘表","images/generals/g_nofind.jpg");
-        NPC_PORTRAIT.put("曹豹","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("陈登","images/generals/g_nofind.jpg");
-        NPC_PORTRAIT.put("黄祖","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("文聘","images/generals/g_nofind.jpg");
-        NPC_PORTRAIT.put("张闿","images/generals/g_nofind.jpg");
-        NPC_PORTRAIT.put("公孙瓒","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("公孙越","images/generals/g_nofind.jpg");
-        NPC_PORTRAIT.put("严纲","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("公孙范","images/generals/g_nofind.jpg");
-        NPC_PORTRAIT.put("公孙续","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("田楷","images/generals/g_nofind.jpg");
-        NPC_PORTRAIT.put("田豫","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("公孙豹","images/generals/g_nofind.jpg");
-        NPC_PORTRAIT.put("公孙度","images/generals/g_nofind.jpg");
-        NPC_PORTRAIT.put("马腾","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("庞德","images/generals/g_nofind.jpg");
-        NPC_PORTRAIT.put("庞柔","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("成宜","images/generals/g_nofind.jpg");
-        NPC_PORTRAIT.put("马铁","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("马玩","images/generals/g_nofind.jpg");
-        NPC_PORTRAIT.put("马岱","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("马休","images/generals/g_nofind.jpg");
-        NPC_PORTRAIT.put("袁尚","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("麴义","images/generals/g_nofind.jpg");
-        NPC_PORTRAIT.put("沮授","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("田丰","images/generals/g_nofind.jpg");
-        NPC_PORTRAIT.put("李肃","images/generals/g_nofind.jpg");
-        NPC_PORTRAIT.put("蹋顿","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("丘力居","images/generals/g_nofind.jpg");
-        NPC_PORTRAIT.put("苏仆延","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("乌延","images/generals/g_nofind.jpg");
         NPC_PORTRAIT.put("孙权","images/generals/1023.jpg"); NPC_PORTRAIT.put("周瑜","images/generals/1024.jpg"); NPC_PORTRAIT.put("陆逊","images/generals/1025.jpg");
-        NPC_PORTRAIT.put("吕蒙","images/generals/1026.jpg"); NPC_PORTRAIT.put("甘宁","images/generals/1009.jpg"); NPC_PORTRAIT.put("太史慈","images/generals/2018.jpg");
+        NPC_PORTRAIT.put("吕蒙","images/generals/1026.jpg"); NPC_PORTRAIT.put("太史慈","images/generals/2018.jpg");
         NPC_PORTRAIT.put("黄盖","images/generals/2019.jpg"); NPC_PORTRAIT.put("程普","images/generals/2020.jpg"); NPC_PORTRAIT.put("鲁肃","images/generals/2021.jpg");
         NPC_PORTRAIT.put("周泰","images/generals/2022.jpg"); NPC_PORTRAIT.put("韩当","images/generals/2023.jpg"); NPC_PORTRAIT.put("丁奉","images/generals/2024.jpg");
-        NPC_PORTRAIT.put("凌统","images/generals/2025.jpg"); NPC_PORTRAIT.put("步骘","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("朱然","images/generals/4334.jpg");
-        NPC_PORTRAIT.put("马忠","images/generals/g_nofind.jpg"); NPC_PORTRAIT.put("潘璋","images/generals/g_nofind.jpg");
+        NPC_PORTRAIT.put("凌统","images/generals/2025.jpg");
     }
-    private static String getNpcPortrait(String name) {
+
+    private static final Map<String, String> FACTION_SOLDIER_PORTRAIT = new HashMap<>();
+    static {
+        FACTION_SOLDIER_PORTRAIT.put("黄巾", "images/monsters/100.jpg");
+        FACTION_SOLDIER_PORTRAIT.put("西凉", "images/monsters/200.jpg");
+        FACTION_SOLDIER_PORTRAIT.put("刘军", "images/monsters/311.jpg");
+        FACTION_SOLDIER_PORTRAIT.put("公孙", "images/monsters/340.jpg");
+        FACTION_SOLDIER_PORTRAIT.put("袁军", "images/monsters/400.jpg");
+        FACTION_SOLDIER_PORTRAIT.put("吕布", "images/monsters/500.jpg");
+        FACTION_SOLDIER_PORTRAIT.put("乌桓", "images/monsters/601.jpg");
+        FACTION_SOLDIER_PORTRAIT.put("曹军", "images/monsters/901.jpg");
+        FACTION_SOLDIER_PORTRAIT.put("吴军", "images/monsters/903.jpg");
+        FACTION_SOLDIER_PORTRAIT.put("魏军", "images/monsters/901.jpg");
+    }
+
+    private static String getNpcPortrait(String name, String faction) {
         String p = NPC_PORTRAIT.get(name);
-        return p != null ? p : "images/generals/g_nofind.jpg";
+        if (p != null) return p;
+        if (faction != null) {
+            String fp = FACTION_SOLDIER_PORTRAIT.get(faction);
+            if (fp != null) return fp;
+        }
+        return "images/monsters/m_def.png";
     }
 
     /**
@@ -573,7 +658,7 @@ public class CampaignService {
                 }
 
                 formation.add(Campaign.StageNpc.builder()
-                        .position(pos).name(nm).avatar(getNpcPortrait(nm))
+                        .position(pos).name(nm).avatar(getNpcPortrait(nm, faction))
                         .level(lv).troopType(tt).soldierCount(fs).soldierTier(ft)
                         .attack(fa).defense(fd).valor(fValor).command(fCommand)
                         .dodge(fSoldier[5]).mobility(fSoldier[3])
@@ -627,7 +712,7 @@ public class CampaignService {
                     .id(prefix + "_stage_" + i).stageNum(i)
                     .name(isBoss ? "BOSS: " + mainGeneral : "第" + i + "关")
                     .enemyGeneralName(mainGeneral)
-                    .enemyGeneralIcon(getNpcPortrait(mainGeneral))
+                    .enemyGeneralIcon(getNpcPortrait(mainGeneral, faction))
                     .enemyLevel(npcLevel).enemyTroops(npcSoldiers)
                     .enemyAttack(0).enemyDefense(0)
                     .enemyValor(npcValor).enemyCommand(npcCommand)
