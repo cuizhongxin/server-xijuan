@@ -36,7 +36,12 @@ public class CornucopiaController {
     }
 
     @PostMapping("/draw")
-    public ApiResponse<Map<String, Object>> draw() {
-        return ApiResponse.success(cornucopiaService.executeDraw());
+    public ApiResponse<Map<String, Object>> draw(HttpServletRequest request) {
+        String userId = getUserId(request);
+        int serverId = 1;
+        if (userId != null && userId.contains("_")) {
+            try { serverId = Integer.parseInt(userId.substring(userId.lastIndexOf('_') + 1)); } catch (Exception ignored) {}
+        }
+        return ApiResponse.success(cornucopiaService.executeDraw(serverId));
     }
 }

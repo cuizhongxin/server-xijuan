@@ -347,7 +347,7 @@ public class AllianceService {
         String leaderId = "test_leader_" + name;
         String[] factions = {"WEI", "SHU", "WU"};
         String faction = factions[Math.abs(name.hashCode()) % factions.length];
-        Alliance alliance = Alliance.create(name, leaderId, leaderName, 60, faction);
+        Alliance alliance = Alliance.create(name, leaderId, leaderName, 60, faction, 1);
         saveAlliance(alliance);
         if (alliance.getMembers() != null) {
             for (AllianceMember m : alliance.getMembers()) {
