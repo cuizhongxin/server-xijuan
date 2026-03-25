@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.dao.WorldBossMapper">
+
+    <select id="findState" resultType="java.util.HashMap">
+        SELECT server_id AS serverId, boss_id AS bossId, status,
+               unit_soldiers AS unitSoldiers, last_killer AS lastKiller,
+               window_start_ms AS windowStartMs
+        FROM world_boss_state
+        WHERE server_id = #{serverId} AND boss_id = #{bossId}
+    </select>
+
+    <insert id="upsertState">
+        INSERT INTO world_boss_state (server_id, boss_id, status, unit_soldiers, last_killer, window_start_ms)
+        VALUES (#{serverId}, #{bossId}, #{status}, #{unitSoldiers}, #{lastKiller}, #{windowStartMs})
+        ON DUPLICATE KEY UPDATE
+            status = #{status},
+            unit_soldiers = #{unitSoldiers},
+            last_killer = #{lastKiller},
+            window_start_ms = #{windowStartMs}
+    </insert>
+
+    <update id="updateStatus">
+        UPDATE world_boss_state
+        SET status = #{status}, last_killer = #{lastKiller}
+        WHERE server_id = #{serverId} AND boss_id = #{bossId}
+    </update>
+
+    <update id="updateUnitSoldiers">
+        UPDATE world_boss_state
+        SET unit_soldiers = #{unitSoldiers}
+        WHERE server_id = #{serverId} AND boss_id = #{bossId}
+    </update>
+
+    <select id="findPlayerDamage" resultType="java.util.HashMap">
+        SELECT user_id AS userId, total_damage AS totalDamage,
+               attack_count AS attackCount, cooldown_until AS cooldownUntil
+        FROM world_boss_damage
+        WHERE server_id = #{serverId} AND boss_id = #{bossId}
+          AND user_id = #{userId} AND window_start_ms = #{windowStartMs}
+    </select>
+
+    <insert id="upsertPlayerDamage">
+        INSERT INTO world_boss_damage (server_id, boss_id, user_id, window_start_ms,
+                                       total_damage, attack_count, cooldown_until)
+        VALUES (#{serverId}, #{bossId}, #{userId}, #{windowStartMs},
+                #{damage}, 1, #{cooldownUntil})
+        ON DUPLICATE KEY UPDATE
+            total_damage = total_damage + #{damage},
+            attack_count = attack_count + 1,
+            cooldown_until = #{cooldownUntil}
+    </insert>
+
+    <select id="findDamageRanking" resultType="java.util.HashMap">
+        SELECT user_id AS userId, total_damage AS totalDamage, attack_count AS attackCount
+        FROM world_boss_damage
+        WHERE server_id = #{serverId} AND boss_id = #{bossId}
+          AND window_start_ms = #{windowStartMs}
+        ORDER BY total_damage DESC
+        LIMIT #{limit}
+    </select>
+
+</mapper>

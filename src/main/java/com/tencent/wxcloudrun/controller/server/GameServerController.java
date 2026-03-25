@@ -7,6 +7,7 @@ import com.tencent.wxcloudrun.model.General;
 import com.tencent.wxcloudrun.service.general.GeneralService;
 import com.tencent.wxcloudrun.service.formation.FormationService;
 import com.tencent.wxcloudrun.service.UserResourceService;
+import com.tencent.wxcloudrun.service.alliance.AllianceBossService;
 import com.tencent.wxcloudrun.service.herorank.HeroRankService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,6 +40,9 @@ public class GameServerController {
 
     @Autowired
     private HeroRankService heroRankService;
+
+    @Autowired
+    private AllianceBossService allianceBossService;
 
     /**
      * 获取区服列表 + 公告 + 玩家已有角色信息
@@ -154,6 +158,13 @@ public class GameServerController {
             logger.error("初始化英雄榜NPC失败 serverId={}", serverId, e);
         }
 
+        // 初始化该区服的联盟Boss（首个玩家进入时触发）
+        try {
+            allianceBossService.ensureBossExists(serverId);
+        } catch (Exception e) {
+            logger.error("初始化联盟Boss失败 serverId={}", serverId, e);
+        }
+
         // 赠送初始武将并上阵
         String starterName = null;
         try {
@@ -242,13 +253,19 @@ public class GameServerController {
             if (serverName.equals(s.get("serverName"))) newServerId = sid;
         }
 
-        // 为新区服初始化英雄榜NPC
+        // 为新区服初始化英雄榜NPC + 联盟Boss
         if (newServerId > 0) {
             try {
                 heroRankService.ensureNpcExists(newServerId);
                 logger.info("新区服 {} (id={}) 英雄榜NPC初始化完成", serverName, newServerId);
             } catch (Exception e) {
                 logger.error("新区服英雄榜NPC初始化失败 serverId={}", newServerId, e);
+            }
+            try {
+                allianceBossService.ensureBossExists(newServerId);
+                logger.info("新区服 {} (id={}) 联盟Boss初始化完成", serverName, newServerId);
+            } catch (Exception e) {
+                logger.error("新区服联盟Boss初始化失败 serverId={}", newServerId, e);
             }
         }
 

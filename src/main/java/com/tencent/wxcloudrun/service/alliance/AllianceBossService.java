@@ -4,7 +4,6 @@ import com.tencent.wxcloudrun.dao.AllianceBossMapper;
 import com.tencent.wxcloudrun.dao.EquipmentMapper;
 import com.tencent.wxcloudrun.exception.BusinessException;
 import com.tencent.wxcloudrun.model.Equipment;
-import com.tencent.wxcloudrun.model.General;
 import com.tencent.wxcloudrun.service.UserResourceService;
 import com.tencent.wxcloudrun.service.SuitConfigService;
 import com.tencent.wxcloudrun.service.battle.BattleCalculator;
@@ -16,7 +15,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.annotation.PostConstruct;
 import java.util.*;
 
 @Service
@@ -40,35 +38,40 @@ public class AllianceBossService {
             {"灭世龙王", "20000000"}
     };
 
-    @Autowired
-    private AllianceBossMapper bossMapper;
+    @Autowired private AllianceBossMapper bossMapper;
+    @Autowired private EquipmentMapper equipmentMapper;
+    @Autowired private UserResourceService userResourceService;
+    @Autowired private BattleService battleService;
+    @Autowired private FormationService formationService;
+    @Autowired private SuitConfigService suitConfigService;
 
-    @Autowired
-    private EquipmentMapper equipmentMapper;
+    static int extractServerId(String compositeUserId) {
+        if (compositeUserId != null && compositeUserId.contains("_")) {
+            try {
+                return Integer.parseInt(compositeUserId.substring(compositeUserId.lastIndexOf('_') + 1));
+            } catch (NumberFormatException ignored) {}
+        }
+        return 1;
+    }
 
-    @Autowired
-    private UserResourceService userResourceService;
-
-    @Autowired
-    private BattleService battleService;
-
-    @Autowired
-    private FormationService formationService;
-
-    @Autowired
-    private SuitConfigService suitConfigService;
-
-    @PostConstruct
-    public void init() {
-        Map<String, Object> boss = bossMapper.findCurrentBoss();
+    /**
+     * 确保指定区服存在联盟Boss，在创建区服时调用
+     */
+    public void ensureBossExists(int serverId) {
+        Map<String, Object> boss = bossMapper.findCurrentBossByServerId(serverId);
         if (boss == null) {
-            bossMapper.insertBoss(1, BOSS_TABLE[0][0], Long.parseLong(BOSS_TABLE[0][1]));
-            logger.info("初始化联盟Boss: {} Lv.1", BOSS_TABLE[0][0]);
+            bossMapper.insertBoss(1, BOSS_TABLE[0][0], Long.parseLong(BOSS_TABLE[0][1]), serverId);
+            logger.info("初始化联盟Boss: {} Lv.1, serverId={}", BOSS_TABLE[0][0], serverId);
         }
     }
 
-    public Map<String, Object> getInfo() {
-        Map<String, Object> boss = bossMapper.findCurrentBoss();
+    public Map<String, Object> getInfo(String userId) {
+        int serverId = extractServerId(userId);
+        Map<String, Object> boss = bossMapper.findCurrentBossByServerId(serverId);
+        if (boss == null) {
+            ensureBossExists(serverId);
+            boss = bossMapper.findCurrentBossByServerId(serverId);
+        }
         if (boss == null) {
             throw new BusinessException(500, "Boss数据异常");
         }
@@ -79,6 +82,7 @@ public class AllianceBossService {
 
     @Transactional
     public Map<String, Object> feed(String userId, int amount) {
+        int serverId = extractServerId(userId);
         if (amount <= 0) amount = 1;
 
         long cost = (long) amount * FEED_COST_GOLD;
@@ -87,7 +91,7 @@ public class AllianceBossService {
             throw new BusinessException(400, "黄金不足，需要" + cost + "黄金");
         }
 
-        Map<String, Object> boss = bossMapper.findCurrentBoss();
+        Map<String, Object> boss = bossMapper.findCurrentBossByServerId(serverId);
         if (boss == null) {
             throw new BusinessException(500, "Boss数据异常");
         }
@@ -100,14 +104,14 @@ public class AllianceBossService {
         }
 
         bossMapper.incrementFeed(bossId, amount);
-        bossMapper.insertRecord(userId, "feed", 0, amount);
+        bossMapper.insertRecord(userId, "feed", 0, amount, serverId);
 
         int feedCount = ((Number) boss.get("feedCount")).intValue() + amount;
         int feedTarget = ((Number) boss.get("feedTarget")).intValue();
 
         if (feedCount >= feedTarget) {
             bossMapper.updateBossStatus(bossId, "active");
-            logger.info("联盟Boss已激活! 投喂进度 {}/{}", feedCount, feedTarget);
+            logger.info("联盟Boss已激活! serverId={}, 投喂进度 {}/{}", serverId, feedCount, feedTarget);
         }
 
         Map<String, Object> result = new HashMap<>();
@@ -121,11 +125,12 @@ public class AllianceBossService {
 
     @Transactional
     public Map<String, Object> feedWithEquipment(String userId, List<String> equipmentIds) {
+        int serverId = extractServerId(userId);
         if (equipmentIds == null || equipmentIds.isEmpty()) {
             throw new BusinessException(400, "请先选择喂养材料!");
         }
 
-        Map<String, Object> boss = bossMapper.findCurrentBoss();
+        Map<String, Object> boss = bossMapper.findCurrentBossByServerId(serverId);
         if (boss == null) {
             throw new BusinessException(500, "Boss数据异常");
         }
@@ -156,14 +161,14 @@ public class AllianceBossService {
         }
 
         bossMapper.incrementFeed(bossId, totalValue);
-        bossMapper.insertRecord(userId, "feed_equip", 0, totalValue);
+        bossMapper.insertRecord(userId, "feed_equip", 0, totalValue, serverId);
 
         int feedCount = ((Number) boss.get("feedCount")).intValue() + totalValue;
         int feedTarget = ((Number) boss.get("feedTarget")).intValue();
 
         if (feedCount >= feedTarget) {
             bossMapper.updateBossStatus(bossId, "active");
-            logger.info("联盟Boss已激活(装备喂养)! 进度 {}/{}", feedCount, feedTarget);
+            logger.info("联盟Boss已激活(装备喂养)! serverId={}, 进度 {}/{}", serverId, feedCount, feedTarget);
         }
 
         Map<String, Object> result = new HashMap<>();
@@ -177,7 +182,8 @@ public class AllianceBossService {
 
     @Transactional
     public Map<String, Object> call(String userId) {
-        Map<String, Object> boss = bossMapper.findCurrentBoss();
+        int serverId = extractServerId(userId);
+        Map<String, Object> boss = bossMapper.findCurrentBossByServerId(serverId);
         if (boss == null) {
             throw new BusinessException(500, "Boss数据异常");
         }
@@ -203,7 +209,7 @@ public class AllianceBossService {
 
         Map<String, Object> result = new HashMap<>();
         result.put("message", "Boss战斗已开始!");
-        result.put("boss", bossMapper.findCurrentBoss());
+        result.put("boss", bossMapper.findCurrentBossByServerId(serverId));
         result.put("summonTime", String.format("%02d:%02d-%02d:%02d",
                 SUMMON_MIN_HOUR, SUMMON_MIN_MINUTE, SUMMON_MAX_HOUR, SUMMON_MAX_MINUTE));
         return result;
@@ -211,7 +217,8 @@ public class AllianceBossService {
 
     @Transactional
     public Map<String, Object> attack(String userId) {
-        Map<String, Object> boss = bossMapper.findCurrentBoss();
+        int serverId = extractServerId(userId);
+        Map<String, Object> boss = bossMapper.findCurrentBossByServerId(serverId);
         if (boss == null) {
             throw new BusinessException(500, "Boss数据异常");
         }
@@ -231,10 +238,8 @@ public class AllianceBossService {
         long maxHp = ((Number) boss.get("maxHp")).longValue();
         int bossLevel = ((Number) boss.get("bossLevel")).intValue();
 
-        // 构建玩家阵型（含装备+兵法+天赋加成）
         List<BattleCalculator.BattleUnit> sideA = formationService.buildPlayerBattleUnits(userId);
 
-        // Boss 作为高属性单个单位
         int bossHp = (int) Math.min(currentHp, Integer.MAX_VALUE);
         BattleCalculator.BattleUnit bossUnit = new BattleCalculator.BattleUnit();
         bossUnit.name = String.valueOf(boss.get("bossName"));
@@ -259,7 +264,7 @@ public class AllianceBossService {
 
         long newHp = currentHp - damage;
         bossMapper.updateBossHp(bossId, Math.max(0, newHp));
-        bossMapper.insertRecord(userId, "attack", damage, 0);
+        bossMapper.insertRecord(userId, "attack", damage, 0, serverId);
 
         if (bossId > 0) {
             bossMapper.updateBossStatus(bossId, "fighting");
@@ -280,7 +285,7 @@ public class AllianceBossService {
             bossMapper.resetBoss(bossId, nextLevel, BOSS_TABLE[idx][0],
                     Long.parseLong(BOSS_TABLE[idx][1]), Long.parseLong(BOSS_TABLE[idx][1]));
 
-            logger.info("联盟Boss被击杀! 升级到Lv.{} {}", nextLevel, BOSS_TABLE[idx][0]);
+            logger.info("联盟Boss被击杀! serverId={}, 升级到Lv.{} {}", serverId, nextLevel, BOSS_TABLE[idx][0]);
         }
 
         Map<String, Object> result = new HashMap<>();
@@ -298,11 +303,13 @@ public class AllianceBossService {
         return result;
     }
 
-    public List<Map<String, Object>> getRecords() {
-        return bossMapper.findRecords(50);
+    public List<Map<String, Object>> getRecords(String userId) {
+        int serverId = extractServerId(userId);
+        return bossMapper.findRecordsByServerId(serverId, 50);
     }
 
-    public List<Map<String, Object>> getRankings() {
-        return bossMapper.findRankings(20);
+    public List<Map<String, Object>> getRankings(String userId) {
+        int serverId = extractServerId(userId);
+        return bossMapper.findRankingsByServerId(serverId, 20);
     }
 }

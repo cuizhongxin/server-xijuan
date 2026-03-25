@@ -28,7 +28,8 @@ public class AllianceBossController {
     @GetMapping("/info")
     public ApiResponse<Map<String, Object>> getInfo(HttpServletRequest request) {
         try {
-            Map<String, Object> data = allianceBossService.getInfo();
+            String userId = getUserId(request);
+            Map<String, Object> data = allianceBossService.getInfo(userId);
             return ApiResponse.success(data);
         } catch (Exception e) {
             logger.error("获取联盟Boss信息异常", e);
@@ -91,8 +92,9 @@ public class AllianceBossController {
     @GetMapping("/records")
     public ApiResponse<Map<String, Object>> getRecords(HttpServletRequest request) {
         try {
+            String userId = getUserId(request);
             Map<String, Object> data = new HashMap<>();
-            data.put("records", allianceBossService.getRecords());
+            data.put("records", allianceBossService.getRecords(userId));
             return ApiResponse.success(data);
         } catch (Exception e) {
             logger.error("获取联盟Boss记录异常", e);
@@ -103,8 +105,9 @@ public class AllianceBossController {
     @GetMapping("/rankings")
     public ApiResponse<Map<String, Object>> getRankings(HttpServletRequest request) {
         try {
+            String userId = getUserId(request);
             Map<String, Object> data = new HashMap<>();
-            data.put("rankings", allianceBossService.getRankings());
+            data.put("rankings", allianceBossService.getRankings(userId));
             return ApiResponse.success(data);
         } catch (Exception e) {
             logger.error("获取联盟Boss排行异常", e);

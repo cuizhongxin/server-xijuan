@@ -47,9 +47,10 @@ public class BossWarController {
     }
 
     @GetMapping("/rankings/{bossId}")
-    public ApiResponse<Map<String, Object>> getRankings(@PathVariable int bossId) {
+    public ApiResponse<Map<String, Object>> getRankings(@PathVariable int bossId, HttpServletRequest request) {
         try {
-            return ApiResponse.success(bossWarService.getRankings(bossId));
+            String userId = getUserId(request);
+            return ApiResponse.success(bossWarService.getRankings(userId, bossId));
         } catch (Exception e) {
             logger.error("获取Boss战排名失败", e);
             return ApiResponse.error(e.getMessage());

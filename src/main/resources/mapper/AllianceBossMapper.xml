@@ -2,20 +2,22 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.tencent.wxcloudrun.dao.AllianceBossMapper">
 
-    <select id="findCurrentBoss" resultType="java.util.HashMap">
+    <select id="findCurrentBossByServerId" resultType="java.util.HashMap">
         SELECT id, boss_level AS bossLevel, boss_name AS bossName,
                max_hp AS maxHp, current_hp AS currentHp, status,
                feed_count AS feedCount, feed_target AS feedTarget,
-               last_reset_date AS lastResetDate,
+               last_reset_date AS lastResetDate, server_id AS serverId,
                created_at AS createdAt, updated_at AS updatedAt
         FROM alliance_boss
+        WHERE server_id = #{serverId}
         ORDER BY id DESC
         LIMIT 1
     </select>
 
     <insert id="insertBoss">
-        INSERT INTO alliance_boss (boss_level, boss_name, max_hp, current_hp, status, feed_count, feed_target, last_reset_date)
-        VALUES (#{bossLevel}, #{bossName}, #{maxHp}, #{maxHp}, 'idle', 0, 100, CURDATE())
+        INSERT INTO alliance_boss (boss_level, boss_name, max_hp, current_hp, status,
+                                   feed_count, feed_target, last_reset_date, server_id)
+        VALUES (#{bossLevel}, #{bossName}, #{maxHp}, #{maxHp}, 'idle', 0, 100, CURDATE(), #{serverId})
     </insert>
 
     <update id="updateBossHp">
@@ -39,23 +41,24 @@
     </update>
 
     <insert id="insertRecord">
-        INSERT INTO alliance_boss_record (user_id, action_type, damage, feed_amount)
-        VALUES (#{userId}, #{actionType}, #{damage}, #{feedAmount})
+        INSERT INTO alliance_boss_record (user_id, action_type, damage, feed_amount, server_id)
+        VALUES (#{userId}, #{actionType}, #{damage}, #{feedAmount}, #{serverId})
     </insert>
 
-    <select id="findRecords" resultType="java.util.HashMap">
+    <select id="findRecordsByServerId" resultType="java.util.HashMap">
         SELECT id, user_id AS userId, action_type AS actionType,
                damage, feed_amount AS feedAmount, created_at AS createdAt
         FROM alliance_boss_record
+        WHERE server_id = #{serverId}
         ORDER BY created_at DESC
         LIMIT #{limit}
     </select>
 
-    <select id="findRankings" resultType="java.util.HashMap">
+    <select id="findRankingsByServerId" resultType="java.util.HashMap">
         SELECT user_id AS userId, SUM(damage) AS totalDamage,
                COUNT(*) AS attackCount
         FROM alliance_boss_record
-        WHERE action_type = 'attack'
+        WHERE action_type = 'attack' AND server_id = #{serverId}
         GROUP BY user_id
         ORDER BY totalDamage DESC
         LIMIT #{limit}

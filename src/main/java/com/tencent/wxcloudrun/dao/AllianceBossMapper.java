@@ -9,11 +9,12 @@ import java.util.Map;
 @Mapper
 public interface AllianceBossMapper {
 
-    Map<String, Object> findCurrentBoss();
+    Map<String, Object> findCurrentBossByServerId(@Param("serverId") int serverId);
 
     void insertBoss(@Param("bossLevel") int bossLevel,
                     @Param("bossName") String bossName,
-                    @Param("maxHp") long maxHp);
+                    @Param("maxHp") long maxHp,
+                    @Param("serverId") int serverId);
 
     void updateBossHp(@Param("id") long id, @Param("currentHp") long currentHp);
 
@@ -30,11 +31,14 @@ public interface AllianceBossMapper {
     void insertRecord(@Param("userId") String userId,
                       @Param("actionType") String actionType,
                       @Param("damage") long damage,
-                      @Param("feedAmount") int feedAmount);
+                      @Param("feedAmount") int feedAmount,
+                      @Param("serverId") int serverId);
 
-    List<Map<String, Object>> findRecords(@Param("limit") int limit);
+    List<Map<String, Object>> findRecordsByServerId(@Param("serverId") int serverId,
+                                                    @Param("limit") int limit);
 
-    List<Map<String, Object>> findRankings(@Param("limit") int limit);
+    List<Map<String, Object>> findRankingsByServerId(@Param("serverId") int serverId,
+                                                     @Param("limit") int limit);
 
     int findUserDailyAttackCount(@Param("userId") String userId);
 }

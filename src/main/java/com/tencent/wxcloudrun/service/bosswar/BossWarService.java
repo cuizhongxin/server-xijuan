@@ -1,5 +1,6 @@
 package com.tencent.wxcloudrun.service.bosswar;
 
+import com.tencent.wxcloudrun.dao.WorldBossMapper;
 import com.tencent.wxcloudrun.model.Equipment;
 import com.tencent.wxcloudrun.model.UserResource;
 import com.tencent.wxcloudrun.model.Warehouse;
@@ -15,31 +16,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
-/**
- * 世界Boss战 — 6单元战斗模型
- *
- * 黄巾流寇(1001): 每天 0,3,6,9,15,22 点，Lv25，需20级
- * 董卓军团(2001): 每天 12 点，Lv35，需30级
- * 异族军团(3001): 每天 18 点，Lv40，需40级
- *
- * 每次出现持续30分钟。Boss由6个战斗单元组成，每单元1000兵力，士兵生命100。
- * 玩家每次攻击与Boss的存活单元进行一次战斗，未击败的单元保留残血。
- * 攻击间隔120秒，VIP可缩减5%~25%。
- *
- * 掉落：击杀最后一个单元的玩家有25%概率获得公有道具、10%概率获得Boss专属装备。
- * 排名：Boss全灭后，伤害前3名获得宝箱(第1名2个，第2/3名各1个)，最后一击额外1个。
- */
 @Service
 public class BossWarService {
 
     private static final Logger logger = LoggerFactory.getLogger(BossWarService.class);
-
-    // ═══════════════════════════════════════════
-    //  常量
-    // ═══════════════════════════════════════════
 
     private static final int BOSS_HJLK = 1001;
     private static final int BOSS_DZJT = 2001;
@@ -70,7 +51,6 @@ public class BossWarService {
                 new int[]{1,1,3,2,3,1}));
     }
 
-    // 公有道具掉落表 (itemId, name, icon, quality)
     private static final String[][] COMMON_DROPS = {
             {"15042", "特训符",     "15042.jpg", "3"},
             {"15012", "中级招贤令", "15012.jpg", "3"},
@@ -79,7 +59,6 @@ public class BossWarService {
             {"11001", "初级声望符", "11001.jpg", "2"},
     };
 
-    // Boss专属装备套装映射
     private static final Map<Integer, String> BOSS_EQUIP_SET = new LinkedHashMap<>();
     static {
         BOSS_EQUIP_SET.put(BOSS_HJLK, "陷阵");
@@ -89,7 +68,6 @@ public class BossWarService {
 
     private static final String[] EQUIP_PARTS = {"武器", "戒指", "铠甲", "项链", "头盔", "鞋子"};
 
-    // 宝箱映射 (bossId → chestItemId, name, icon, quality)
     private static final Map<Integer, String[]> BOSS_CHEST = new LinkedHashMap<>();
     static {
         BOSS_CHEST.put(BOSS_HJLK, new String[]{"17001", "平乱宝箱", "17001.jpg", "3"});
@@ -97,7 +75,6 @@ public class BossWarService {
         BOSS_CHEST.put(BOSS_YZJT, new String[]{"17003", "讨逆宝箱", "17003.jpg", "4"});
     }
 
-    // 宝箱开启配置: chestItemId → {天地宝盒概率%, 保底道具列表}
     private static final String TIANDI_CHEST_ID = "17010";
     private static final Map<String, ChestLootConfig> CHEST_LOOT = new LinkedHashMap<>();
     static {
@@ -120,52 +97,138 @@ public class BossWarService {
         }));
     }
 
-    // 天地宝盒可开出的套装
     private static final String[] TIANDI_EQUIP_SETS = {"幽冥", "天诛", "地煞"};
 
-    // VIP休整缩减: vipLevel → 百分比
     private static int getVipCdReductionPct(int vipLevel) {
         if (vipLevel <= 0) return 0;
         return Math.min(25, ((vipLevel + 1) / 2) * 5);
     }
 
-    // ═══════════════════════════════════════════
-    //  依赖注入
-    // ═══════════════════════════════════════════
-
+    @Autowired private WorldBossMapper worldBossMapper;
     @Autowired private BattleService battleService;
     @Autowired private FormationService formationService;
     @Autowired private UserResourceService userResourceService;
     @Autowired private WarehouseService warehouseService;
     @Autowired private EquipmentService equipmentService;
 
-    // ═══════════════════════════════════════════
-    //  状态管理 (in-memory)
-    // ═══════════════════════════════════════════
-
-    private final Map<Integer, BossState> bossStates = new ConcurrentHashMap<>();
-    private final Map<String, Map<Integer, PlayerBossData>> playerData = new ConcurrentHashMap<>();
     private final Random random = new Random();
 
-    public BossWarService() {
-        for (BossTemplate t : BOSS_TEMPLATES.values()) {
-            bossStates.put(t.id, new BossState(t));
+    static int extractServerId(String compositeUserId) {
+        if (compositeUserId != null && compositeUserId.contains("_")) {
+            try {
+                return Integer.parseInt(compositeUserId.substring(compositeUserId.lastIndexOf('_') + 1));
+            } catch (NumberFormatException ignored) {}
         }
+        return 1;
     }
 
     // ═══════════════════════════════════════════
-    //  getInfo — 只返回当前/最近一个Boss
+    //  DB 状态读写
+    // ═══════════════════════════════════════════
+
+    private BossState loadOrCreateState(int serverId, BossTemplate t) {
+        Map<String, Object> row = worldBossMapper.findState(serverId, t.id);
+        if (row == null) {
+            String defaultSoldiers = defaultUnitSoldiersStr();
+            worldBossMapper.upsertState(serverId, t.id, "waiting", defaultSoldiers, "", 0);
+            return new BossState("waiting", parseUnitSoldiers(defaultSoldiers), "", 0);
+        }
+        return new BossState(
+                (String) row.get("status"),
+                parseUnitSoldiers((String) row.get("unitSoldiers")),
+                (String) row.get("lastKiller"),
+                ((Number) row.get("windowStartMs")).longValue()
+        );
+    }
+
+    private void saveState(int serverId, int bossId, BossState state) {
+        worldBossMapper.upsertState(serverId, bossId, state.status,
+                formatUnitSoldiers(state.unitSoldiers), state.lastKiller, state.windowStartMs);
+    }
+
+    private String defaultUnitSoldiersStr() {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < UNIT_COUNT; i++) {
+            if (i > 0) sb.append(',');
+            sb.append(UNIT_SOLDIERS);
+        }
+        return sb.toString();
+    }
+
+    private int[] parseUnitSoldiers(String str) {
+        int[] arr = new int[UNIT_COUNT];
+        if (str == null || str.isEmpty()) {
+            Arrays.fill(arr, UNIT_SOLDIERS);
+            return arr;
+        }
+        String[] parts = str.split(",");
+        for (int i = 0; i < UNIT_COUNT; i++) {
+            arr[i] = i < parts.length ? Integer.parseInt(parts[i].trim()) : UNIT_SOLDIERS;
+        }
+        return arr;
+    }
+
+    private String formatUnitSoldiers(int[] soldiers) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < soldiers.length; i++) {
+            if (i > 0) sb.append(',');
+            sb.append(soldiers[i]);
+        }
+        return sb.toString();
+    }
+
+    // ═══════════════════════════════════════════
+    //  时间窗口刷新
+    // ═══════════════════════════════════════════
+
+    private BossState refreshBossState(int serverId, BossTemplate t) {
+        BossState state = loadOrCreateState(serverId, t);
+        TimeWindow tw = getCurrentOrNextWindow(t);
+        boolean changed = false;
+
+        if (tw.active) {
+            if (!"active".equals(state.status) && !"killed".equals(state.status)) {
+                resetBoss(state);
+                state.windowStartMs = tw.startMs;
+                changed = true;
+            }
+            if ("active".equals(state.status) && state.windowStartMs != tw.startMs) {
+                resetBoss(state);
+                state.windowStartMs = tw.startMs;
+                changed = true;
+            }
+        } else {
+            if ("active".equals(state.status)) {
+                state.status = "escaped";
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            saveState(serverId, t.id, state);
+        }
+        return state;
+    }
+
+    private void resetBoss(BossState state) {
+        state.status = "active";
+        state.lastKiller = "";
+        Arrays.fill(state.unitSoldiers, UNIT_SOLDIERS);
+    }
+
+    // ═══════════════════════════════════════════
+    //  getInfo
     // ═══════════════════════════════════════════
 
     public Map<String, Object> getInfo(String userId) {
-        refreshAllBossStates();
+        int serverId = extractServerId(userId);
 
+        BossTemplate activeBoss = null;
         BossTemplate nextBoss = null;
         long nearestMs = Long.MAX_VALUE;
-        BossTemplate activeBoss = null;
 
         for (BossTemplate t : BOSS_TEMPLATES.values()) {
-            BossState state = bossStates.get(t.id);
+            BossState state = refreshBossState(serverId, t);
             if ("active".equals(state.status)) {
                 activeBoss = t;
                 break;
@@ -181,7 +244,7 @@ public class BossWarService {
         if (displayBoss == null) displayBoss = BOSS_TEMPLATES.values().iterator().next();
 
         Map<String, Object> result = new HashMap<>();
-        result.put("currentBoss", buildBossInfo(displayBoss, userId));
+        result.put("currentBoss", buildBossInfo(serverId, displayBoss, userId));
         result.put("serverTime", System.currentTimeMillis());
 
         List<Map<String, Object>> allBossSchedule = new ArrayList<>();
@@ -193,12 +256,11 @@ public class BossWarService {
             allBossSchedule.add(s);
         }
         result.put("schedule", allBossSchedule);
-
         return result;
     }
 
-    private Map<String, Object> buildBossInfo(BossTemplate t, String userId) {
-        BossState state = bossStates.get(t.id);
+    private Map<String, Object> buildBossInfo(int serverId, BossTemplate t, String userId) {
+        BossState state = loadOrCreateState(serverId, t);
         TimeWindow tw = getCurrentOrNextWindow(t);
 
         Map<String, Object> bm = new HashMap<>();
@@ -212,7 +274,7 @@ public class BossWarService {
         bm.put("status", state.status);
         bm.put("lastKiller", state.lastKiller);
 
-        int totalHp = 0, maxHp = UNIT_COUNT * UNIT_SOLDIERS;
+        int totalHp = 0;
         List<Map<String, Object>> unitInfoList = new ArrayList<>();
         for (int i = 0; i < UNIT_COUNT; i++) {
             Map<String, Object> u = new HashMap<>();
@@ -226,47 +288,57 @@ public class BossWarService {
         }
         bm.put("units", unitInfoList);
         bm.put("currentHp", totalHp);
-        bm.put("maxHp", maxHp);
+        bm.put("maxHp", UNIT_COUNT * UNIT_SOLDIERS);
 
         bm.put("windowActive", tw.active);
         bm.put("windowEndMs", tw.endMs);
         bm.put("nextAppearMs", tw.nextAppearMs);
         bm.put("remainSec", tw.active ? Math.max(0, (tw.endMs - System.currentTimeMillis()) / 1000) : 0);
 
-        PlayerBossData pd = getPlayerData(userId, t.id);
-        bm.put("myDamage", pd.totalDamage);
-        bm.put("myAttackCount", pd.attackCount);
-        bm.put("cooldown", Math.max(0, (pd.cooldownUntil - System.currentTimeMillis()) / 1000.0));
+        long myDamage = 0;
+        int myAttackCount = 0;
+        double cooldown = 0;
+        Map<String, Object> pd = worldBossMapper.findPlayerDamage(serverId, t.id, userId, state.windowStartMs);
+        if (pd != null) {
+            myDamage = ((Number) pd.get("totalDamage")).longValue();
+            myAttackCount = ((Number) pd.get("attackCount")).intValue();
+            long cooldownUntil = ((Number) pd.get("cooldownUntil")).longValue();
+            cooldown = Math.max(0, (cooldownUntil - System.currentTimeMillis()) / 1000.0);
+        }
+        bm.put("myDamage", myDamage);
+        bm.put("myAttackCount", myAttackCount);
+        bm.put("cooldown", cooldown);
 
         return bm;
     }
 
     // ═══════════════════════════════════════════
-    //  attack — 与6个Boss单元战斗
+    //  attack
     // ═══════════════════════════════════════════
 
     public Map<String, Object> attack(String userId, int bossId) {
+        int serverId = extractServerId(userId);
         BossTemplate t = BOSS_TEMPLATES.get(bossId);
         if (t == null) throw new RuntimeException("Boss不存在");
 
-        refreshBossState(t, bossStates.get(bossId));
-        BossState state = bossStates.get(bossId);
+        BossState state = refreshBossState(serverId, t);
 
         if (!"active".equals(state.status)) {
             throw new RuntimeException("Boss当前不可攻击");
         }
 
-        PlayerBossData pd = getPlayerData(userId, bossId);
+        Map<String, Object> pd = worldBossMapper.findPlayerDamage(serverId, bossId, userId, state.windowStartMs);
         long now = System.currentTimeMillis();
-        if (pd.cooldownUntil > now) {
-            long remain = (pd.cooldownUntil - now) / 1000;
-            throw new RuntimeException("正在休整中，还需等待" + remain + "秒");
+        if (pd != null) {
+            long cooldownUntil = ((Number) pd.get("cooldownUntil")).longValue();
+            if (cooldownUntil > now) {
+                long remain = (cooldownUntil - now) / 1000;
+                throw new RuntimeException("正在休整中，还需等待" + remain + "秒");
+            }
         }
 
-        // 构建玩家阵型
         List<BattleCalculator.BattleUnit> sideA = formationService.buildPlayerBattleUnits(userId);
 
-        // 构建Boss存活单元
         List<BattleCalculator.BattleUnit> sideB = new ArrayList<>();
         for (int i = 0; i < UNIT_COUNT; i++) {
             if (state.unitSoldiers[i] <= 0) continue;
@@ -293,10 +365,8 @@ public class BossWarService {
             throw new RuntimeException("Boss已被击杀");
         }
 
-        // 战斗
         BattleService.BattleReport report = battleService.fight(sideA, sideB, 20);
 
-        // 更新Boss单元状态 & 统计伤害
         int totalDamage = 0;
         int unitsKilled = 0;
         for (BattleCalculator.BattleUnit bu : sideB) {
@@ -308,19 +378,14 @@ public class BossWarService {
             if (before > 0 && after <= 0) unitsKilled++;
         }
 
-        pd.totalDamage += totalDamage;
-        pd.attackCount++;
-
-        // 记录到排名
-        state.damageRanking.merge(userId, (long) totalDamage, Long::sum);
-
-        // 计算VIP休整缩减
         int vipLevel = getPlayerVipLevel(userId);
         int cdPct = getVipCdReductionPct(vipLevel);
         int coolSec = (int) (BASE_COOLDOWN_SEC * (100 - cdPct) / 100.0);
-        pd.cooldownUntil = now + coolSec * 1000L;
+        long cooldownUntil = now + coolSec * 1000L;
 
-        // 检查是否全灭
+        worldBossMapper.upsertPlayerDamage(serverId, bossId, userId,
+                state.windowStartMs, totalDamage, cooldownUntil);
+
         boolean allDead = Arrays.stream(state.unitSoldiers).allMatch(s -> s <= 0);
         Map<String, Object> dropResult = null;
         List<Map<String, Object>> chestRewards = null;
@@ -328,25 +393,29 @@ public class BossWarService {
         if (allDead) {
             state.status = "killed";
             state.lastKiller = userId;
-
-            // 击杀者掉落
             dropResult = rollDrops(userId, bossId);
-
-            // 排名宝箱
-            chestRewards = distributeChests(bossId, userId, state);
+            chestRewards = distributeChests(serverId, bossId, userId, state.windowStartMs);
         }
 
-        // 构建返回
+        saveState(serverId, bossId, state);
+
+        long myTotalDamage = totalDamage;
+        int myAttackCount = 1;
+        Map<String, Object> pdAfter = worldBossMapper.findPlayerDamage(serverId, bossId, userId, state.windowStartMs);
+        if (pdAfter != null) {
+            myTotalDamage = ((Number) pdAfter.get("totalDamage")).longValue();
+            myAttackCount = ((Number) pdAfter.get("attackCount")).intValue();
+        }
+
         Map<String, Object> result = new HashMap<>();
         result.put("damage", totalDamage);
         result.put("unitsKilled", unitsKilled);
         result.put("cooldown", coolSec);
-        result.put("myDamage", pd.totalDamage);
-        result.put("myAttackCount", pd.attackCount);
+        result.put("myDamage", myTotalDamage);
+        result.put("myAttackCount", myAttackCount);
         result.put("bossKilled", allDead);
         result.put("battleReport", report);
 
-        // Boss当前状态
         List<Map<String, Object>> unitStatus = new ArrayList<>();
         for (int i = 0; i < UNIT_COUNT; i++) {
             Map<String, Object> u = new HashMap<>();
@@ -366,21 +435,20 @@ public class BossWarService {
         if (dropResult != null) result.put("drops", dropResult);
         if (chestRewards != null) result.put("chestRewards", chestRewards);
 
-        logger.info("Boss战: userId={}, bossId={}, damage={}, unitsKilled={}, killed={}",
-                userId, bossId, totalDamage, unitsKilled, allDead);
+        logger.info("Boss战: userId={}, serverId={}, bossId={}, damage={}, unitsKilled={}, killed={}",
+                userId, serverId, bossId, totalDamage, unitsKilled, allDead);
 
         return result;
     }
 
     // ═══════════════════════════════════════════
-    //  掉落系统 — 击杀最后单元的玩家
+    //  掉落
     // ═══════════════════════════════════════════
 
     private Map<String, Object> rollDrops(String userId, int bossId) {
         Map<String, Object> result = new HashMap<>();
         List<String> rewards = new ArrayList<>();
 
-        // 25% 公有道具
         if (random.nextDouble() < COMMON_DROP_RATE) {
             String[] item = COMMON_DROPS[random.nextInt(COMMON_DROPS.length)];
             addItemToWarehouse(userId, item[0], item[1], item[2], item[3], 1);
@@ -388,7 +456,6 @@ public class BossWarService {
             result.put("commonDrop", item[1]);
         }
 
-        // 10% Boss专属装备
         if (random.nextDouble() < EQUIP_DROP_RATE) {
             String setName = BOSS_EQUIP_SET.get(bossId);
             if (setName != null) {
@@ -396,7 +463,8 @@ public class BossWarService {
                 String fullPartName = setName + part;
                 try {
                     Equipment equip = equipmentService.createSetEquipment(
-                            userId, setName, fullPartName, "BOSS_DROP", "Boss掉落-" + BOSS_TEMPLATES.get(bossId).name);
+                            userId, setName, fullPartName, "BOSS_DROP",
+                            "Boss掉落-" + BOSS_TEMPLATES.get(bossId).name);
                     rewards.add(fullPartName);
                     result.put("equipDrop", fullPartName);
                     result.put("equipId", equip.getId());
@@ -411,24 +479,21 @@ public class BossWarService {
     }
 
     // ═══════════════════════════════════════════
-    //  排名宝箱分发
+    //  排名宝箱分发（从DB读取排名）
     // ═══════════════════════════════════════════
 
-    private List<Map<String, Object>> distributeChests(int bossId, String lastHitter, BossState state) {
+    private List<Map<String, Object>> distributeChests(int serverId, int bossId,
+                                                       String lastHitter, long windowStartMs) {
         String[] chestInfo = BOSS_CHEST.get(bossId);
         if (chestInfo == null) return Collections.emptyList();
 
         List<Map<String, Object>> result = new ArrayList<>();
+        List<Map<String, Object>> ranking = worldBossMapper.findDamageRanking(
+                serverId, bossId, windowStartMs, 3);
 
-        // 按伤害排名
-        List<Map.Entry<String, Long>> sorted = state.damageRanking.entrySet().stream()
-                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
-                .collect(Collectors.toList());
-
-        // 前3名发宝箱
         int[] chestCounts = {2, 1, 1};
-        for (int i = 0; i < Math.min(3, sorted.size()); i++) {
-            String playerId = sorted.get(i).getKey();
+        for (int i = 0; i < Math.min(3, ranking.size()); i++) {
+            String playerId = (String) ranking.get(i).get("userId");
             int count = chestCounts[i];
             addItemToWarehouse(playerId, chestInfo[0], chestInfo[1], chestInfo[2], chestInfo[3], count);
             Map<String, Object> entry = new HashMap<>();
@@ -436,12 +501,11 @@ public class BossWarService {
             entry.put("userId", playerId);
             entry.put("chest", chestInfo[1]);
             entry.put("count", count);
-            entry.put("damage", sorted.get(i).getValue());
+            entry.put("damage", ranking.get(i).get("totalDamage"));
             result.add(entry);
             logger.info("Boss宝箱: rank={}, userId={}, chest={}x{}", i + 1, playerId, chestInfo[1], count);
         }
 
-        // 最后一击额外宝箱
         addItemToWarehouse(lastHitter, chestInfo[0], chestInfo[1], chestInfo[2], chestInfo[3], 1);
         Map<String, Object> lastHitEntry = new HashMap<>();
         lastHitEntry.put("rank", 0);
@@ -468,7 +532,6 @@ public class BossWarService {
         }
 
         Map<String, Object> result = new HashMap<>();
-
         if (random.nextInt(100) < config.tiandiPct) {
             addItemToWarehouse(userId, TIANDI_CHEST_ID, "天地宝盒", "17010.jpg", "5", 1);
             result.put("item", "天地宝盒");
@@ -479,13 +542,9 @@ public class BossWarService {
             result.put("item", item[1]);
             result.put("isTiandi", false);
         }
-
         return result;
     }
 
-    /**
-     * 开启天地宝盒 — 获得幽冥/天诛/地煞随机一件装备
-     */
     public Map<String, Object> openTiandiChest(String userId) {
         if (!warehouseService.removeItem(userId, TIANDI_CHEST_ID, 1)) {
             throw new RuntimeException("天地宝盒数量不足");
@@ -509,67 +568,25 @@ public class BossWarService {
     //  排名查询
     // ═══════════════════════════════════════════
 
-    public Map<String, Object> getRankings(int bossId) {
-        BossState state = bossStates.get(bossId);
-        List<Map<String, Object>> rankings = new ArrayList<>();
+    public Map<String, Object> getRankings(String userId, int bossId) {
+        int serverId = extractServerId(userId);
+        BossState state = loadOrCreateState(serverId, BOSS_TEMPLATES.getOrDefault(bossId,
+                BOSS_TEMPLATES.values().iterator().next()));
 
-        if (state != null && state.damageRanking != null) {
-            state.damageRanking.entrySet().stream()
-                    .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
-                    .limit(20)
-                    .forEach(e -> {
-                        Map<String, Object> r = new HashMap<>();
-                        r.put("userId", e.getKey());
-                        r.put("playerName", resolvePlayerName(e.getKey()));
-                        r.put("totalDamage", e.getValue());
-                        PlayerBossData pd = getPlayerData(e.getKey(), bossId);
-                        r.put("attackCount", pd.attackCount);
-                        rankings.add(r);
-                    });
+        List<Map<String, Object>> ranking = worldBossMapper.findDamageRanking(
+                serverId, bossId, state.windowStartMs, 20);
+
+        for (Map<String, Object> r : ranking) {
+            r.put("playerName", resolvePlayerName((String) r.get("userId")));
         }
 
         Map<String, Object> result = new HashMap<>();
-        result.put("rankings", rankings);
+        result.put("rankings", ranking);
         return result;
     }
 
     // ═══════════════════════════════════════════
-    //  Boss状态刷新
-    // ═══════════════════════════════════════════
-
-    private void refreshAllBossStates() {
-        for (BossTemplate t : BOSS_TEMPLATES.values()) {
-            refreshBossState(t, bossStates.get(t.id));
-        }
-    }
-
-    private void refreshBossState(BossTemplate t, BossState state) {
-        TimeWindow tw = getCurrentOrNextWindow(t);
-        if (tw.active) {
-            if (!"active".equals(state.status) && !"killed".equals(state.status)) {
-                resetBoss(t, state);
-            }
-            if ("active".equals(state.status) && state.windowStartMs != tw.startMs) {
-                resetBoss(t, state);
-            }
-        } else {
-            if ("active".equals(state.status)) {
-                state.status = "escaped";
-            }
-        }
-    }
-
-    private void resetBoss(BossTemplate t, BossState state) {
-        state.status = "active";
-        state.windowStartMs = getCurrentOrNextWindow(t).startMs;
-        state.lastKiller = "";
-        state.damageRanking.clear();
-        Arrays.fill(state.unitSoldiers, UNIT_SOLDIERS);
-        playerData.values().forEach(m -> m.remove(t.id));
-    }
-
-    // ═══════════════════════════════════════════
-    //  时间窗口计算
+    //  时间窗口
     // ═══════════════════════════════════════════
 
     private TimeWindow getCurrentOrNextWindow(BossTemplate t) {
@@ -612,7 +629,7 @@ public class BossWarService {
     }
 
     // ═══════════════════════════════════════════
-    //  辅助方法
+    //  辅助
     // ═══════════════════════════════════════════
 
     private int getPlayerVipLevel(String userId) {
@@ -647,12 +664,6 @@ public class BossWarService {
         return "玩家" + userId.substring(Math.max(0, userId.length() - 4));
     }
 
-    private PlayerBossData getPlayerData(String userId, int bossId) {
-        return playerData
-                .computeIfAbsent(userId, k -> new ConcurrentHashMap<>())
-                .computeIfAbsent(bossId, k -> new PlayerBossData());
-    }
-
     // ═══════════════════════════════════════════
     //  内部数据类
     // ═══════════════════════════════════════════
@@ -677,21 +688,17 @@ public class BossWarService {
     }
 
     static class BossState {
-        String status = "waiting";
-        int[] unitSoldiers = new int[UNIT_COUNT];
-        String lastKiller = "";
-        long windowStartMs = 0;
-        Map<String, Long> damageRanking = new ConcurrentHashMap<>();
+        String status;
+        int[] unitSoldiers;
+        String lastKiller;
+        long windowStartMs;
 
-        BossState(BossTemplate t) {
-            Arrays.fill(unitSoldiers, UNIT_SOLDIERS);
+        BossState(String status, int[] unitSoldiers, String lastKiller, long windowStartMs) {
+            this.status = status;
+            this.unitSoldiers = unitSoldiers;
+            this.lastKiller = lastKiller;
+            this.windowStartMs = windowStartMs;
         }
-    }
-
-    static class PlayerBossData {
-        long totalDamage = 0;
-        int attackCount = 0;
-        long cooldownUntil = 0;
     }
 
     static class TimeWindow {
