@@ -52,10 +52,25 @@ public class StoryService {
     public Map<String, Object> advance(String userId, int serverId, int nodeId) {
         StoryProgress progress = getOrCreate(userId, serverId);
 
+        if (Boolean.TRUE.equals(progress.getCompleted())) {
+            Map<String, Object> result = new HashMap<>();
+            result.put("currentNode", 0);
+            result.put("completed", true);
+            return result;
+        }
+
+        int cur = progress.getCurrentNode() != null ? progress.getCurrentNode() : 0;
+        if (nodeId <= cur && cur > 0) {
+            log.info("引导进度不回退: userId={}, serverId={}, cur={}, requested={}", userId, serverId, cur, nodeId);
+            Map<String, Object> result = new HashMap<>();
+            result.put("currentNode", cur);
+            result.put("completed", false);
+            return result;
+        }
+
         String rewardName = null;
         Integer rewardPreId = STORY_REWARD_MAP.get(nodeId);
-        int cur = progress.getCurrentNode() != null ? progress.getCurrentNode() : 0;
-        if (rewardPreId != null && cur < nodeId) {
+        if (rewardPreId != null) {
             rewardName = grantEquipReward(userId + "_" + serverId, rewardPreId);
         }
 

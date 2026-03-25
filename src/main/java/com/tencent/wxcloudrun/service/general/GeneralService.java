@@ -368,18 +368,18 @@ public class GeneralService {
     public Long getMaxExpForLevel(int level) { return calcMaxExp(level); }
     
     /**
-     * 将领升级经验曲线 (对齐APK演习经验: 5000/15000/35000/60000)
-     * 公式: 300 + 12 × level²
+     * 将领升级经验曲线
+     * 公式: 250 + 750 × level²
      *
-     * 示例:
-     * Lv1: 312   Lv5: 600    Lv10: 1500   Lv20: 5100
-     * Lv30: 11100 Lv40: 19500 Lv50: 30300  Lv60: 43500
-     * Lv80: 77100 Lv100: 120300
+     * 设计依据: 通关第一战役(20关, 总经验37500) + 5000额外经验 = 42500, 刚好升到5级
      *
-     * 累计: Lv30~110K, Lv50~530K, Lv80~2.1M, Lv100~4.1M
-     * 演习genExp 60000 → lv50需~0.5次/级, lv80需~1.3次/级
+     * 关键节点:
+     * Lv1: 1,000    Lv5: 19,000    Lv10: 75,250    Lv20: 300,250
+     * Lv50: 1,875,250  Lv100: 7,500,250
+     *
+     * 累计: Lv5: 42,500  Lv10: 297,750  Lv30: 6,965,750  Lv100: 253,787,500
      */
-    private long calcMaxExp(int level) { return 300 + 12L * level * level; }
+    private long calcMaxExp(int level) { return 250 + 750L * level * level; }
     
     public boolean dismissGeneral(String userId, String generalId) {
         General general = generalRepository.findById(generalId);

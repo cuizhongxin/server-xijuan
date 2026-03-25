@@ -7,21 +7,19 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 君主等级经验系统配置 (对齐APK奖励数据)
+ * 君主等级经验系统配置
  *
- * APK经验来源参考:
- * - 演习: lv5→1000, lv20→2000, lv40→4000, lv60→8000
- * - 战役: lv1-10→300-680, lv40-50→4000-5900, lv80-100→25000-44000
- * - 每日任务/登录: ~2000
+ * 公式: 100 × level²
  *
- * 公式: 200 + 8 × level²
+ * 设计依据: 通关第一战役(20关, 总经验37500) + 1000额外经验 = 38500, 刚好升到10级
  *
- * 升级节奏 (日均~10000-30000):
- * - 免费第1天 ~8000  → Lv10 (累计~4900)
- * - 免费一周  ~60000 → Lv25 (累计~44000)
- * - 氪金一周  ~180000→ Lv40 (累计~172000)
- * - 氪金一月  ~800000→ Lv60 (累计~580000)
- * - 长期玩家到lv80    (累计~1.4M)
+ * 关键节点:
+ * Lv1: 100      Lv5: 2,500     Lv10: 10,000    Lv20: 40,000
+ * Lv50: 250,000 Lv100: 1,000,000
+ *
+ * 累计经验:
+ * Lv10: 38,500    Lv20: 287,000    Lv50: 4,292,500
+ * Lv80: 17,388,000 Lv100: 33,835,000
  */
 @Component
 public class LevelConfig {
@@ -36,24 +34,11 @@ public class LevelConfig {
         initLevelExpTable();
     }
     
-    /**
-     * 君主等级经验曲线: 200 + 8 × level²
-     *
-     * 示例:
-     * Lv1:  208     Lv5:  400    Lv10: 1000   Lv15: 2000
-     * Lv20: 3400    Lv25: 5200   Lv30: 7400   Lv40: 13000
-     * Lv50: 20200   Lv60: 29000  Lv70: 39400  Lv80: 51400
-     *
-     * 累计经验:
-     * Lv10: ~4,900   Lv20: ~24,200   Lv30: ~72,000
-     * Lv40: ~172,000 Lv50: ~343,000  Lv60: ~580,000
-     * Lv70: ~918,000 Lv80: ~1,370,000
-     */
     private void initLevelExpTable() {
         long totalExp = 0;
         
         for (int level = 1; level <= MAX_LEVEL; level++) {
-            long expNeeded = 200 + 8L * level * level;
+            long expNeeded = 100L * level * level;
             
             levelExpTable.put(level, expNeeded);
             totalExp += expNeeded;
@@ -114,7 +99,7 @@ public class LevelConfig {
     
     public String getLevelGuide() {
         return "等级经验系统说明：\n" +
-               "每级所需经验 = 200 + 8 × 等级²\n" +
+               "每级所需经验 = 100 × 等级²\n" +
                "等级越高，每级所需经验越多，平滑递增";
     }
 }
