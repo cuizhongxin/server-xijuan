@@ -2,6 +2,85 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.tencent.wxcloudrun.dao.CornucopiaMapper">
 
+    <!-- ══════ 期数 ══════ -->
+
+    <select id="findActivePeriod" resultType="java.util.HashMap">
+        SELECT id, period_num AS periodNum, prize_pool AS prizePool, carryover,
+               status, draw_time AS drawTime,
+               grand_number AS grandNumber, first_number AS firstNumber,
+               grand_winner_id AS grandWinnerId, first_winner_id AS firstWinnerId,
+               grand_prize AS grandPrize, first_prize AS firstPrize
+        FROM cornucopia_period
+        WHERE status = 0
+        ORDER BY draw_time ASC
+        LIMIT 1
+    </select>
+
+    <select id="findPeriodById" resultType="java.util.HashMap">
+        SELECT id, period_num AS periodNum, prize_pool AS prizePool, carryover,
+               status, draw_time AS drawTime,
+               grand_number AS grandNumber, first_number AS firstNumber,
+               grand_winner_id AS grandWinnerId, first_winner_id AS firstWinnerId,
+               grand_prize AS grandPrize, first_prize AS firstPrize
+        FROM cornucopia_period WHERE id = #{id}
+    </select>
+
+    <select id="findLastDrawnPeriod" resultType="java.util.HashMap">
+        SELECT id, period_num AS periodNum, prize_pool AS prizePool, carryover,
+               status, draw_time AS drawTime,
+               grand_number AS grandNumber, first_number AS firstNumber,
+               grand_winner_id AS grandWinnerId, first_winner_id AS firstWinnerId,
+               grand_prize AS grandPrize, first_prize AS firstPrize
+        FROM cornucopia_period
+        WHERE status = 1
+        ORDER BY draw_time DESC
+        LIMIT 1
+    </select>
+
+    <insert id="insertPeriod">
+        INSERT INTO cornucopia_period (period_num, draw_time, carryover, prize_pool, status)
+        VALUES (#{periodNum}, #{drawTime}, #{carryover}, #{carryover}, 0)
+    </insert>
+
+    <update id="addToPool">
+        UPDATE cornucopia_period SET prize_pool = prize_pool + #{amount} WHERE id = #{id}
+    </update>
+
+    <update id="finishDraw">
+        UPDATE cornucopia_period
+        SET status = 1,
+            grand_number = #{grandNumber}, first_number = #{firstNumber},
+            grand_winner_id = #{grandWinnerId}, first_winner_id = #{firstWinnerId},
+            grand_prize = #{grandPrize}, first_prize = #{firstPrize}
+        WHERE id = #{id}
+    </update>
+
+    <!-- ══════ 购票 ══════ -->
+
+    <select id="countUserTickets" resultType="int">
+        SELECT COUNT(*) FROM cornucopia_ticket
+        WHERE user_id = #{userId} AND period_id = #{periodId}
+    </select>
+
+    <select id="findUserTickets" resultType="java.util.HashMap">
+        SELECT id, ticket_number AS ticketNumber, purchased_at AS purchasedAt
+        FROM cornucopia_ticket
+        WHERE user_id = #{userId} AND period_id = #{periodId}
+        ORDER BY id ASC
+    </select>
+
+    <insert id="insertTicket">
+        INSERT INTO cornucopia_ticket (user_id, period_id, ticket_number)
+        VALUES (#{userId}, #{periodId}, #{ticketNumber})
+    </insert>
+
+    <select id="findAllTicketsByPeriod" resultType="java.util.HashMap">
+        SELECT id, user_id AS userId, ticket_number AS ticketNumber
+        FROM cornucopia_ticket WHERE period_id = #{periodId}
+    </select>
+
+    <!-- ══════ 旧表兼容 ══════ -->
+
     <select id="findByUserAndDate" resultType="java.util.HashMap">
         SELECT id, user_id AS userId, draw_date AS drawDate,
                draw_count AS drawCount, free_used AS freeUsed
@@ -12,14 +91,11 @@
     <insert id="upsertRecord">
         INSERT INTO cornucopia_record (user_id, draw_date, draw_count, free_used)
         VALUES (#{userId}, #{drawDate}, #{drawCount}, #{freeUsed})
-        ON DUPLICATE KEY UPDATE
-            draw_count = #{drawCount},
-            free_used = #{freeUsed}
+        ON DUPLICATE KEY UPDATE draw_count = #{drawCount}, free_used = #{freeUsed}
     </insert>
 
     <select id="getTodayDrawCount" resultType="int">
-        SELECT IFNULL(draw_count, 0)
-        FROM cornucopia_record
+        SELECT IFNULL(draw_count, 0) FROM cornucopia_record
         WHERE user_id = #{userId} AND draw_date = #{drawDate}
     </select>
 

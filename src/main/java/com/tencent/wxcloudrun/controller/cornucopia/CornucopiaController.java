@@ -24,18 +24,19 @@ public class CornucopiaController {
         return ApiResponse.success(cornucopiaService.getInfo(getUserId(request)));
     }
 
-    @PostMapping("/draw")
-    public ApiResponse<Map<String, Object>> draw(@RequestBody Map<String, Object> body,
-                                                  HttpServletRequest request) {
+    @PostMapping("/buy")
+    public ApiResponse<Map<String, Object>> buy(@RequestBody Map<String, Object> body,
+                                                HttpServletRequest request) {
         int count = 1;
         if (body.containsKey("count")) {
-            Object countObj = body.get("count");
-            if (countObj instanceof Number) {
-                count = ((Number) countObj).intValue();
-            } else {
-                count = Integer.parseInt(String.valueOf(countObj));
-            }
+            Object c = body.get("count");
+            count = c instanceof Number ? ((Number) c).intValue() : Integer.parseInt(String.valueOf(c));
         }
-        return ApiResponse.success(cornucopiaService.draw(getUserId(request), count));
+        return ApiResponse.success(cornucopiaService.buyTicket(getUserId(request), count));
+    }
+
+    @PostMapping("/draw")
+    public ApiResponse<Map<String, Object>> draw() {
+        return ApiResponse.success(cornucopiaService.executeDraw());
     }
 }
