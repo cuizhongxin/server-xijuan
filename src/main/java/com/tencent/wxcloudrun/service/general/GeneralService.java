@@ -2,6 +2,7 @@ package com.tencent.wxcloudrun.service.general;
 
 import com.tencent.wxcloudrun.dao.GeneralSlotMapper;
 import com.tencent.wxcloudrun.dao.GeneralSlotTraitMapper;
+import com.tencent.wxcloudrun.dao.GeneralTemplateMapper;
 import com.tencent.wxcloudrun.model.General;
 import com.tencent.wxcloudrun.repository.GeneralRepository;
 import org.slf4j.Logger;
@@ -37,6 +38,8 @@ public class GeneralService {
 
     @Autowired
     private GeneralSlotTraitMapper generalSlotTraitMapper;
+    @Autowired
+    private GeneralTemplateMapper generalTemplateMapper;
 
     public List<General> getUserGenerals(String userId) {
         return generalRepository.findByUserId(userId);
@@ -115,8 +118,22 @@ public class GeneralService {
             attrs = calcAttributes(qualityMultiplier, troopType, level);
         }
         
+        // 从 general_template 查询头像
+        String avatar = "";
+        try {
+            Map<String, Object> tpl = generalTemplateMapper.findByName(name);
+            if (tpl != null && tpl.get("avatar") != null) {
+                avatar = tpl.get("avatar").toString().trim();
+            }
+        } catch (Exception e) {
+            logger.warn("查询武将模板头像失败: name={}", name, e);
+        }
+        
+        // 从 general_slot_trait 查询名将特性
+        List<String> traitDescs = loadTraitDescsBySlotId(slotId);
+        
         return General.builder()
-            .id(id).userId(userId).name(name).avatar("").faction(faction)
+            .id(id).userId(userId).name(name).avatar(avatar).faction(faction)
             .level(level).exp(0L).maxExp(calcMaxExp(level))
             .qualityId(qualityId).qualityName(qualityName).qualityColor(qualityColor)
             .qualityBaseMultiplier(qualityMultiplier).qualityStar(qualityStar)
@@ -124,10 +141,50 @@ public class GeneralService {
             .attrAttack(attrs[0]).attrDefense(attrs[1]).attrValor(attrs[2])
             .attrCommand(attrs[3]).attrDodge((double) attrs[4]).attrMobility(attrs[5])
             .soldierRank(1).soldierTier(1).soldierCount(100).soldierMaxCount(100)
+            .traits(traitDescs.isEmpty() ? null : traitDescs)
             .statusLocked(false).statusInBattle(false).statusInjured(false).statusMorale(100)
             .statTotalBattles(0).statVictories(0).statDefeats(0).statKills(0).statMvpCount(0)
             .createTime(System.currentTimeMillis()).updateTime(System.currentTimeMillis())
             .build();
+    }
+    
+    /**
+     * 根据 slotId 加载特性描述列表，用于前端展示
+     */
+    private List<String> loadTraitDescsBySlotId(int slotId) {
+        List<String> result = new ArrayList<>();
+        if (slotId <= 0) return result;
+        try {
+            List<Map<String, Object>> traitRows = generalSlotTraitMapper.findBySlotIds(
+                    Collections.singletonList(slotId));
+            if (traitRows != null) {
+                for (Map<String, Object> row : traitRows) {
+                    String traitType = (String) row.get("traitType");
+                    String traitValue = (String) row.get("traitValue");
+                    if (traitType == null) continue;
+                    result.add(formatTraitDesc(traitType, traitValue));
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("查询武将特性失败: slotId={}", slotId, e);
+        }
+        return result;
+    }
+    
+    private String formatTraitDesc(String traitType, String traitValue) {
+        if ("special".equals(traitType)) return traitValue != null ? traitValue : "";
+        if ("tactics_trigger".equals(traitType)) return "兵法发动概率翻倍";
+        String name;
+        switch (traitType) {
+            case "attack": name = "攻击力"; break;
+            case "defense": name = "防御力"; break;
+            case "valor": name = "武勇"; break;
+            case "command": name = "统御"; break;
+            case "dodge": name = "闪避"; break;
+            case "mobility": name = "机动性"; break;
+            default: name = traitType;
+        }
+        return name + "+" + (traitValue != null ? traitValue : "0");
     }
     
     /**

@@ -24,4 +24,9 @@ public interface GeneralTemplateMapper {
     List<Map<String, Object>> listRecruitableByQualityAndFaction(
             @Param("qualityCode") String qualityCode,
             @Param("factions") List<String> factions);
+
+    /**
+     * 按名称查询模板（返回 avatar, slot_id 等），用于 buildGeneral 时获取头像
+     */
+    Map<String, Object> findByName(@Param("name") String name);
 }
