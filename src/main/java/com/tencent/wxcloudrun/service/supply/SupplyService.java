@@ -11,6 +11,7 @@ import com.tencent.wxcloudrun.repository.GeneralRepository;
 import com.tencent.wxcloudrun.repository.UserResourceRepository;
 import com.tencent.wxcloudrun.service.battle.BattleCalculator;
 import com.tencent.wxcloudrun.service.battle.BattleService;
+import com.tencent.wxcloudrun.service.PlayerNameResolver;
 import com.tencent.wxcloudrun.service.SuitConfigService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,6 +55,7 @@ public class SupplyService {
     @Autowired @Lazy private com.tencent.wxcloudrun.service.formation.FormationService formationService;
     @Autowired private BattleService battleService;
     @Autowired private SuitConfigService suitConfigService;
+    @Autowired private PlayerNameResolver playerNameResolver;
     @Autowired @org.springframework.context.annotation.Lazy private com.tencent.wxcloudrun.service.dailytask.DailyTaskService dailyTaskService;
 
     private List<Map<String, Object>> gradeConfigs = new ArrayList<>();
@@ -339,7 +341,7 @@ public class SupplyService {
             enrichTransport(t);
             String tUserId = String.valueOf(t.get("userId"));
             t.put("isOwn", userId.equals(tUserId));
-            t.put("playerName", "玩家" + tUserId.substring(0, Math.min(6, tUserId.length())));
+            t.put("playerName", playerNameResolver.resolve(tUserId));
             transports.add(t);
         }
 
@@ -418,7 +420,7 @@ public class SupplyService {
                 parseIntSafe(sd.get("refreshTokens"), 0),
                 todayStr(), System.currentTimeMillis());
 
-        String defName = "玩家" + defenderId.substring(0, Math.min(6, defenderId.length()));
+        String defName = playerNameResolver.resolve(defenderId);
         robberyMapper.insert(userId, "我", defenderId, defName,
                 transportId, String.valueOf(transport.get("gradeName")),
                 victory, silverStolen, paperStolen, foodStolen, metalStolen,

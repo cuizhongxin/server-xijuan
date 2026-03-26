@@ -9,6 +9,7 @@ import com.tencent.wxcloudrun.service.battle.BattleCalculator;
 import com.tencent.wxcloudrun.service.battle.BattleService;
 import com.tencent.wxcloudrun.service.equipment.EquipmentService;
 import com.tencent.wxcloudrun.service.formation.FormationService;
+import com.tencent.wxcloudrun.service.PlayerNameResolver;
 import com.tencent.wxcloudrun.service.warehouse.WarehouseService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -169,6 +170,7 @@ public class BossWarService {
     @Autowired private UserResourceService userResourceService;
     @Autowired private WarehouseService warehouseService;
     @Autowired private EquipmentService equipmentService;
+    @Autowired private PlayerNameResolver playerNameResolver;
     @Autowired private com.tencent.wxcloudrun.service.level.LevelService levelService;
     @Autowired @org.springframework.context.annotation.Lazy private com.tencent.wxcloudrun.service.dailytask.DailyTaskService dailyTaskService;
     @Autowired @org.springframework.context.annotation.Lazy private com.tencent.wxcloudrun.service.chat.ChatService chatService;
@@ -838,7 +840,7 @@ public class BossWarService {
     }
 
     private String resolvePlayerName(String userId) {
-        return "玩家" + userId.substring(Math.max(0, userId.length() - 4));
+        return playerNameResolver.resolve(userId);
     }
 
     // ═══════════════════════════════════════════

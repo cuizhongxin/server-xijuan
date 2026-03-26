@@ -2,6 +2,7 @@ package com.tencent.wxcloudrun.controller.alliance;
 
 import com.tencent.wxcloudrun.dto.ApiResponse;
 import com.tencent.wxcloudrun.model.Alliance;
+import com.tencent.wxcloudrun.service.PlayerNameResolver;
 import com.tencent.wxcloudrun.service.alliance.AllianceService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +24,7 @@ import java.util.Map;
 public class AllianceController {
     
     private final AllianceService allianceService;
+    private final PlayerNameResolver playerNameResolver;
     
     private String getUserId(HttpServletRequest request) {
         return String.valueOf(request.getAttribute("userId"));
@@ -107,7 +109,7 @@ public class AllianceController {
             String odUserId = getUserId(request);
             String allianceName = (String) body.get("name");
             String faction = (String) body.get("faction");
-            String playerName = (String) body.get("playerName");
+            String playerName = playerNameResolver.resolve(odUserId);
             Integer playerLevel = body.get("playerLevel") != null ? 
                     ((Number) body.get("playerLevel")).intValue() : 1;
             Long playerPower = body.get("playerPower") != null ? 
@@ -136,7 +138,7 @@ public class AllianceController {
             @RequestBody Map<String, Object> body) {
         try {
             String odUserId = getUserId(request);
-            String playerName = (String) body.get("playerName");
+            String playerName = playerNameResolver.resolve(odUserId);
             Integer playerLevel = body.get("playerLevel") != null ? 
                     ((Number) body.get("playerLevel")).intValue() : 1;
             Long playerPower = body.get("playerPower") != null ? 

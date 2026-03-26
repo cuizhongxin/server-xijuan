@@ -13,6 +13,7 @@ import com.tencent.wxcloudrun.repository.UserResourceRepository;
 import com.tencent.wxcloudrun.service.formation.FormationService;
 import com.tencent.wxcloudrun.service.battle.BattleCalculator;
 import com.tencent.wxcloudrun.service.battle.BattleService;
+import com.tencent.wxcloudrun.service.PlayerNameResolver;
 import com.tencent.wxcloudrun.service.SuitConfigService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,6 +62,9 @@ public class PlunderService {
 
     @Autowired
     private SuitConfigService suitConfigService;
+
+    @Autowired
+    private PlayerNameResolver playerNameResolver;
 
     @org.springframework.beans.factory.annotation.Autowired @org.springframework.context.annotation.Lazy
     private com.tencent.wxcloudrun.service.dailytask.DailyTaskService dailyTaskService;
@@ -124,7 +128,7 @@ public class PlunderService {
 
             Map<String, Object> target = new HashMap<>();
             target.put("id", uid);
-            target.put("name", "玩家" + uid.substring(0, Math.min(6, uid.length())));
+            target.put("name", playerNameResolver.resolve(uid));
             target.put("level", uLevel);
             target.put("isNpc", false);
             target.put("silver", parseLongSafe(u.get("silver"), 0));
@@ -239,7 +243,7 @@ public class PlunderService {
             UserResource targetResource = userResourceRepository.findByUserId(targetId);
             if (targetResource == null) throw new BusinessException(400, "玩家不存在");
 
-            targetName = "玩家" + targetId.substring(0, Math.min(6, targetId.length()));
+            targetName = playerNameResolver.resolve(targetId);
             targetLevel = targetResource.getLevel() != null ? targetResource.getLevel() : 1;
             tSilver = targetResource.getSilver() != null ? targetResource.getSilver() : 0;
             tWood = targetResource.getWood() != null ? targetResource.getWood() : 0;

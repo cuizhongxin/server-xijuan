@@ -4,6 +4,7 @@ import com.alibaba.fastjson.JSON;
 import com.tencent.wxcloudrun.dto.ApiResponse;
 import com.tencent.wxcloudrun.model.NationWar;
 import com.tencent.wxcloudrun.model.NationWar.WarBattle;
+import com.tencent.wxcloudrun.service.PlayerNameResolver;
 import com.tencent.wxcloudrun.service.nationwar.NationWarService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -23,6 +24,8 @@ public class NationWarController {
     
     @Autowired
     private NationWarService nationWarService;
+    @Autowired
+    private PlayerNameResolver playerNameResolver;
     
     /**
      * 获取国战地图
@@ -159,7 +162,7 @@ public class NationWarController {
             HttpServletRequest request,
             @RequestBody Map<String, Object> body) {
         String odUserId = String.valueOf(request.getAttribute("userId"));
-        String playerName = (String) body.get("playerName");
+        String playerName = playerNameResolver.resolve(odUserId);
         Integer level = (Integer) body.get("level");
         Integer power = (Integer) body.get("power");
         String targetCityId = (String) body.get("targetCityId");

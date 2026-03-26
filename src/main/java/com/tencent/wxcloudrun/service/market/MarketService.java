@@ -8,6 +8,7 @@ import com.tencent.wxcloudrun.model.UserResource;
 import com.tencent.wxcloudrun.model.Warehouse;
 import com.tencent.wxcloudrun.repository.EquipmentRepository;
 import com.tencent.wxcloudrun.service.UserResourceService;
+import com.tencent.wxcloudrun.service.PlayerNameResolver;
 import com.tencent.wxcloudrun.service.warehouse.WarehouseService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,6 +37,8 @@ public class MarketService {
     private WarehouseService warehouseService;
     @Autowired
     private EquipmentRepository equipmentRepository;
+    @Autowired
+    private PlayerNameResolver playerNameResolver;
 
     static int extractServerId(String compositeUserId) {
         if (compositeUserId == null) return 1;
@@ -307,9 +310,7 @@ public class MarketService {
     }
 
     private String resolveSellerName(String userId) {
-        UserResource res = resourceService.getUserResource(userId);
-        if (res != null && res.getLevel() != null) return "Lv." + res.getLevel() + "主公";
-        return "主公";
+        return playerNameResolver.resolve(userId);
     }
 
     private int resolveQuality(String qStr) {

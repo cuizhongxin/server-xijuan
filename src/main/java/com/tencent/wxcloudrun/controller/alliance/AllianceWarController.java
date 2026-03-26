@@ -5,6 +5,7 @@ import com.tencent.wxcloudrun.dto.ApiResponse;
 import com.tencent.wxcloudrun.model.AllianceWar;
 import com.tencent.wxcloudrun.model.AllianceWar.WarBattle;
 import com.tencent.wxcloudrun.model.AllianceWar.WarParticipant;
+import com.tencent.wxcloudrun.service.PlayerNameResolver;
 import com.tencent.wxcloudrun.service.alliance.AllianceWarService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +25,7 @@ import java.util.Map;
 public class AllianceWarController {
     
     private final AllianceWarService allianceWarService;
+    private final PlayerNameResolver playerNameResolver;
     
     private String getUserId(HttpServletRequest request) {
         return String.valueOf(request.getAttribute("userId"));
@@ -53,7 +55,7 @@ public class AllianceWarController {
             @RequestBody Map<String, Object> body) {
         try {
             String userId = getUserId(request);
-            String playerName = (String) body.get("playerName");
+            String playerName = playerNameResolver.resolve(userId);
             Integer level = body.get("level") != null ? ((Number) body.get("level")).intValue() : 1;
             Long power = body.get("power") != null ? ((Number) body.get("power")).longValue() : 10000L;
             
