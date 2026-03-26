@@ -70,9 +70,9 @@ public class BossWarService {
 
     private static final Map<Integer, String[]> BOSS_CHEST = new LinkedHashMap<>();
     static {
-        BOSS_CHEST.put(BOSS_HJLK, new String[]{"11070", "平乱宝箱", "17001.jpg", "3"});
-        BOSS_CHEST.put(BOSS_DZJT, new String[]{"11071", "征戎宝箱", "17002.jpg", "4"});
-        BOSS_CHEST.put(BOSS_YZJT, new String[]{"11072", "讨逆宝箱", "17003.jpg", "4"});
+        BOSS_CHEST.put(BOSS_HJLK, new String[]{"11070", "平乱宝箱", "11070.jpg", "3"});
+        BOSS_CHEST.put(BOSS_DZJT, new String[]{"11071", "征戎宝箱", "11071.jpg", "4"});
+        BOSS_CHEST.put(BOSS_YZJT, new String[]{"11073", "讨逆宝箱", "11073.jpg", "4"});
     }
 
     private static final String TIANDI_CHEST_ID = "17010";
