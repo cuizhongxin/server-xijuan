@@ -19,6 +19,9 @@ import com.tencent.wxcloudrun.config.TacticsConfig.TacticsTemplate;
 import com.tencent.wxcloudrun.dao.UserTacticsMapper;
 import com.tencent.wxcloudrun.dao.StoryProgressMapper;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
+
 import javax.annotation.PostConstruct;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -28,6 +31,9 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 @RequiredArgsConstructor
 public class CampaignService {
+
+    @Autowired @Lazy
+    private com.tencent.wxcloudrun.service.dailytask.DailyTaskService dailyTaskService;
     
     private final CampaignRepository campaignRepository;
     private final UserResourceService userResourceService;
@@ -928,6 +934,8 @@ public class CampaignService {
         // 扣除精力
         resource.setStamina(resource.getStamina() - campaign.getStaminaCost());
         userResourceService.saveUserResource(resource);
+
+        dailyTaskService.incrementTask(odUserId, "campaign");
         
         // 更新进度（只有 IDLE/COMPLETED 时才从头开始）
         progress.setStatus("IN_PROGRESS");

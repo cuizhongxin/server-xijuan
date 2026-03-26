@@ -24,7 +24,7 @@ public class MarketService {
 
     private static final int MAX_LISTINGS = 10;
     private static final long MAX_PRICE = 50000;
-    private static final long COMMISSION_RATE = 50;
+    private static final long COMMISSION_RATE = 20;
     private static final int PAGE_SIZE = 12;
     private static final long EXPIRE_DAYS = 7;
 

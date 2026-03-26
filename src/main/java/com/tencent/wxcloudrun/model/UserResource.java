@@ -29,6 +29,7 @@ public class UserResource {
     // 体力和令牌
     private Integer stamina;           // 体力
     private Integer maxStamina;        // 最大体力
+    private Long lastStaminaRecoverTime; // 上次精力恢复计算时间戳(ms)
     private Integer generalOrder;      // 将令
     private Integer maxGeneralOrder;   // 最大将令
     private Integer tigerTally;        // 虎符（扫荡用）
@@ -98,7 +99,6 @@ public class UserResource {
     // 时间戳
     private Long createTime;
     private Long updateTime;
-    private Long lastStaminaRecoverTime;  // 上次体力恢复时间
     
     /**
      * 创建默认资源

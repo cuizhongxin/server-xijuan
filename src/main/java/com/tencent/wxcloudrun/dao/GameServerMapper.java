@@ -33,4 +33,15 @@ public interface GameServerMapper {
                       @Param("status") String status,
                       @Param("openTime") long openTime,
                       @Param("maxPlayers") int maxPlayers);
+
+    List<Map<String, Object>> findAllPlayerServers();
+
+    void updateServerStatus(@Param("id") int id, @Param("status") String status);
+
+    void updateServerName(@Param("id") int id, @Param("name") String name);
+
+    List<Map<String, Object>> findPlayerServersByServerId(@Param("serverId") int serverId);
+
+    void migratePlayerServer(@Param("sourceServerId") int sourceServerId,
+                             @Param("targetServerId") int targetServerId);
 }

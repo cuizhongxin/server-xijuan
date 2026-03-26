@@ -57,4 +57,30 @@
         VALUES (#{serverName}, #{status}, #{openTime}, #{maxPlayers}, 0)
     </insert>
 
+    <select id="findAllPlayerServers" resultType="java.util.HashMap">
+        SELECT user_id AS userId, server_id AS serverId, lord_name AS lordName
+        FROM user_server
+    </select>
+
+    <update id="updateServerStatus">
+        UPDATE game_server SET status = #{status} WHERE id = #{id}
+    </update>
+
+    <update id="updateServerName">
+        UPDATE game_server SET name = #{name} WHERE id = #{id}
+    </update>
+
+    <select id="findPlayerServersByServerId" resultType="java.util.HashMap">
+        SELECT user_id AS userId, server_id AS serverId, lord_name AS lordName,
+               create_time AS createTime
+        FROM user_server
+        WHERE server_id = #{serverId}
+        ORDER BY create_time ASC
+    </select>
+
+    <update id="migratePlayerServer">
+        UPDATE user_server SET server_id = #{targetServerId}
+        WHERE server_id = #{sourceServerId}
+    </update>
+
 </mapper>

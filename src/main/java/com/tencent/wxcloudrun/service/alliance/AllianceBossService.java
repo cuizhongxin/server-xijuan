@@ -24,7 +24,8 @@ public class AllianceBossService {
 
     private static final int MAX_DAILY_ATTACKS = 3;
     private static final int FEED_COST_GOLD = 100;
-    private static final int MIN_FEED_QUALITY = 3;
+    private static final int MIN_FEED_QUALITY = 2;
+    private static final int[] QUALITY_FEED_VALUES = {0, 0, 1, 3, 8, 15, 20};
     private static final int SUMMON_MIN_HOUR = 20;
     private static final int SUMMON_MIN_MINUTE = 0;
     private static final int SUMMON_MAX_HOUR = 22;
@@ -150,14 +151,14 @@ public class AllianceBossService {
             int qualityId = (eq.getQuality() != null && eq.getQuality().getId() != null)
                     ? eq.getQuality().getId() : (eq.getQualityValue() != null ? eq.getQualityValue() : 1);
             if (qualityId < MIN_FEED_QUALITY) continue;
-            int value = qualityId * 10;
+            int value = qualityId < QUALITY_FEED_VALUES.length ? QUALITY_FEED_VALUES[qualityId] : qualityId * 10;
             totalValue += value;
             consumedNames.add(eq.getName());
             equipmentMapper.deleteById(eqId);
         }
 
         if (totalValue <= 0) {
-            throw new BusinessException(400, "没有可喂养的装备(需蓝色品质以上)");
+            throw new BusinessException(400, "没有可喂养的装备(需绿色品质以上)");
         }
 
         bossMapper.incrementFeed(bossId, totalValue);

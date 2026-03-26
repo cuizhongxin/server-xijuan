@@ -32,6 +32,9 @@ public class EnhanceService {
     @Autowired
     private WarehouseService warehouseService;
 
+    @org.springframework.beans.factory.annotation.Autowired @org.springframework.context.annotation.Lazy
+    private com.tencent.wxcloudrun.service.dailytask.DailyTaskService dailyTaskService;
+
     // ── APK equipStrnghTrans_cgf.json 强化转移费用表 ──
     private static final Map<Integer, int[]> TRANSFER_COST = new LinkedHashMap<>();
     static {
@@ -157,6 +160,7 @@ public class EnhanceService {
         equipmentRepository.update(equipment);
         
         logger.info("用户 {} 强化装备 {} 到 +{}", userId, equipment.getName(), nextLevel);
+        dailyTaskService.incrementTask(userId, "enhance");
         
         Map<String, Object> result = new HashMap<>();
         result.put("equipment", equipment);

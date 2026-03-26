@@ -52,6 +52,9 @@ public class HeroRankService {
     private final TacticsConfig tacticsConfig;
     private final NationWarService nationWarService;
 
+    @org.springframework.beans.factory.annotation.Autowired @org.springframework.context.annotation.Lazy
+    private com.tencent.wxcloudrun.service.dailytask.DailyTaskService dailyTaskService;
+
     private static final int MAX_DAILY_CHALLENGE = 15;
     private static final long CHALLENGE_CD_MS = 15 * 60 * 1000;
     private static final int SPEED_UP_GOLD = 50;
@@ -258,6 +261,7 @@ public class HeroRankService {
             reportJson, now, today);
 
         syncPower(userId);
+        dailyTaskService.incrementTask(userId, "herorank");
 
         Map<String, Object> result = new HashMap<>();
         result.put("victory", victory);
@@ -498,7 +502,7 @@ public class HeroRankService {
             str(me, "settleDate"), System.currentTimeMillis(), extractServerId(userId));
     }
 
-    private String calcPeerage(long fame, int level) {
+    public String calcPeerage(long fame, int level) {
         List<Map<String, Object>> configs = peerageConfigMapper.findAllPeerage();
         String result = "平民";
         for (Map<String, Object> cfg : configs) {

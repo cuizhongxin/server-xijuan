@@ -47,6 +47,9 @@ public class ProductionService {
 
     @Autowired
     private com.tencent.wxcloudrun.config.TacticsConfig tacticsConfig;
+
+    @org.springframework.beans.factory.annotation.Autowired @org.springframework.context.annotation.Lazy
+    private com.tencent.wxcloudrun.service.dailytask.DailyTaskService dailyTaskService;
     
     // 制造配方（只读配置，保留内存）
     private final List<Recipe> recipes = new ArrayList<>();
@@ -180,6 +183,7 @@ public class ProductionService {
         userResourceService.saveUserResource(resource);
         
         log.info("用户 {} 使用 {} 生产了 {} 资源", odUserId, facility.getName(), output);
+        dailyTaskService.incrementTask(odUserId, "produce");
         
         Map<String, Object> result = new HashMap<>();
         result.put("output", output);
@@ -343,6 +347,64 @@ public class ProductionService {
         userResourceService.saveUserResource(resource);
         return result;
     }
+
+    /**
+     * 资源转换 — 金属/粮食/纸张互转
+     * 普通转换: 100→80(损耗20%), 免费
+     * 无损转换: 100→100, 5黄金
+     */
+    public Map<String, Object> convertResource(String odUserId, String source, String target,
+                                                int amount, boolean lossless) {
+        if (source.equals(target)) throw new RuntimeException("相同资源不可转换");
+        if (amount <= 0) throw new RuntimeException("转换数量无效");
+
+        if (!consumeResource(odUserId, source, amount)) {
+            throw new RuntimeException(getResourceName(source) + "不足");
+        }
+
+        if (lossless) {
+            boolean goldOk = userResourceService.consumeGold(odUserId, 5);
+            if (!goldOk) {
+                addResource(odUserId, source, amount);
+                throw new RuntimeException("黄金不足，无损转换需要5黄金");
+            }
+        }
+
+        int output = lossless ? amount : (int) (amount * 0.8);
+        addResource(odUserId, target, output);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("source", source);
+        result.put("target", target);
+        result.put("inputAmount", amount);
+        result.put("outputAmount", output);
+        result.put("lossless", lossless);
+        result.put("goldCost", lossless ? 5 : 0);
+        log.info("用户 {} 资源转换: {}({}) → {}({}), 无损={}", odUserId, source, amount, target, output, lossless);
+        return result;
+    }
+
+    private boolean consumeResource(String userId, String type, long amount) {
+        switch (type) {
+            case "metal": return userResourceService.consumeMetal(userId, amount);
+            case "food": return userResourceService.consumeFood(userId, amount);
+            case "paper": return userResourceService.consumePaper(userId, amount);
+            default: throw new RuntimeException("无效的资源类型: " + type);
+        }
+    }
+
+    private void addResource(String userId, String type, long amount) {
+        switch (type) {
+            case "metal": userResourceService.addMetal(userId, amount); break;
+            case "food": userResourceService.addFood(userId, amount); break;
+            case "paper": userResourceService.addPaper(userId, amount); break;
+            default: throw new RuntimeException("无效的资源类型: " + type);
+        }
+    }
+
+    private String getResourceName(String type) {
+        switch (type) { case "metal": return "金属"; case "food": return "粮食"; case "paper": return "纸张"; default: return type; }
+    }
     
     // ========== APK 装备穿戴等级 + 基础属性 (equipInfo_cfg.json) ==========
     private static final Map<String, int[]> EQUIP_INFO = new HashMap<>();
@@ -409,8 +471,9 @@ public class ProductionService {
         Random random = new Random();
         String equipId = recipe.getResultId();
 
-        // 1. 按APK概率随机品质
-        int qualityLevel = rollEquipQuality(random);
+        // 1. 按APK概率随机品质（虎啸套装强制完美）
+        boolean isTigerRoar = recipe.getResultName() != null && recipe.getResultName().contains("虎啸");
+        int qualityLevel = isTigerRoar ? 5 : rollEquipQuality(random);
         String qualityPrefix = QUALITY_NAMES[qualityLevel];
         int attrRate = QUALITY_ATTR_RATE[qualityLevel]; // 万分比
 

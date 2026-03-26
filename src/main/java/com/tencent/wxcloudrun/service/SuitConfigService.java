@@ -8,6 +8,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.tencent.wxcloudrun.config.EquipmentConfig;
+
 import javax.annotation.PostConstruct;
 import java.util.*;
 
@@ -40,7 +42,7 @@ public class SuitConfigService {
     }
 
     /**
-     * 按装备的 setInfo.setId 统计各套装件数，再从 suit_config 按名称查加成
+     * 按装备的 setInfo.setId 统计各套装件数
      */
     private Map<String, Integer> countEquippedSets(List<Equipment> equips) {
         Map<String, Integer> setCounts = new HashMap<>();
@@ -51,6 +53,27 @@ public class SuitConfigService {
             }
         }
         return setCounts;
+    }
+
+    /**
+     * 计算同套装装备的品质缩放比例（平均 attrRate / 10000）
+     * 粗糙=0.80, 普通=0.85, 优良=0.90, 无暇=0.95, 完美=1.00
+     */
+    private Map<String, Double> calcSetQualityRate(List<Equipment> equips) {
+        Map<String, List<Double>> ratesBySet = new HashMap<>();
+        for (Equipment eq : equips) {
+            Equipment.SetInfo si = eq.getSetInfo();
+            if (si == null || si.getSetId() == null || si.getSetId().isEmpty()) continue;
+            int qv = eq.getQualityValue() != null && eq.getQualityValue() > 0 ? eq.getQualityValue() : 1;
+            double rate = EquipmentConfig.getEquipQualityLevel(qv).attrRate / 10000.0;
+            ratesBySet.computeIfAbsent(si.getSetId(), k -> new ArrayList<>()).add(rate);
+        }
+        Map<String, Double> result = new HashMap<>();
+        for (Map.Entry<String, List<Double>> e : ratesBySet.entrySet()) {
+            double avg = e.getValue().stream().mapToDouble(Double::doubleValue).average().orElse(1.0);
+            result.put(e.getKey(), avg);
+        }
+        return result;
     }
 
     private Map<String, Object> findSuitBySetId(String setId) {
@@ -72,6 +95,7 @@ public class SuitConfigService {
         if (equips == null || equips.isEmpty()) return result;
 
         Map<String, Integer> setCounts = countEquippedSets(equips);
+        Map<String, Double> qualityRates = calcSetQualityRate(equips);
 
         for (Map.Entry<String, Integer> entry : setCounts.entrySet()) {
             String setId = entry.getKey();
@@ -81,20 +105,23 @@ public class SuitConfigService {
             Map<String, Object> suit = findSuitBySetId(setId);
             if (suit == null) continue;
 
+            double qRate = qualityRates.getOrDefault(setId, 1.0);
+
             String suitName = getStr(suit, "name");
-            int genAtt = getInt(suit, "gen_att");
-            int genDef = getInt(suit, "gen_def");
-            int genFor = getInt(suit, "gen_for");
-            int genLeader = getInt(suit, "gen_leader");
-            int armyLife = getInt(suit, "army_life");
-            int armySp = getInt(suit, "army_sp");
-            int armyHit = getInt(suit, "army_hit");
-            int armyMis = getInt(suit, "army_mis");
+            int genAtt = (int)(getInt(suit, "gen_att") * qRate);
+            int genDef = (int)(getInt(suit, "gen_def") * qRate);
+            int genFor = (int)(getInt(suit, "gen_for") * qRate);
+            int genLeader = (int)(getInt(suit, "gen_leader") * qRate);
+            int armyLife = (int)(getInt(suit, "army_life") * qRate);
+            int armySp = (int)(getInt(suit, "army_sp") * qRate);
+            int armyHit = (int)(getInt(suit, "army_hit") * qRate);
+            int armyMis = (int)(getInt(suit, "army_mis") * qRate);
 
             SuitEffect effect = new SuitEffect();
             effect.suitName = suitName;
             effect.matchCount = count;
             effect.total = 6;
+            effect.qualityRate = qRate;
 
             effect.threeActive = true;
             result.attack += genAtt;
@@ -154,6 +181,7 @@ public class SuitConfigService {
         }
 
         Map<String, Integer> setCounts = countEquippedSets(equips);
+        Map<String, Double> qualityRates = calcSetQualityRate(equips);
         for (Map.Entry<String, Integer> entry : setCounts.entrySet()) {
             String setId = entry.getKey();
             int count = entry.getValue();
@@ -162,16 +190,17 @@ public class SuitConfigService {
             Map<String, Object> suit = findSuitBySetId(setId);
             if (suit == null) continue;
 
-            bonus.merge("attack", getInt(suit, "gen_att"), Integer::sum);
-            bonus.merge("defense", getInt(suit, "gen_def"), Integer::sum);
+            double qRate = qualityRates.getOrDefault(setId, 1.0);
+            bonus.merge("attack", (int)(getInt(suit, "gen_att") * qRate), Integer::sum);
+            bonus.merge("defense", (int)(getInt(suit, "gen_def") * qRate), Integer::sum);
 
             if (count >= 6) {
-                bonus.merge("valor", getInt(suit, "gen_for"), Integer::sum);
-                bonus.merge("command", getInt(suit, "gen_leader"), Integer::sum);
-                bonus.merge("hp", getInt(suit, "army_life"), Integer::sum);
-                bonus.merge("mobility", getInt(suit, "army_sp"), Integer::sum);
-                bonus.merge("hit", getInt(suit, "army_hit"), Integer::sum);
-                bonus.merge("dodge", getInt(suit, "army_mis"), Integer::sum);
+                bonus.merge("valor", (int)(getInt(suit, "gen_for") * qRate), Integer::sum);
+                bonus.merge("command", (int)(getInt(suit, "gen_leader") * qRate), Integer::sum);
+                bonus.merge("hp", (int)(getInt(suit, "army_life") * qRate), Integer::sum);
+                bonus.merge("mobility", (int)(getInt(suit, "army_sp") * qRate), Integer::sum);
+                bonus.merge("hit", (int)(getInt(suit, "army_hit") * qRate), Integer::sum);
+                bonus.merge("dodge", (int)(getInt(suit, "army_mis") * qRate), Integer::sum);
             }
         }
 
@@ -261,5 +290,6 @@ public class SuitConfigService {
         public int matchCount, total;
         public boolean threeActive, sixActive;
         public String threeDesc, sixDesc;
+        public double qualityRate = 1.0;
     }
 }

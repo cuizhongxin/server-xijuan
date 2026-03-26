@@ -152,4 +152,16 @@
         LIMIT #{limit}
     </select>
 
+    <delete id="deleteByServerId">
+        DELETE FROM hero_rank WHERE server_id = #{serverId}
+    </delete>
+
+    <select id="findRealPlayersByServerId" resultType="java.util.HashMap">
+        SELECT user_id AS userId, user_name AS userName, level, power, fame,
+               rank_name AS rankName, nation, update_time AS updateTime
+        FROM hero_rank
+        WHERE server_id = #{serverId} AND user_id NOT LIKE 'npc_hero_%'
+        ORDER BY power DESC
+    </select>
+
 </mapper>

@@ -427,8 +427,14 @@ public class RefineService {
 
         Random rng = new Random();
         Equipment donor = equipments.get(rng.nextInt(3));
-        int qualityValueId = donor.getQualityValue() != null && donor.getQualityValue() > 0
-                ? donor.getQualityValue() : EquipmentConfig.rollEquipQuality();
+        // 虎啸套装融合结果强制完美品质
+        int qualityValueId;
+        if ("虎啸".equals(setId)) {
+            qualityValueId = 5;
+        } else {
+            qualityValueId = donor.getQualityValue() != null && donor.getQualityValue() > 0
+                    ? donor.getQualityValue() : EquipmentConfig.rollEquipQuality();
+        }
         EquipmentConfig.EquipQualityLevel ql = EquipmentConfig.getEquipQualityLevel(qualityValueId);
         double attrRate = ql.attrRate / 10000.0;
 

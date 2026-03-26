@@ -98,6 +98,9 @@ public class MailService {
                 case "paper":
                     userResourceService.addPaper(userId, count);
                     break;
+                case "vipPoints":
+                    userResourceService.addVipPoints(userId, count);
+                    break;
                 default:
                     // item / equipment -> 放入仓库
                     String itemId = String.valueOf(att.get("item_id"));

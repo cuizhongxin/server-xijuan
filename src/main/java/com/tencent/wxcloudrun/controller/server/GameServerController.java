@@ -9,9 +9,12 @@ import com.tencent.wxcloudrun.service.formation.FormationService;
 import com.tencent.wxcloudrun.service.UserResourceService;
 import com.tencent.wxcloudrun.service.alliance.AllianceBossService;
 import com.tencent.wxcloudrun.service.herorank.HeroRankService;
+import com.tencent.wxcloudrun.service.server.ServerMergeService;
+import com.tencent.wxcloudrun.service.mail.MailService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
@@ -43,6 +46,12 @@ public class GameServerController {
 
     @Autowired
     private AllianceBossService allianceBossService;
+
+    @Autowired
+    private ServerMergeService serverMergeService;
+
+    @Autowired
+    private MailService mailService;
 
     /**
      * 获取区服列表 + 公告 + 玩家已有角色信息
@@ -182,6 +191,22 @@ public class GameServerController {
             logger.error("创建初始武将失败 userId={}", gameUserId, e);
         }
 
+        // 发放新玩家欢迎邮件: 选国礼包 + 3000黄金
+        try {
+            List<Map<String, Object>> welcomeAtts = new ArrayList<>();
+            Map<String, Object> goldAtt = new LinkedHashMap<>();
+            goldAtt.put("type", "gold");
+            goldAtt.put("itemName", "黄金");
+            goldAtt.put("count", 3000);
+            welcomeAtts.add(goldAtt);
+            mailService.sendSystemMail(gameUserId, "新手礼包",
+                    "欢迎来到三国霸业！这是你的新手礼包，包含3000黄金。\n请尽快选择阵营(魏/蜀/吴)，开启你的征程！",
+                    welcomeAtts);
+            logger.info("新玩家欢迎邮件已发送: {}", gameUserId);
+        } catch (Exception e) {
+            logger.error("发送新玩家欢迎邮件失败: {}", gameUserId, e);
+        }
+
         Map<String, Object> result = new HashMap<>();
         result.put("serverId", serverId);
         result.put("serverName", server.get("serverName"));
@@ -277,6 +302,26 @@ public class GameServerController {
     }
 
     /**
+     * 合区（仅管理员 userId=1）
+     * 将 sourceServerId 合入 targetServerId
+     */
+    @PostMapping("/admin/merge")
+    public ApiResponse<Map<String, Object>> mergeServer(HttpServletRequest request,
+                                                         @RequestBody Map<String, Object> body) {
+        String rawUserId = getUserId(request);
+        if (!"1".equals(rawUserId)) {
+            return ApiResponse.error(403, "无权操作");
+        }
+
+        int sourceServerId = ((Number) body.get("sourceServerId")).intValue();
+        int targetServerId = ((Number) body.get("targetServerId")).intValue();
+
+        logger.info("管理员发起合区: {} -> {}", sourceServerId, targetServerId);
+        Map<String, Object> result = serverMergeService.mergeServer(sourceServerId, targetServerId);
+        return ApiResponse.success(result);
+    }
+
+    /**
      * 获取区服管理列表（仅管理员 userId=1）
      */
     @GetMapping("/admin/list")
@@ -290,5 +335,48 @@ public class GameServerController {
 
     private String getUserId(HttpServletRequest request) {
         return String.valueOf(request.getAttribute("rawUserId"));
+    }
+
+    /**
+     * 每日福利: 每天00:05通过邮件给所有主公发放3000黄金 + 300VIP点数
+     */
+    @Scheduled(cron = "0 5 0 * * ?", zone = "Asia/Shanghai")
+    public void dailyWelfareMail() {
+        logger.info("[每日福利] 开始发放每日邮件奖励...");
+        try {
+            List<Map<String, Object>> allPlayers = serverMapper.findAllPlayerServers();
+            if (allPlayers == null || allPlayers.isEmpty()) {
+                logger.info("[每日福利] 无玩家数据，跳过");
+                return;
+            }
+            int sent = 0;
+            for (Map<String, Object> ps : allPlayers) {
+                String rawUserId = String.valueOf(ps.get("userId"));
+                int serverId = ((Number) ps.get("serverId")).intValue();
+                String gameUserId = rawUserId + "_" + serverId;
+                try {
+                    List<Map<String, Object>> atts = new ArrayList<>();
+                    Map<String, Object> goldAtt = new LinkedHashMap<>();
+                    goldAtt.put("type", "gold");
+                    goldAtt.put("itemName", "黄金");
+                    goldAtt.put("count", 3000);
+                    atts.add(goldAtt);
+                    Map<String, Object> vipAtt = new LinkedHashMap<>();
+                    vipAtt.put("type", "vipPoints");
+                    vipAtt.put("itemName", "VIP点数");
+                    vipAtt.put("count", 300);
+                    atts.add(vipAtt);
+                    mailService.sendSystemMail(gameUserId, "每日俸禄",
+                            "主公辛苦了！这是你今日的俸禄：3000黄金、300VIP点数。\n请及时领取！",
+                            atts);
+                    sent++;
+                } catch (Exception e) {
+                    logger.warn("[每日福利] 发送失败: {}", gameUserId, e);
+                }
+            }
+            logger.info("[每日福利] 发放完成，共发送 {} 封邮件", sent);
+        } catch (Exception e) {
+            logger.error("[每日福利] 发放异常", e);
+        }
     }
 }

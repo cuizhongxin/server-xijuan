@@ -269,7 +269,19 @@ public class BattleCalculator {
                 * (1.0 - commandReduction)
                 * randomFactor;
 
-        int soldierLife = attacker.targetSoldierLife > 0 ? attacker.targetSoldierLife : getSoldierLife(target.troopType, target.soldierTier);
+        // 名将特性：攻击方士兵伤害直加（不经攻防公式）
+        finalDamage += attacker.traitDmgBonus;
+
+        // 名将特性：防御方伤害抵抗（直减）
+        if (target.traitDamageResist > 0) {
+            finalDamage = Math.max(0, finalDamage - target.traitDamageResist);
+        }
+
+        // 名将特性：防御方士兵生命%提升
+        int baseSoldierLife = attacker.targetSoldierLife > 0
+                ? attacker.targetSoldierLife : getSoldierLife(target.troopType, target.soldierTier);
+        int soldierLife = (int)(baseSoldierLife * (1.0 + target.traitLifePct / 100.0));
+
         int soldierLoss;
         if (finalDamage <= 0) {
             soldierLoss = 1 + random.nextInt(5);
@@ -536,7 +548,10 @@ public class BattleCalculator {
         public int soldierCount;    // 当前士兵数（=血量）
         public int maxSoldierCount; // 满编士兵数（=最大血量）
         public int soldierLife;     // 单兵生命值（用于计算杀伤）
-        public int traitDmgBonus;   // 天赋平坦伤害加成
+        public int traitDmgBonus;   // 名将特性：士兵伤害直加
+        public int traitDamageResist; // 名将特性：伤害抵抗
+        public double traitLifePct;   // 名将特性：士兵生命%提升
+        public boolean traitImmuneAmbush; // 名将特性：免疫偷袭
         public int targetSoldierLife; // 仅用于特殊覆写
         public int position;        // 阵型位置 0~5
         public String name;

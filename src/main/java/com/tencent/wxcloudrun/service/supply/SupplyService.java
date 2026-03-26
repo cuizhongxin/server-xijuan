@@ -54,6 +54,7 @@ public class SupplyService {
     @Autowired @Lazy private com.tencent.wxcloudrun.service.formation.FormationService formationService;
     @Autowired private BattleService battleService;
     @Autowired private SuitConfigService suitConfigService;
+    @Autowired @org.springframework.context.annotation.Lazy private com.tencent.wxcloudrun.service.dailytask.DailyTaskService dailyTaskService;
 
     private List<Map<String, Object>> gradeConfigs = new ArrayList<>();
 
@@ -234,6 +235,7 @@ public class SupplyService {
         result.put("nextGradeId", nextGradeId);
         result.put("nextGrade", getGradeConfig(nextGradeId));
         logger.info("用户 {} 开始运送 {} 军需", userId, gradeConfig.get("name"));
+        dailyTaskService.incrementTask(userId, "supply");
         return result;
     }
 

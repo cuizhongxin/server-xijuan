@@ -110,6 +110,7 @@ public class BossWarService {
     @Autowired private UserResourceService userResourceService;
     @Autowired private WarehouseService warehouseService;
     @Autowired private EquipmentService equipmentService;
+    @Autowired @org.springframework.context.annotation.Lazy private com.tencent.wxcloudrun.service.dailytask.DailyTaskService dailyTaskService;
 
     private final Random random = new Random();
 
@@ -309,7 +310,45 @@ public class BossWarService {
         bm.put("myAttackCount", myAttackCount);
         bm.put("cooldown", cooldown);
 
+        if ("active".equals(state.status)) {
+            List<Map<String, Object>> liveRanking = worldBossMapper.findDamageRanking(
+                    serverId, t.id, state.windowStartMs, 10);
+            for (Map<String, Object> r : liveRanking) {
+                r.put("playerName", resolvePlayerName((String) r.get("userId")));
+            }
+            bm.put("liveRanking", liveRanking);
+        } else {
+            bm.put("lastBattleReport", buildLastBattleReport(serverId, t, state));
+        }
+
         return bm;
+    }
+
+    private Map<String, Object> buildLastBattleReport(int serverId, BossTemplate t, BossState state) {
+        Map<String, Object> report = new HashMap<>();
+        report.put("bossName", t.name);
+        report.put("killed", "killed".equals(state.status));
+        report.put("killer", state.lastKiller != null && !state.lastKiller.isEmpty()
+                ? resolvePlayerName(state.lastKiller) : null);
+
+        String[] chestInfo = BOSS_CHEST.get(t.id);
+        String chestName = chestInfo != null ? chestInfo[1] : "";
+
+        List<Map<String, Object>> ranking = worldBossMapper.findDamageRanking(
+                serverId, t.id, state.windowStartMs, 3);
+        int[] chestCounts = {2, 1, 1};
+        List<Map<String, Object>> topList = new ArrayList<>();
+        for (int i = 0; i < Math.min(3, ranking.size()); i++) {
+            Map<String, Object> entry = new HashMap<>();
+            entry.put("rank", i + 1);
+            entry.put("playerName", resolvePlayerName((String) ranking.get(i).get("userId")));
+            entry.put("damage", ranking.get(i).get("totalDamage"));
+            entry.put("chestName", "killed".equals(state.status) ? chestName : "");
+            entry.put("chestCount", "killed".equals(state.status) ? chestCounts[i] : 0);
+            topList.add(entry);
+        }
+        report.put("top3", topList);
+        return report;
     }
 
     // ═══════════════════════════════════════════
@@ -365,7 +404,7 @@ public class BossWarService {
             throw new RuntimeException("Boss已被击杀");
         }
 
-        BattleService.BattleReport report = battleService.fight(sideA, sideB, 20);
+        BattleService.BattleReport report = battleService.fight(sideA, sideB, 1);
 
         int totalDamage = 0;
         int unitsKilled = 0;
@@ -437,6 +476,7 @@ public class BossWarService {
 
         logger.info("Boss战: userId={}, serverId={}, bossId={}, damage={}, unitsKilled={}, killed={}",
                 userId, serverId, bossId, totalDamage, unitsKilled, allDead);
+        dailyTaskService.incrementTask(userId, "boss");
 
         return result;
     }

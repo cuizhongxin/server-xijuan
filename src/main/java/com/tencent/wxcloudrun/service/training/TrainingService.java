@@ -42,6 +42,9 @@ public class TrainingService {
     
     @Autowired
     private GeneralRepository generalRepository;
+
+    @org.springframework.beans.factory.annotation.Autowired @org.springframework.context.annotation.Lazy
+    private com.tencent.wxcloudrun.service.dailytask.DailyTaskService dailyTaskService;
     
     // 训练类型
     public static final String TRAINING_LORD = "lord";      // 主公练兵
@@ -206,6 +209,7 @@ public class TrainingService {
         
         logger.info("用户 {} 训练武将 {}，类型：{}，粮食等级：{}，数量：{}，主公经验+{}，武将经验+{}",
             userId, general.getName(), trainingType, foodGrade, count, lordExp, generalExp);
+        dailyTaskService.incrementTask(userId, "training");
         
         // 构建返回结果
         Map<String, Object> result = new HashMap<>();

@@ -347,6 +347,44 @@ public class FormationService {
 
             Map<String, Integer> eq = calculateEquipmentBonus(g.getId());
 
+            // 加载名将特性并应用到战斗属性
+            int traitAtkBonus = 0, traitDefBonus = 0, traitDmgBonus = 0;
+            int traitDamageResist = 0, traitSoldierCount = 0;
+            double traitLifePct = 0;
+            boolean traitImmuneAmbush = false;
+            double traitTacticsMultiplier = 1.0;
+
+            List<Map<String, Object>> traits = generalService.loadFamousTraitData(g.getName());
+            for (Map<String, Object> t : traits) {
+                String effectType = (String) t.get("effectType");
+                int effectValue = t.get("effectValue") != null ? ((Number) t.get("effectValue")).intValue() : 0;
+                int troopR = t.get("troopRestrict") != null ? ((Number) t.get("troopRestrict")).intValue() : 0;
+                boolean troopMatch = (troopR == 0 || troopR == troopType);
+
+                if (!troopMatch) continue;
+
+                switch (effectType) {
+                    case "soldier_damage":  traitDmgBonus += effectValue; break;
+                    case "troop_damage":    traitDmgBonus += effectValue; break;
+                    case "army_attack":     traitAtkBonus += effectValue; break;
+                    case "troop_attack":    traitAtkBonus += effectValue; break;
+                    case "army_defense":    traitDefBonus += effectValue; break;
+                    case "troop_defense":   traitDefBonus += effectValue; break;
+                    case "damage_resist":   traitDamageResist += effectValue; break;
+                    case "soldier_life_pct": traitLifePct += effectValue; break;
+                    case "army_mobility":   break; // 下面单独处理
+                    case "army_dodge":      break;
+                    case "soldier_count":   traitSoldierCount += effectValue; break;
+                    case "tactics_prob":    traitTacticsMultiplier = 2.0; break;
+                    case "troop_tactics":   traitTacticsMultiplier = 2.0; break;
+                    case "immune_ambush":   traitImmuneAmbush = true; break;
+                }
+            }
+
+            int adjustedMaxSoldiers = maxSoldiers + traitSoldierCount;
+            int adjustedSc = Math.min(sc + traitSoldierCount, adjustedMaxSoldiers);
+            int adjustedFormLv = BattleCalculator.maxPeopleToFormationLevel(adjustedMaxSoldiers);
+
             BattleCalculator.BattleUnit u = BattleCalculator.assembleBattleUnit(
                     g.getName(), level,
                     g.getAttrAttack() != null ? g.getAttrAttack() : 100,
@@ -355,16 +393,29 @@ public class FormationService {
                     g.getAttrCommand() != null ? g.getAttrCommand() : 10,
                     g.getAttrDodge() != null ? (int) Math.round(g.getAttrDodge()) : 5,
                     g.getAttrMobility() != null ? g.getAttrMobility() : 15,
-                    troopType, tier, sc, maxSoldiers, formLv,
+                    troopType, tier, adjustedSc, adjustedMaxSoldiers, adjustedFormLv,
                     eq.getOrDefault("attack", 0), eq.getOrDefault("defense", 0),
                     eq.getOrDefault("speed", 0), eq.getOrDefault("hit", 0),
                     eq.getOrDefault("dodge", 0),
-                    0, 0, 0);
+                    traitAtkBonus, traitDefBonus, traitDmgBonus);
             u.position = slot.getIndex();
+            u.traitDamageResist = traitDamageResist;
+            u.traitLifePct = traitLifePct;
+            u.traitImmuneAmbush = traitImmuneAmbush;
 
+            // 名将特性中的机动和闪避加成
+            for (Map<String, Object> t : traits) {
+                String effectType = (String) t.get("effectType");
+                int effectValue = t.get("effectValue") != null ? ((Number) t.get("effectValue")).intValue() : 0;
+                int troopR = t.get("troopRestrict") != null ? ((Number) t.get("troopRestrict")).intValue() : 0;
+                if (troopR != 0 && troopR != troopType) continue;
+                if ("army_mobility".equals(effectType)) u.mobility += effectValue;
+                if ("army_dodge".equals(effectType)) u.dodge += effectValue;
+            }
+
+            u.tacticsTriggerMultiplier = traitTacticsMultiplier;
             if (g.getSlotId() != null && g.getSlotId() > 0) {
                 u.tacticsTriggerBonus = generalService.getTacticsTriggerBonus(g.getSlotId());
-                u.tacticsTriggerMultiplier = generalService.getTacticsTriggerMultiplier(g.getSlotId());
             }
             if (g.getTacticsId() != null) {
                 TacticsConfig.TacticsTemplate tt = tacticsConfig.getById(g.getTacticsId());

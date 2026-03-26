@@ -1,5 +1,6 @@
 package com.tencent.wxcloudrun.service.general;
 
+import com.tencent.wxcloudrun.dao.GeneralFamousTraitMapper;
 import com.tencent.wxcloudrun.dao.GeneralSlotMapper;
 import com.tencent.wxcloudrun.dao.GeneralSlotTraitMapper;
 import com.tencent.wxcloudrun.dao.GeneralTemplateMapper;
@@ -40,6 +41,8 @@ public class GeneralService {
     private GeneralSlotTraitMapper generalSlotTraitMapper;
     @Autowired
     private GeneralTemplateMapper generalTemplateMapper;
+    @Autowired
+    private GeneralFamousTraitMapper generalFamousTraitMapper;
 
     public List<General> getUserGenerals(String userId) {
         return generalRepository.findByUserId(userId);
@@ -129,8 +132,11 @@ public class GeneralService {
             logger.warn("查询武将模板头像失败: name={}", name, e);
         }
         
-        // 从 general_slot_trait 查询名将特性
-        List<String> traitDescs = loadTraitDescsBySlotId(slotId);
+        // 优先从新名将特性表加载，降级用旧 slot 特性
+        List<String> traitDescs = loadFamousTraits(name);
+        if (traitDescs.isEmpty()) {
+            traitDescs = loadTraitDescsBySlotId(slotId);
+        }
         
         return General.builder()
             .id(id).userId(userId).name(name).avatar(avatar).faction(faction)
@@ -149,7 +155,43 @@ public class GeneralService {
     }
     
     /**
-     * 根据 slotId 加载特性描述列表，用于前端展示
+     * 按武将名从 general_famous_trait 加载独立具名特性（APK 风格）
+     * 返回格式: ["战神：属下士兵伤害＋500", "赤兔飞将：骑兵兵法发动概率增加"]
+     */
+    public List<String> loadFamousTraits(String generalName) {
+        List<String> result = new ArrayList<>();
+        if (generalName == null || generalName.isEmpty()) return result;
+        try {
+            List<Map<String, Object>> rows = generalFamousTraitMapper.findByGeneralName(generalName);
+            if (rows != null) {
+                for (Map<String, Object> row : rows) {
+                    String name = (String) row.get("traitName");
+                    String desc = (String) row.get("traitDesc");
+                    result.add(name + "：" + desc);
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("查询名将特性失败: name={}", generalName, e);
+        }
+        return result;
+    }
+
+    /**
+     * 按武将名加载特性的结构化数据（用于战斗计算）
+     */
+    public List<Map<String, Object>> loadFamousTraitData(String generalName) {
+        if (generalName == null || generalName.isEmpty()) return Collections.emptyList();
+        try {
+            List<Map<String, Object>> rows = generalFamousTraitMapper.findByGeneralName(generalName);
+            return rows != null ? rows : Collections.emptyList();
+        } catch (Exception e) {
+            logger.warn("查询名将特性数据失败: name={}", generalName, e);
+            return Collections.emptyList();
+        }
+    }
+
+    /**
+     * 兼容旧接口：根据 slotId 加载特性（降级用）
      */
     private List<String> loadTraitDescsBySlotId(int slotId) {
         List<String> result = new ArrayList<>();
@@ -170,7 +212,7 @@ public class GeneralService {
         }
         return result;
     }
-    
+
     private String formatTraitDesc(String traitType, String traitValue) {
         if ("special".equals(traitType)) return traitValue != null ? traitValue : "";
         if ("tactics_trigger".equals(traitType)) return "兵法发动概率翻倍";
@@ -557,62 +599,218 @@ public class GeneralService {
         return result;
     }
 
+    // ============ APK 1:1 将领进阶系统 ============
+    // 紫色名将: 仅需进阶之书 x1
+    // 橙色名将: 进阶之书 x1 + 献祭指定武将(被消耗)
+
+    private static final Map<String, String[]> ADVANCE_TABLE = new LinkedHashMap<>();
+    static {
+        // {狂将名, 品质, 阵营, 特性名, 特性效果}
+        ADVANCE_TABLE.put("华雄",   new String[]{"华雄(狂)",   "4", "群", "统领进阶", "军队满编人数+60"});
+        ADVANCE_TABLE.put("高顺",   new String[]{"高顺(狂)",   "4", "群", "统领进阶", "军队满编人数+60"});
+        ADVANCE_TABLE.put("公孙瓒", new String[]{"公孙瓒(狂)", "4", "群", "统领进阶", "军队满编人数+60"});
+        ADVANCE_TABLE.put("吕布",   new String[]{"吕布(狂)",   "5", "群", "急速狂攻", "机动性+4"});
+        ADVANCE_TABLE.put("曹仁",   new String[]{"曹仁(狂)",   "4", "魏", "狂暴攻击", "军队攻击力+310"});
+        ADVANCE_TABLE.put("夏侯渊", new String[]{"夏侯渊(狂)", "4", "魏", "狂暴攻击", "军队攻击力+310"});
+        ADVANCE_TABLE.put("张辽",   new String[]{"张辽(狂)",   "5", "魏", "铁骑纵横", "骑兵战法发动概率提升"});
+        ADVANCE_TABLE.put("关平",   new String[]{"关平(狂)",   "4", "蜀", "狂暴攻击", "军队攻击力+310"});
+        ADVANCE_TABLE.put("关兴",   new String[]{"关兴(狂)",   "4", "蜀", "狂暴攻击", "军队攻击力+310"});
+        ADVANCE_TABLE.put("关羽",   new String[]{"关羽(狂)",   "5", "蜀", "铁骑纵横", "骑兵战法发动概率提升"});
+        ADVANCE_TABLE.put("丁奉",   new String[]{"丁奉(狂)",   "4", "吴", "狂暴攻击", "军队攻击力+310"});
+        ADVANCE_TABLE.put("程普",   new String[]{"程普(狂)",   "4", "吴", "狂暴攻击", "军队攻击力+310"});
+        ADVANCE_TABLE.put("凌统",   new String[]{"凌统(狂)",   "5", "吴", "铁骑纵横", "骑兵战法发动概率提升"});
+    }
+
+    /** 橙色名将进阶需要献祭的武将(被消耗) */
+    private static final Map<String, String[]> ADVANCE_SACRIFICE = new LinkedHashMap<>();
+    static {
+        ADVANCE_SACRIFICE.put("吕布", new String[]{"华雄(狂)", "马腾"});
+        ADVANCE_SACRIFICE.put("张辽", new String[]{"曹仁(狂)", "夏侯渊(狂)"});
+        ADVANCE_SACRIFICE.put("关羽", new String[]{"关平(狂)", "关兴(狂)"});
+        ADVANCE_SACRIFICE.put("凌统", new String[]{"丁奉(狂)", "程普(狂)"});
+    }
+
+    private static final String ADVANCE_BOOK_ITEM_ID = "15016";
+
     /**
-     * 武将进阶
+     * 武将进阶 — APK 1:1 还原
+     * 紫色: 消耗进阶之书 x1
+     * 橙色: 消耗进阶之书 x1 + 献祭指定武将
      */
     public Map<String, Object> advanceGeneral(String userId, String generalId) {
         General general = generalRepository.findById(generalId);
         if (general == null) throw new RuntimeException("武将不存在");
         if (!general.getUserId().equals(userId)) throw new RuntimeException("无权操作");
 
-        int currentStar = general.getQualityStar() != null ? general.getQualityStar() : 0;
-        if (currentStar >= 5) throw new RuntimeException("已达最高星级");
-
-        int requiredLevel = (currentStar + 1) * 10;
-        if (general.getLevel() < requiredLevel) {
-            throw new RuntimeException("武将等级需达到" + requiredLevel + "级");
+        String name = general.getName();
+        if (name != null && name.endsWith("(狂)")) {
+            throw new RuntimeException("该将领已经进阶过了");
         }
 
-        long goldCost = (currentStar + 1) * 500L;
-        boolean consumed = userResourceService.consumeGold(userId, goldCost);
-        if (!consumed) throw new RuntimeException("黄金不足，需要" + goldCost);
+        String[] advData = name != null ? ADVANCE_TABLE.get(name) : null;
+        if (advData == null) {
+            throw new RuntimeException("该将领不可进阶，仅限特定名将");
+        }
 
-        general.setQualityStar(currentStar + 1);
+        // 检查并消耗献祭武将(橙色名将需要)
+        String[] sacrificeNames = ADVANCE_SACRIFICE.get(name);
+        List<General> sacrificeGenerals = new ArrayList<>();
+        if (sacrificeNames != null) {
+            List<General> allGenerals = generalRepository.findByUserId(userId);
+            for (String sacName : sacrificeNames) {
+                General found = null;
+                for (General g : allGenerals) {
+                    if (sacName.equals(g.getName()) && !g.getId().equals(generalId)) {
+                        found = g;
+                        break;
+                    }
+                }
+                if (found == null) {
+                    throw new RuntimeException("缺少献祭武将: " + sacName);
+                }
+                sacrificeGenerals.add(found);
+            }
+        }
+
+        boolean consumed = warehouseService.removeItem(userId, ADVANCE_BOOK_ITEM_ID, 1);
+        if (!consumed) {
+            throw new RuntimeException("进阶之书不足，可在生产中制造(需50级，5000银+20000纸)");
+        }
+
+        // 消耗献祭武将
+        List<String> sacrificedNames = new ArrayList<>();
+        for (General sac : sacrificeGenerals) {
+            sacrificedNames.add(sac.getName());
+            generalRepository.delete(sac.getId());
+            logger.info("进阶献祭武将: {} (id={})", sac.getName(), sac.getId());
+        }
+
+        String newName = advData[0];
+        String traitName = advData[4];
+        String traitDesc = advData[5];
+
+        general.setName(newName);
+
+        int baseAtk = general.getAttrAttack() != null ? general.getAttrAttack() : 0;
+        int baseDef = general.getAttrDefense() != null ? general.getAttrDefense() : 0;
+        general.setAttrAttack(baseAtk + general.getLevel());
+        general.setAttrDefense(baseDef + general.getLevel());
+
+        List<String> traits = general.getTraits() != null ? new ArrayList<>(general.getTraits()) : new ArrayList<>();
+        traits.add(traitName + ": " + traitDesc);
+        general.setTraits(traits);
+
+        if ("统领进阶".equals(traitName)) {
+            int maxCount = general.getSoldierMaxCount() != null ? general.getSoldierMaxCount() : 100;
+            general.setSoldierMaxCount(maxCount + 60);
+        } else if ("狂暴攻击".equals(traitName)) {
+            general.setAttrAttack(general.getAttrAttack() + 310);
+        } else if ("急速狂攻".equals(traitName)) {
+            int mob = general.getAttrMobility() != null ? general.getAttrMobility() : 0;
+            general.setAttrMobility(mob + 4);
+        }
+
+        general.setUpdateTime(System.currentTimeMillis());
         generalRepository.save(general);
+
+        logger.info("将领进阶成功: userId={}, {} → {}, 获得特性[{}], 献祭={}", userId, name, newName, traitName, sacrificedNames);
 
         Map<String, Object> result = new HashMap<>();
         result.put("success", true);
         result.put("generalId", generalId);
-        result.put("newStar", currentStar + 1);
-        result.put("cost", goldCost);
+        result.put("oldName", name);
+        result.put("newName", newName);
+        result.put("traitName", traitName);
+        result.put("traitDesc", traitDesc);
+        if (!sacrificedNames.isEmpty()) {
+            result.put("sacrificedGenerals", sacrificedNames);
+        }
         return result;
     }
 
     /**
-     * 获取武将进阶信息
+     * 获取武将进阶信息 — APK 1:1 还原
      */
     public Map<String, Object> getAdvanceInfo(String userId, String generalId) {
-        General general = generalRepository.findById(generalId);
-        if (general == null) throw new RuntimeException("武将不存在");
-        if (!general.getUserId().equals(userId)) throw new RuntimeException("无权操作");
+        General general = (generalId != null && !generalId.isEmpty() && !"__none__".equals(generalId))
+                ? generalRepository.findById(generalId) : null;
+        if (general != null && !general.getUserId().equals(userId)) general = null;
 
-        int currentStar = general.getQualityStar() != null ? general.getQualityStar() : 0;
-        boolean maxed = currentStar >= 5;
+        String name = general != null ? general.getName() : null;
+        boolean alreadyAdvanced = name != null && name.endsWith("(狂)");
+        String[] advData = (name != null && !alreadyAdvanced) ? ADVANCE_TABLE.get(name) : null;
+        boolean canAdvance = advData != null;
 
         Map<String, Object> result = new HashMap<>();
         result.put("generalId", generalId);
-        result.put("currentStar", currentStar);
-        result.put("maxStar", 5);
-        result.put("maxed", maxed);
+        result.put("generalName", name);
+        result.put("alreadyAdvanced", alreadyAdvanced);
+        result.put("canAdvance", canAdvance);
 
-        if (!maxed) {
-            int requiredLevel = (currentStar + 1) * 10;
-            long goldCost = (currentStar + 1) * 500L;
-            result.put("requiredLevel", requiredLevel);
-            result.put("goldCost", goldCost);
-            result.put("currentLevel", general.getLevel());
-            result.put("levelMet", general.getLevel() >= requiredLevel);
+        List<General> allGenerals = generalRepository.findByUserId(userId);
+
+        if (canAdvance) {
+            result.put("advancedName", advData[0]);
+            result.put("traitName", advData[4]);
+            result.put("traitDesc", advData[5]);
+            result.put("materialItemId", ADVANCE_BOOK_ITEM_ID);
+            result.put("materialName", "进阶之书");
+            result.put("materialNeed", 1);
+
+            int bookCount = 0;
+            try {
+                bookCount = warehouseService.getItemCount(userId, ADVANCE_BOOK_ITEM_ID);
+            } catch (Exception e) { /* */ }
+            result.put("materialHave", bookCount);
+
+            // 献祭武将需求(橙色名将)
+            String[] sacNames = ADVANCE_SACRIFICE.get(name);
+            List<Map<String, Object>> sacrificeReqs = new ArrayList<>();
+            boolean allSacrificeReady = true;
+            if (sacNames != null) {
+                for (String sacName : sacNames) {
+                    boolean owned = allGenerals.stream().anyMatch(g ->
+                            sacName.equals(g.getName()) && !g.getId().equals(generalId));
+                    Map<String, Object> sacInfo = new HashMap<>();
+                    sacInfo.put("name", sacName);
+                    sacInfo.put("owned", owned);
+                    sacrificeReqs.add(sacInfo);
+                    if (!owned) allSacrificeReady = false;
+                }
+            }
+            result.put("sacrificeGenerals", sacrificeReqs);
+            result.put("hasSacrificeReq", !sacrificeReqs.isEmpty());
+            result.put("materialEnough", bookCount >= 1 && allSacrificeReady);
+
+            List<String> bonusDesc = new ArrayList<>();
+            bonusDesc.add("攻击成长+1");
+            bonusDesc.add("防御成长+1");
+            bonusDesc.add("获得特性: " + advData[4] + " — " + advData[5]);
+            result.put("bonusDesc", bonusDesc);
         }
+
+        // 返回所有可进阶的名将列表(前端选择用)
+        List<Map<String, Object>> eligibleList = new ArrayList<>();
+        for (General g : allGenerals) {
+            String gName = g.getName();
+            if (gName == null || gName.endsWith("(狂)")) continue;
+            String[] gAdv = ADVANCE_TABLE.get(gName);
+            if (gAdv == null) continue;
+            Map<String, Object> item = new HashMap<>();
+            item.put("id", g.getId());
+            item.put("name", gName);
+            item.put("level", g.getLevel());
+            item.put("qualityId", g.getQualityId());
+            item.put("qualityColor", g.getQualityColor());
+            item.put("advancedName", gAdv[0]);
+            item.put("traitName", gAdv[4]);
+            item.put("traitDesc", gAdv[5]);
+            item.put("avatar", g.getAvatar());
+            item.put("hasSacrificeReq", ADVANCE_SACRIFICE.containsKey(gName));
+            eligibleList.add(item);
+        }
+        result.put("eligibleGenerals", eligibleList);
+
         return result;
     }
 }

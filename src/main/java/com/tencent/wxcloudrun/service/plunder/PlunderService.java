@@ -62,6 +62,9 @@ public class PlunderService {
     @Autowired
     private SuitConfigService suitConfigService;
 
+    @org.springframework.beans.factory.annotation.Autowired @org.springframework.context.annotation.Lazy
+    private com.tencent.wxcloudrun.service.dailytask.DailyTaskService dailyTaskService;
+
     /**
      * 获取掠夺主页数据
      */
@@ -355,6 +358,7 @@ public class PlunderService {
         result.put("rounds", report.totalRounds);
         result.put("generalCount", playerBattleUnits.size());
         result.put("battleReport", report);
+        dailyTaskService.incrementTask(userId, "plunder");
 
         logger.info("用户 {} {}掠夺 {} (Lv.{}), {}将参战, {}回合", userId, victory ? "成功" : "失败", targetName, targetLevel, playerBattleUnits.size(), report.totalRounds);
         return result;

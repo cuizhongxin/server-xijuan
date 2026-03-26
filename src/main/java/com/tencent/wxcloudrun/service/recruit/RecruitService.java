@@ -70,6 +70,7 @@ public class RecruitService {
     @Autowired private GameServerMapper gameServerMapper;
     @Autowired private ChatService chatService;
     @Autowired private StoryProgressMapper storyProgressMapper;
+    @Autowired @org.springframework.context.annotation.Lazy private com.tencent.wxcloudrun.service.dailytask.DailyTaskService dailyTaskService;
     
     private static final String GUIDE_RECRUIT_SENIOR = "马腾";
     private static final String GUIDE_RECRUIT_INTERMEDIATE = "韩遂";
@@ -302,6 +303,7 @@ public class RecruitService {
         
         logger.info("用户 {} 使用 {} 单抽招募了武将: {}, 获得将魂: {}", 
                     userId, tokenType, general.getName(), soulGained);
+        dailyTaskService.incrementTask(userId, "recruit");
         
         return RecruitResult.builder()
                 .general(general)
@@ -650,16 +652,15 @@ public class RecruitService {
     }
     
     /**
-     * 红色以上名将招募成功后发全服通告
+     * 有名将特性的武将招募成功后发全服通告
      */
     private void tryAnnounceRecruit(String userId, General general) {
         try {
-            if (general.getQualityId() == null || general.getQualityId() < ANNOUNCE_MIN_QUALITY_ID) return;
-            if (general.getSlotId() == null || general.getSlotId() <= 0) return;
-            
+            if (general.getTraits() == null || general.getTraits().isEmpty()) return;
+
             String lordName = resolveLordName(userId);
             String qualityTag;
-            switch (general.getQualityId()) {
+            switch (general.getQualityId() != null ? general.getQualityId() : 0) {
                 case 6: qualityTag = "橙色"; break;
                 case 5: qualityTag = "紫色"; break;
                 case 4: qualityTag = "红色"; break;

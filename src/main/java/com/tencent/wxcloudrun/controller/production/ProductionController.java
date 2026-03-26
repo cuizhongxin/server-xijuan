@@ -194,6 +194,23 @@ public class ProductionController {
         }
     }
     
+    @PostMapping("/convert")
+    public ApiResponse<Map<String, Object>> convertResource(
+            HttpServletRequest request,
+            @RequestBody Map<String, Object> body) {
+        try {
+            String userId = getUserId(request);
+            String source = (String) body.get("source");
+            String target = (String) body.get("target");
+            int amount = ((Number) body.get("amount")).intValue();
+            boolean lossless = Boolean.TRUE.equals(body.get("lossless"));
+            return ApiResponse.success(productionService.convertResource(userId, source, target, amount, lossless));
+        } catch (Exception e) {
+            log.error("资源转换异常", e);
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
     private Integer getFacilityLevel(Production production, String type) {
         switch (type) {
             case "arsenal": return production.getArsenal().getLevel();

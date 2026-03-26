@@ -8,9 +8,16 @@
         VALUES (#{senderId}, #{senderName}, #{channel}, #{content}, #{serverId}, #{createTime})
     </insert>
 
+    <insert id="insertMessageFull">
+        INSERT INTO chat_message (sender_id, sender_name, channel, content, server_id, create_time,
+                                  target_id, nation_id, alliance_id)
+        VALUES (#{senderId}, #{senderName}, #{channel}, #{content}, #{serverId}, #{createTime},
+                #{targetId}, #{nationId}, #{allianceId})
+    </insert>
+
     <select id="findRecent" resultType="java.util.HashMap">
         SELECT id, sender_id AS senderId, sender_name AS senderName,
-               channel, content, create_time AS createTime
+               channel, content, create_time AS createTime, target_id AS targetId
         FROM chat_message
         WHERE channel = #{channel} AND server_id = #{serverId}
         ORDER BY create_time DESC
@@ -19,10 +26,97 @@
 
     <select id="findSince" resultType="java.util.HashMap">
         SELECT id, sender_id AS senderId, sender_name AS senderName,
-               channel, content, create_time AS createTime
+               channel, content, create_time AS createTime, target_id AS targetId
         FROM chat_message
         WHERE channel = #{channel} AND server_id = #{serverId} AND create_time > #{sinceTime}
         ORDER BY create_time ASC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findRecentByNation" resultType="java.util.HashMap">
+        SELECT id, sender_id AS senderId, sender_name AS senderName,
+               channel, content, create_time AS createTime
+        FROM chat_message
+        WHERE channel = 'nation' AND server_id = #{serverId} AND nation_id = #{nationId}
+        ORDER BY create_time DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="pollByNation" resultType="java.util.HashMap">
+        SELECT id, sender_id AS senderId, sender_name AS senderName,
+               channel, content, create_time AS createTime
+        FROM chat_message
+        WHERE channel = 'nation' AND server_id = #{serverId} AND nation_id = #{nationId}
+              AND create_time > #{sinceTime}
+        ORDER BY create_time ASC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findRecentByAlliance" resultType="java.util.HashMap">
+        SELECT id, sender_id AS senderId, sender_name AS senderName,
+               channel, content, create_time AS createTime
+        FROM chat_message
+        WHERE channel = 'alliance' AND server_id = #{serverId} AND alliance_id = #{allianceId}
+        ORDER BY create_time DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="pollByAlliance" resultType="java.util.HashMap">
+        SELECT id, sender_id AS senderId, sender_name AS senderName,
+               channel, content, create_time AS createTime
+        FROM chat_message
+        WHERE channel = 'alliance' AND server_id = #{serverId} AND alliance_id = #{allianceId}
+              AND create_time > #{sinceTime}
+        ORDER BY create_time ASC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findRecentPrivate" resultType="java.util.HashMap">
+        SELECT id, sender_id AS senderId, sender_name AS senderName,
+               channel, content, create_time AS createTime, target_id AS targetId
+        FROM chat_message
+        WHERE channel = 'private' AND server_id = #{serverId}
+              AND (sender_id = #{userId} OR target_id = #{userId})
+        ORDER BY create_time DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="pollPrivate" resultType="java.util.HashMap">
+        SELECT id, sender_id AS senderId, sender_name AS senderName,
+               channel, content, create_time AS createTime, target_id AS targetId
+        FROM chat_message
+        WHERE channel = 'private' AND server_id = #{serverId}
+              AND (sender_id = #{userId} OR target_id = #{userId})
+              AND create_time > #{sinceTime}
+        ORDER BY create_time ASC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findPrivateConversation" resultType="java.util.HashMap">
+        SELECT id, sender_id AS senderId, sender_name AS senderName,
+               channel, content, create_time AS createTime, target_id AS targetId
+        FROM chat_message
+        WHERE channel = 'private' AND server_id = #{serverId}
+              AND ((sender_id = #{userId} AND target_id = #{targetId})
+                OR (sender_id = #{targetId} AND target_id = #{userId}))
+        ORDER BY create_time DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findPrivateContacts" resultType="java.util.HashMap">
+        SELECT DISTINCT
+            CASE WHEN sender_id = #{userId} THEN target_id ELSE sender_id END AS contactId,
+            CASE WHEN sender_id = #{userId} THEN sender_name ELSE
+                (SELECT cm2.sender_name FROM chat_message cm2
+                 WHERE cm2.sender_id = CASE WHEN chat_message.sender_id = #{userId}
+                     THEN chat_message.target_id ELSE chat_message.sender_id END
+                 ORDER BY cm2.create_time DESC LIMIT 1) END AS contactName,
+            MAX(create_time) AS lastTime
+        FROM chat_message
+        WHERE channel = 'private' AND server_id = #{serverId}
+              AND (sender_id = #{userId} OR target_id = #{userId})
+        GROUP BY contactId
+        ORDER BY lastTime DESC
         LIMIT #{limit}
     </select>
 

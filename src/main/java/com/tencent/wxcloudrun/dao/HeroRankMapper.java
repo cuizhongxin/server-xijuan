@@ -90,4 +90,8 @@ public interface HeroRankMapper {
                          @Param("createTime") long createTime);
 
     List<Map<String, Object>> findRewardLogs(@Param("userId") String userId, @Param("limit") int limit);
+
+    void deleteByServerId(@Param("serverId") int serverId);
+
+    List<Map<String, Object>> findRealPlayersByServerId(@Param("serverId") int serverId);
 }

@@ -82,6 +82,18 @@ public class UserResourceService {
     }
 
     /**
+     * 增加VIP点数(累加到totalRecharge, 每100分=1元, 自动计算VIP等级)
+     */
+    public void addVipPoints(String odUserId, long points) {
+        UserResource resource = getUserResource(odUserId);
+        long newTotal = (resource.getTotalRecharge() != null ? resource.getTotalRecharge() : 0) + points;
+        resource.setTotalRecharge(newTotal);
+        updateVipLevel(resource);
+        resourceRepository.save(resource);
+        logger.info("用户 {} 增加VIP点数 {}, 累计充值 {} 分, VIP等级 {}", odUserId, points, newTotal, resource.getVipLevel());
+    }
+
+    /**
      * 增加绑金
      */
     public void addBoundGold(String odUserId, long amount) {
@@ -155,6 +167,30 @@ public class UserResourceService {
         UserResource resource = getUserResource(odUserId);
         resource.setPaper((resource.getPaper() != null ? resource.getPaper() : 0L) + amount);
         resourceRepository.save(resource);
+    }
+
+    public boolean consumePaper(String odUserId, long amount) {
+        UserResource resource = getUserResource(odUserId);
+        long current = resource.getPaper() != null ? resource.getPaper() : 0L;
+        if (current < amount) return false;
+        resource.setPaper(current - amount);
+        resourceRepository.save(resource);
+        return true;
+    }
+
+    public void addMetal(String odUserId, long amount) {
+        UserResource resource = getUserResource(odUserId);
+        resource.setMetal((resource.getMetal() != null ? resource.getMetal() : 0L) + amount);
+        resourceRepository.save(resource);
+    }
+
+    public boolean consumeMetal(String odUserId, long amount) {
+        UserResource resource = getUserResource(odUserId);
+        long current = resource.getMetal() != null ? resource.getMetal() : 0L;
+        if (current < amount) return false;
+        resource.setMetal(current - amount);
+        resourceRepository.save(resource);
+        return true;
     }
 
     /** 消耗粮食 */

@@ -427,8 +427,13 @@ public class EquipmentService {
                 .mobility(val(pre.getArmySp()))
                 .build();
 
-        // Roll quality
-        int equipQualityId = EquipmentConfig.rollEquipQuality();
+        // Roll quality — 虎啸套装强制完美品质
+        int equipQualityId;
+        if (suitShortName != null && "虎啸".equals(suitShortName)) {
+            equipQualityId = 5;
+        } else {
+            equipQualityId = EquipmentConfig.rollEquipQuality();
+        }
         EquipmentConfig.EquipQualityLevel ql = EquipmentConfig.getEquipQualityLevel(equipQualityId);
         double rate = ql.attrRate / 10000.0;
 

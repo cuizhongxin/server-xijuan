@@ -12,7 +12,9 @@ import com.tencent.wxcloudrun.service.warehouse.WarehouseService;
 import com.tencent.wxcloudrun.exception.BusinessException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.tencent.wxcloudrun.service.chat.ChatService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -28,6 +30,8 @@ public class SecretRealmService {
 
     @Autowired
     private WarehouseService warehouseService;
+    @Autowired @Lazy
+    private ChatService chatService;
     @Autowired
     private UserResourceRepository resourceRepository;
     @Autowired
@@ -279,6 +283,7 @@ public class SecretRealmService {
         for (Equipment eq : pendingEquipments) {
             equipmentRepository.save(eq);
             warehouseService.addEquipment(userId, eq.getId());
+            tryAnnounceSecretRealmEquip(userId, eq);
         }
         for (Warehouse.WarehouseItem wItem : pendingItems.values()) {
             warehouseService.addItem(userId, wItem);
@@ -329,13 +334,16 @@ public class SecretRealmService {
         equipment.setId(UUID.randomUUID().toString());
         equipment.setUserId(userId);
 
-        int qualityValueId = com.tencent.wxcloudrun.config.EquipmentConfig.rollEquipQuality();
+        int equipPreId = getInt(eqRow, "equip_pre_id", 0);
+        EquipmentPre pre = equipPreId > 0 ? equipmentPreMapper.findById(equipPreId) : null;
+
+        // 虎啸套装强制完美品质
+        boolean isTigerRoar = (pre != null && pre.getSuitName() != null && pre.getSuitName().contains("虎啸"))
+                || getString(eqRow, "set_name", "").contains("虎啸");
+        int qualityValueId = isTigerRoar ? 5 : com.tencent.wxcloudrun.config.EquipmentConfig.rollEquipQuality();
         com.tencent.wxcloudrun.config.EquipmentConfig.EquipQualityLevel ql =
                 com.tencent.wxcloudrun.config.EquipmentConfig.getEquipQualityLevel(qualityValueId);
         double attrRate = ql.attrRate / 10000.0;
-
-        int equipPreId = getInt(eqRow, "equip_pre_id", 0);
-        EquipmentPre pre = equipPreId > 0 ? equipmentPreMapper.findById(equipPreId) : null;
 
         String baseName = pre != null ? pre.getName() : getString(eqRow, "name", "");
         equipment.setName(ql.name + "的" + baseName);
@@ -527,5 +535,29 @@ public class SecretRealmService {
         public void setPityCount(int pityCount) { this.pityCount = pityCount; }
         public int getPityLimit() { return pityLimit; }
         public void setPityLimit(int pityLimit) { this.pityLimit = pityLimit; }
+    }
+
+    private static final Set<String> ANNOUNCE_SET_NAMES = new HashSet<>(Arrays.asList("鹰扬", "虎啸"));
+
+    private void tryAnnounceSecretRealmEquip(String userId, Equipment eq) {
+        try {
+            if (eq.getSetInfo() == null || eq.getSetInfo().getSetId() == null) return;
+            String setId = eq.getSetInfo().getSetId();
+            boolean shouldAnnounce = false;
+            for (String s : ANNOUNCE_SET_NAMES) {
+                if (setId.contains(s)) { shouldAnnounce = true; break; }
+            }
+            if (!shouldAnnounce) return;
+
+            int serverId = 1;
+            if (userId != null && userId.contains("_")) {
+                try { serverId = Integer.parseInt(userId.substring(userId.lastIndexOf('_') + 1)); }
+                catch (Exception ignored) {}
+            }
+            String msg = "恭喜玩家在秘境中探得稀有装备【" + eq.getName() + "】！";
+            chatService.sendSystemMessage(serverId, "world", msg);
+        } catch (Exception e) {
+            logger.warn("秘境装备播报异常", e);
+        }
     }
 }

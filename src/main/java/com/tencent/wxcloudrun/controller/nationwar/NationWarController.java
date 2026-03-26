@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,7 +41,27 @@ public class NationWarController {
         result.put("playerNation", playerNation);
         result.put("playerMerit", playerMerit);
         result.put("attackableCities", attackableCities);
-        
+
+        Calendar cal = Calendar.getInstance();
+        int nowMinutes = cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE);
+        int signUpStart = 19 * 60 + 45;
+        int signUpEnd = 20 * 60;
+        int battleEnd = 20 * 60 + 45;
+
+        String timeStatus;
+        if (nowMinutes >= signUpStart && nowMinutes < signUpEnd) {
+            timeStatus = "signup";
+        } else if (nowMinutes >= signUpEnd && nowMinutes < battleEnd) {
+            timeStatus = "fighting";
+        } else if (nowMinutes >= battleEnd) {
+            timeStatus = "finished";
+        } else {
+            timeStatus = "preparing";
+        }
+        result.put("timeStatus", timeStatus);
+        result.put("signUpTime", "19:45 - 20:00");
+        result.put("battleTime", "20:00 - 20:45");
+
         return ApiResponse.success(result);
     }
     
