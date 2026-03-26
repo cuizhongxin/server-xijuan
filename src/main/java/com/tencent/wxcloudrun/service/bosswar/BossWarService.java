@@ -30,7 +30,7 @@ public class BossWarService {
     private static final int UNIT_COUNT = 6;
     private static final int UNIT_SOLDIERS = 1000;
     private static final int SOLDIER_LIFE = 100;
-    private static final int BASE_COOLDOWN_SEC = 120;
+    private static final int BASE_COOLDOWN_SEC = 0;
 
     private static final double COMMON_DROP_RATE = 0.25;
     private static final double EQUIP_DROP_RATE = 0.10;
@@ -636,6 +636,15 @@ public class BossWarService {
         int curHour = cal.get(Calendar.HOUR_OF_DAY);
         int curMin = cal.get(Calendar.MINUTE);
         double curTime = curHour + curMin / 60.0;
+
+        // 测试模式: 黄巾流寇全天常驻
+        if (t.id == BOSS_HJLK) {
+            Calendar start = (Calendar) cal.clone();
+            start.set(Calendar.MINUTE, 0); start.set(Calendar.SECOND, 0); start.set(Calendar.MILLISECOND, 0);
+            Calendar end = (Calendar) start.clone();
+            end.add(Calendar.MINUTE, 60);
+            return new TimeWindow(true, start.getTimeInMillis(), end.getTimeInMillis(), 0);
+        }
 
         for (int hour : t.appearHours) {
             double endTime = hour + DURATION_MINUTES / 60.0;
