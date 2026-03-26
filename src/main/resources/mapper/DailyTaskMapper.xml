@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.dao.DailyTaskMapper">
+
+    <select id="findDailyTasks" resultType="java.util.HashMap">
+        SELECT task_type AS taskType, progress, claimed
+        FROM daily_task_progress
+        WHERE user_id = #{userId} AND task_date = #{taskDate}
+    </select>
+
+    <insert id="upsertDailyTask">
+        INSERT INTO daily_task_progress (user_id, task_date, task_type, progress, claimed)
+        VALUES (#{userId}, #{taskDate}, #{taskType}, #{increment}, 0)
+        ON DUPLICATE KEY UPDATE progress = progress + #{increment}
+    </insert>
+
+    <update id="claimDailyTask">
+        UPDATE daily_task_progress
+        SET claimed = 1
+        WHERE user_id = #{userId} AND task_date = #{taskDate} AND task_type = #{taskType}
+    </update>
+
+    <select id="findStageClaims" resultType="java.util.HashMap">
+        SELECT stage FROM daily_stage_claim
+        WHERE user_id = #{userId} AND claim_date = #{claimDate}
+    </select>
+
+    <insert id="insertStageClaim">
+        INSERT INTO daily_stage_claim (user_id, claim_date, stage)
+        VALUES (#{userId}, #{claimDate}, #{stage})
+    </insert>
+
+    <select id="findAchievement" resultType="java.util.HashMap">
+        SELECT achievement_type AS achievementType, claimed
+        FROM achievement_progress
+        WHERE user_id = #{userId} AND achievement_type = #{achievementType}
+    </select>
+
+    <insert id="upsertAchievement">
+        INSERT IGNORE INTO achievement_progress (user_id, achievement_type, claimed)
+        VALUES (#{userId}, #{achievementType}, 0)
+    </insert>
+
+    <update id="claimAchievement">
+        UPDATE achievement_progress SET claimed = 1
+        WHERE user_id = #{userId} AND achievement_type = #{achievementType} AND claimed = 0
+    </update>
+
+    <select id="findAllAchievements" resultType="java.util.HashMap">
+        SELECT achievement_type AS achievementType, claimed
+        FROM achievement_progress
+        WHERE user_id = #{userId}
+    </select>
+
+</mapper>

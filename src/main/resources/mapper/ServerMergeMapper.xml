@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.dao.ServerMergeMapper">
+
+    <!-- 重命名源服中与目标服重名的联盟 -->
+    <update id="renameConflictAlliances">
+        UPDATE alliance a
+        SET a.name = CONCAT(a.name, '(原', #{sourceServerId}, '服)')
+        WHERE a.server_id = #{sourceServerId}
+          AND EXISTS (SELECT 1 FROM (SELECT name FROM alliance WHERE server_id = #{targetServerId}) t WHERE t.name = a.name)
+    </update>
+
+    <update id="migrateAlliance">
+        UPDATE alliance SET server_id = #{target} WHERE server_id = #{source}
+    </update>
+
+    <update id="migrateChat">
+        UPDATE chat_message SET server_id = #{target} WHERE server_id = #{source}
+    </update>
+
+    <!-- 源服市场挂牌全部取消（物品由 WarehouseService 退还，此处仅改状态） -->
+    <update id="cancelMarketListings">
+        UPDATE market_listing SET status = 'cancelled' WHERE server_id = #{serverId} AND status = 'active'
+    </update>
+
+    <delete id="deleteCityOwners">
+        DELETE FROM nation_war_city_owner WHERE server_id = #{serverId}
+    </delete>
+
+    <update id="migratePlayerNation">
+        UPDATE player_nation SET server_id = #{target} WHERE server_id = #{source}
+    </update>
+
+    <update id="migrateSupplyTransport">
+        UPDATE supply_transport SET server_id = #{target} WHERE server_id = #{source}
+    </update>
+
+    <delete id="deleteCornucopiaPeriod">
+        DELETE FROM cornucopia_period WHERE server_id = #{serverId}
+    </delete>
+
+    <delete id="deleteWorldBossState">
+        DELETE FROM world_boss_state WHERE server_id = #{serverId}
+    </delete>
+
+    <delete id="deleteWorldBossDamage">
+        DELETE FROM world_boss_damage WHERE server_id = #{serverId}
+    </delete>
+
+    <delete id="deleteAllianceBoss">
+        DELETE FROM alliance_boss WHERE server_id = #{serverId}
+    </delete>
+
+    <delete id="deleteAllianceBossRecord">
+        DELETE FROM alliance_boss_record WHERE server_id = #{serverId}
+    </delete>
+
+</mapper>
