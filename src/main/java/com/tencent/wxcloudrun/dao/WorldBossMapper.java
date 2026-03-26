@@ -43,4 +43,12 @@ public interface WorldBossMapper {
                                                 @Param("bossId") int bossId,
                                                 @Param("windowStartMs") long windowStartMs,
                                                 @Param("limit") int limit);
+
+    Map<String, Object> findLatestSession(@Param("serverId") int serverId);
+
+    String findLastReport(@Param("serverId") int serverId);
+
+    void upsertLastReport(@Param("serverId") int serverId,
+                          @Param("reportJson") String reportJson,
+                          @Param("updatedAt") long updatedAt);
 }

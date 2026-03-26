@@ -15,6 +15,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -171,9 +174,11 @@ public class BossWarService {
     @Autowired @org.springframework.context.annotation.Lazy private com.tencent.wxcloudrun.service.chat.ChatService chatService;
 
     private final Random random = new Random();
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     private final Map<String, ConcurrentLinkedQueue<WoundedSquad>> woundedPools = new ConcurrentHashMap<>();
     private final Map<String, Object> bossLocks = new ConcurrentHashMap<>();
+    private final Map<Integer, Map<String, Object>> lastSettledReports = new ConcurrentHashMap<>();
 
     private ConcurrentLinkedQueue<WoundedSquad> getWoundedPool(int serverId, int bossId) {
         return woundedPools.computeIfAbsent(serverId + "_" + bossId, k -> new ConcurrentLinkedQueue<>());
@@ -353,15 +358,18 @@ public class BossWarService {
                 r.put("playerName", resolvePlayerName((String) r.get("userId")));
             }
             bm.put("liveRanking", liveRanking);
-        } else {
-            bm.put("lastBattleReport", buildLastBattleReport(serverId, t, state));
+        }
+        Map<String, Object> lastReport = getLastBattleReport(serverId);
+        if (lastReport != null) {
+            bm.put("lastBattleReport", lastReport);
         }
 
         return bm;
     }
 
-    private Map<String, Object> buildLastBattleReport(int serverId, BossTemplate t, BossState state) {
+    private Map<String, Object> buildSettledReport(int serverId, BossTemplate t, BossState state) {
         Map<String, Object> report = new HashMap<>();
+        report.put("bossId", t.id);
         report.put("bossName", t.name);
         report.put("killed", "killed".equals(state.status));
         report.put("killer", state.lastKiller != null && !state.lastKiller.isEmpty()
@@ -385,6 +393,24 @@ public class BossWarService {
         }
         report.put("top3", topList);
         return report;
+    }
+
+    private Map<String, Object> getLastBattleReport(int serverId) {
+        Map<String, Object> cached = lastSettledReports.get(serverId);
+        if (cached != null) return cached;
+
+        try {
+            String json = worldBossMapper.findLastReport(serverId);
+            if (json != null && !json.isEmpty() && !json.equals("{}")) {
+                Map<String, Object> report = objectMapper.readValue(json,
+                        new TypeReference<Map<String, Object>>() {});
+                lastSettledReports.put(serverId, report);
+                return report;
+            }
+        } catch (Exception e) {
+            logger.warn("从DB读取上期战报失败: serverId={}", serverId, e);
+        }
+        return null;
     }
 
     // ═══════════════════════════════════════════
@@ -465,7 +491,7 @@ public class BossWarService {
             int after = Math.max(0, bu.soldierCount);
             int killed = before - after;
             soldiersKilled += killed;
-            hpDamage += (long) killed * unitStats[idx][0];
+            hpDamage += killed;
             squadSoldiers[idx] = after;
             if (after > 0) squadWiped = false;
         }
@@ -652,6 +678,15 @@ public class BossWarService {
      * Boss时间窗口结束时结算: 分发宝箱 + 全服通告
      */
     private void settleAndAnnounce(int serverId, BossTemplate t, BossState state) {
+        try {
+            Map<String, Object> report = buildSettledReport(serverId, t, state);
+            lastSettledReports.put(serverId, report);
+            String json = objectMapper.writeValueAsString(report);
+            worldBossMapper.upsertLastReport(serverId, json, System.currentTimeMillis());
+        } catch (Exception e) {
+            logger.warn("持久化战报失败", e);
+        }
+
         List<Map<String, Object>> chestResult = distributeChests(serverId, t.id, null, state.windowStartMs);
         if (chestResult == null || chestResult.isEmpty()) return;
 

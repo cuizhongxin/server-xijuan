@@ -2,23 +2,22 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.tencent.wxcloudrun.dao.GeneralFamousTraitMapper">
 
-    <select id="findByGeneralPreId" resultType="java.util.HashMap">
-        SELECT trait_apk_id AS traitApkId, trait_name AS traitName, trait_desc AS traitDesc,
+    <select id="findByGeneralTemplateId" resultType="java.util.HashMap">
+        SELECT trait_name AS traitName, trait_desc AS traitDesc,
                effect_type AS effectType, effect_value AS effectValue,
                troop_restrict AS troopRestrict, sort_order AS sortOrder
         FROM general_famous_trait
-        WHERE general_pre_id = #{generalPreId}
+        WHERE general_template_id = #{generalTemplateId}
         ORDER BY sort_order
     </select>
 
     <select id="findByGeneralName" resultType="java.util.HashMap">
-        SELECT t.trait_apk_id AS traitApkId, t.trait_name AS traitName, t.trait_desc AS traitDesc,
+        SELECT t.trait_name AS traitName, t.trait_desc AS traitDesc,
                t.effect_type AS effectType, t.effect_value AS effectValue,
                t.troop_restrict AS troopRestrict, t.sort_order AS sortOrder
         FROM general_famous_trait t
-        INNER JOIN general_pre p ON t.general_pre_id = p.id
-        WHERE p.name = #{name}
-          AND p.is_berserk = 0
+        INNER JOIN general_template gt ON t.general_template_id = gt.id
+        WHERE gt.name = #{name}
         ORDER BY t.sort_order
     </select>
 

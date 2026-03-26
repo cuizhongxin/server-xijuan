@@ -60,4 +60,25 @@
         LIMIT #{limit}
     </select>
 
+    <select id="findLatestSession" resultType="java.util.HashMap">
+        SELECT boss_id AS bossId, window_start_ms AS windowStartMs
+        FROM world_boss_damage
+        WHERE server_id = #{serverId}
+        ORDER BY window_start_ms DESC
+        LIMIT 1
+    </select>
+
+    <select id="findLastReport" resultType="java.lang.String">
+        SELECT report_json FROM world_boss_last_report
+        WHERE server_id = #{serverId}
+    </select>
+
+    <insert id="upsertLastReport">
+        INSERT INTO world_boss_last_report (server_id, report_json, updated_at)
+        VALUES (#{serverId}, #{reportJson}, #{updatedAt})
+        ON DUPLICATE KEY UPDATE
+            report_json = #{reportJson},
+            updated_at = #{updatedAt}
+    </insert>
+
 </mapper>
