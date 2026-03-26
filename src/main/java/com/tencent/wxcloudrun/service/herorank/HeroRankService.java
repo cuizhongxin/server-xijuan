@@ -55,9 +55,22 @@ public class HeroRankService {
     @org.springframework.beans.factory.annotation.Autowired @org.springframework.context.annotation.Lazy
     private com.tencent.wxcloudrun.service.dailytask.DailyTaskService dailyTaskService;
 
-    private static final int MAX_DAILY_CHALLENGE = 15;
+    private static final int BASE_DAILY_CHALLENGE = 15;
+    /** APK vipCfg: VIP等级→英雄榜每日挑战次数 (0=基础15, VIP3起增加) */
+    private static final int[] VIP_HERO_CHALLENGE = {15, 15, 15, 17, 18, 19, 20, 22, 22, 25, 25};
     private static final long CHALLENGE_CD_MS = 15 * 60 * 1000;
     private static final int SPEED_UP_GOLD = 50;
+
+    private int getMaxDailyChallenge(String userId) {
+        try {
+            UserResource res = userResourceService.getUserResource(userId);
+            int vip = res.getVipLevel() != null ? res.getVipLevel() : 0;
+            int idx = Math.min(vip, VIP_HERO_CHALLENGE.length - 1);
+            return VIP_HERO_CHALLENGE[idx];
+        } catch (Exception e) {
+            return BASE_DAILY_CHALLENGE;
+        }
+    }
     private static final int NPC_COUNT = 1000;
     private static final String[] NATIONS = {"WEI", "SHU", "WU"};
     private static final ObjectMapper JSON = new ObjectMapper();
@@ -161,7 +174,7 @@ public class HeroRankService {
         result.put("myInfo", me);
         result.put("rankings", list);
         result.put("total", total);
-        result.put("maxDaily", MAX_DAILY_CHALLENGE);
+        result.put("maxDaily", getMaxDailyChallenge(userId));
         result.put("cdRemainMs", cdRemain);
         result.put("cdTotalMs", CHALLENGE_CD_MS);
         result.put("speedUpGold", SPEED_UP_GOLD);
@@ -183,7 +196,8 @@ public class HeroRankService {
 
         int todayChallenge = getInt(me, "todayChallenge");
         int todayPurchased = getInt(me, "todayPurchased");
-        if (todayChallenge >= MAX_DAILY_CHALLENGE + todayPurchased) {
+        int maxDaily = getMaxDailyChallenge(userId);
+        if (todayChallenge >= maxDaily + todayPurchased) {
             throw new RuntimeException("今日挑战次数已用完");
         }
 
@@ -223,8 +237,9 @@ public class HeroRankService {
             heroRankMapper.swapRanking(userId, myRank, targetId, targetRank, now);
 
             int todayWins = getInt(me, "todayWins") + 1;
-            int idx = Math.min(todayWins - 1, WIN_FAME.length - 1);
-            fameGain = WIN_FAME[idx];
+
+            int[] dailyReward = getRewardForRank(myNewRank);
+            fameGain = Math.max(50, dailyReward[0] / 10);
 
             long currentFame = getLong(me, "fame") + fameGain;
             String newPeerage = calcPeerage(currentFame, getInt(me, "level"));
@@ -272,7 +287,7 @@ public class HeroRankService {
         result.put("targetNewRank", targetNewRank);
         result.put("targetName", str(target, "userName"));
         result.put("todayChallenge", todayChallenge + 1);
-        result.put("maxDaily", MAX_DAILY_CHALLENGE + todayPurchased);
+        result.put("maxDaily", maxDaily + todayPurchased);
         result.put("cdRemainMs", CHALLENGE_CD_MS);
         try {
             result.put("battleReport", JSON.convertValue(report, Map.class));

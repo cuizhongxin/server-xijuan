@@ -38,7 +38,7 @@ public class BossWarService {
     private static final Map<Integer, BossTemplate> BOSS_TEMPLATES = new LinkedHashMap<>();
     static {
         BOSS_TEMPLATES.put(BOSS_HJLK, new BossTemplate(BOSS_HJLK, "黄巾流寇", 25,
-                "boss_hangjzk.png", 20, new int[]{0, 3, 6, 9, 15, 22},
+                "boss_hangjzk.png", 20, new int[]{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23},
                 new String[]{"黄巾刀盾手","黄巾长枪兵","黄巾弓箭手","黄巾骑兵","黄巾法师","黄巾渠帅"},
                 new int[]{1,1,3,2,3,1}));
         BOSS_TEMPLATES.put(BOSS_DZJT, new BossTemplate(BOSS_DZJT, "董卓军团", 35,
@@ -70,9 +70,9 @@ public class BossWarService {
 
     private static final Map<Integer, String[]> BOSS_CHEST = new LinkedHashMap<>();
     static {
-        BOSS_CHEST.put(BOSS_HJLK, new String[]{"17001", "平乱宝箱", "17001.jpg", "3"});
-        BOSS_CHEST.put(BOSS_DZJT, new String[]{"17002", "征戎宝箱", "17002.jpg", "4"});
-        BOSS_CHEST.put(BOSS_YZJT, new String[]{"17003", "讨逆宝箱", "17003.jpg", "4"});
+        BOSS_CHEST.put(BOSS_HJLK, new String[]{"11070", "平乱宝箱", "17001.jpg", "3"});
+        BOSS_CHEST.put(BOSS_DZJT, new String[]{"11071", "征戎宝箱", "17002.jpg", "4"});
+        BOSS_CHEST.put(BOSS_YZJT, new String[]{"11072", "讨逆宝箱", "17003.jpg", "4"});
     }
 
     private static final String TIANDI_CHEST_ID = "17010";

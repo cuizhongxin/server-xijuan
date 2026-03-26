@@ -377,10 +377,11 @@ public class UserResourceService {
         
         java.util.Map<String, Object> result = new java.util.HashMap<>();
         
-        int baseSlots = resource.getBaseGeneralSlots() != null ? resource.getBaseGeneralSlots() : 10;
+        int level = resource.getLevel() != null ? resource.getLevel() : 1;
+        int baseSlots = getBaseSlotsByLevel(level);
         int purchasedSlots = resource.getPurchasedSlots() != null ? resource.getPurchasedSlots() : 0;
         int vipBonusSlots = getVipBonusSlots(resource.getVipLevel());
-        int maxSlots = Math.min(50, baseSlots + purchasedSlots + vipBonusSlots);
+        int maxSlots = baseSlots + purchasedSlots + vipBonusSlots;
         
         result.put("baseSlots", baseSlots);
         result.put("purchasedSlots", purchasedSlots);
@@ -399,14 +400,14 @@ public class UserResourceService {
     public java.util.Map<String, Object> purchaseGeneralSlot(String odUserId) {
         UserResource resource = getUserResource(odUserId);
         
-        int baseSlots = resource.getBaseGeneralSlots() != null ? resource.getBaseGeneralSlots() : 10;
+        int level = resource.getLevel() != null ? resource.getLevel() : 1;
+        int baseSlots = getBaseSlotsByLevel(level);
         int purchasedSlots = resource.getPurchasedSlots() != null ? resource.getPurchasedSlots() : 0;
         int vipBonusSlots = getVipBonusSlots(resource.getVipLevel());
         int currentSlots = baseSlots + purchasedSlots + vipBonusSlots;
         
-        // 检查是否已达上限
         if (currentSlots >= 50) {
-            throw new BusinessException(400, "武将位已达上限50个");
+            throw new BusinessException(400, "武将位已达上限");
         }
         
         // 计算价格（首次100，之后每次翻倍，但最高不超过10000）
@@ -447,39 +448,51 @@ public class UserResourceService {
         return Math.min(10000, cost);
     }
     
+    /** APK generalNum_cfg: 按主公等级决定基础武将位 */
+    private static final int[][] GENERAL_SLOT_BY_LEVEL = {
+        {0, 2}, {5, 3}, {10, 4}, {15, 5}, {20, 6}, {25, 7}, {30, 8}, {35, 10}, {40, 12}
+    };
+
+    /** APK vipCfg: VIP等级→额外武将位 */
+    private static final int[] VIP_BONUS_SLOTS = {0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5};
+
     /**
-     * 根据VIP等级获取额外武将位（APK对齐：VIP1/2→+1, VIP3/4→+2, ..., VIP9/10→+5）
+     * 根据主公等级获取基础武将位 (APK generalNum_cfg)
+     */
+    public int getBaseSlotsByLevel(int level) {
+        int slots = 2;
+        for (int[] entry : GENERAL_SLOT_BY_LEVEL) {
+            if (level >= entry[0]) slots = entry[1];
+        }
+        return slots;
+    }
+
+    /**
+     * 根据VIP等级获取额外武将位 (APK vipCfg)
      */
     private int getVipBonusSlots(Integer vipLevel) {
         if (vipLevel == null || vipLevel <= 0) return 0;
-        return (vipLevel + 1) / 2;
+        int lv = Math.min(vipLevel, VIP_BONUS_SLOTS.length - 1);
+        return VIP_BONUS_SLOTS[lv];
     }
     
     /**
      * 检查是否可以招募新武将
      */
     public boolean canRecruitGeneral(String odUserId, int currentGeneralCount) {
-        UserResource resource = getUserResource(odUserId);
-        
-        int baseSlots = resource.getBaseGeneralSlots() != null ? resource.getBaseGeneralSlots() : 10;
-        int purchasedSlots = resource.getPurchasedSlots() != null ? resource.getPurchasedSlots() : 0;
-        int vipBonusSlots = getVipBonusSlots(resource.getVipLevel());
-        int maxSlots = Math.min(50, baseSlots + purchasedSlots + vipBonusSlots);
-        
-        return currentGeneralCount < maxSlots;
+        return currentGeneralCount < getMaxGeneralSlots(odUserId);
     }
     
     /**
-     * 获取用户最大武将位数量
+     * 获取用户最大武将位数量 (APK: 按等级阶梯 + 购买 + VIP加成)
      */
     public int getMaxGeneralSlots(String odUserId) {
         UserResource resource = getUserResource(odUserId);
-        
-        int baseSlots = resource.getBaseGeneralSlots() != null ? resource.getBaseGeneralSlots() : 10;
+        int level = resource.getLevel() != null ? resource.getLevel() : 1;
+        int baseSlots = getBaseSlotsByLevel(level);
         int purchasedSlots = resource.getPurchasedSlots() != null ? resource.getPurchasedSlots() : 0;
         int vipBonusSlots = getVipBonusSlots(resource.getVipLevel());
-        
-        return Math.min(50, baseSlots + purchasedSlots + vipBonusSlots);
+        return baseSlots + purchasedSlots + vipBonusSlots;
     }
     
     /**

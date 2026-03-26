@@ -18,7 +18,8 @@ public class PlunderConfig {
 
     private static final Logger logger = LoggerFactory.getLogger(PlunderConfig.class);
 
-    public static final int DAILY_PLUNDER_LIMIT = 24;
+    public static final int DAILY_PLUNDER_LIMIT = 12;
+    public static final long PLUNDER_RECOVER_MS = 30 * 60 * 1000L;
     public static final int MAX_PURCHASE_TIMES = 10;
     public static final int PAGE_SIZE = 10;
     public static final int LEVEL_RANGE = 10;
