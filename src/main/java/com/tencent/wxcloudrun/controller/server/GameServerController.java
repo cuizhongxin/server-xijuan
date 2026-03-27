@@ -65,6 +65,11 @@ public class GameServerController {
                 ? serverMapper.findPlayerServers(userId) : Collections.emptyList();
         List<Map<String, Object>> announcements = chatMapper.findActiveAnnouncements(System.currentTimeMillis());
 
+        boolean isAdmin = "1".equals(userId);
+        if (!isAdmin) {
+            servers.removeIf(s -> ((Number) s.get("id")).intValue() <= 10);
+        }
+
         Map<Integer, Map<String, Object>> playerMap = new HashMap<>();
         for (Map<String, Object> ps : playerServers) {
             int sid = ((Number) ps.get("serverId")).intValue();
@@ -195,7 +200,7 @@ public class GameServerController {
         try {
             List<Map<String, Object>> welcomeAtts = new ArrayList<>();
             Map<String, Object> goldAtt = new LinkedHashMap<>();
-            goldAtt.put("type", "gold");
+            goldAtt.put("itemType", "gold");
             goldAtt.put("itemName", "黄金");
             goldAtt.put("count", 3000);
             welcomeAtts.add(goldAtt);
@@ -357,12 +362,12 @@ public class GameServerController {
                 try {
                     List<Map<String, Object>> atts = new ArrayList<>();
                     Map<String, Object> goldAtt = new LinkedHashMap<>();
-                    goldAtt.put("type", "gold");
+                    goldAtt.put("itemType", "gold");
                     goldAtt.put("itemName", "黄金");
                     goldAtt.put("count", 3000);
                     atts.add(goldAtt);
                     Map<String, Object> vipAtt = new LinkedHashMap<>();
-                    vipAtt.put("type", "vipPoints");
+                    vipAtt.put("itemType", "vipPoints");
                     vipAtt.put("itemName", "VIP点数");
                     vipAtt.put("count", 300);
                     atts.add(vipAtt);
