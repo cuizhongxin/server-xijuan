@@ -7,6 +7,7 @@ import com.tencent.wxcloudrun.model.UserLevel;
 import com.tencent.wxcloudrun.model.UserResource;
 import com.tencent.wxcloudrun.repository.GeneralRepository;
 import com.tencent.wxcloudrun.service.UserResourceService;
+import com.tencent.wxcloudrun.service.battle.BattleCalculator;
 import com.tencent.wxcloudrun.service.level.LevelService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,15 +69,20 @@ public class PeerageService {
         result.put("maxSoldierTier", maxTier);
         result.put("peerageList", peerageConfigs);
 
-        // 按兵种大类分组返回可用兵种
         Map<String, List<Map<String, Object>>> tiersByCategory = new LinkedHashMap<>();
         for (String cat : Arrays.asList("步", "骑", "弓")) {
+            int troopType = BattleCalculator.parseTroopType(cat);
             List<Map<String, Object>> tiers = soldierTiers.stream()
                     .filter(t -> cat.equals(t.get("troopCategory")))
                     .map(t -> {
                         Map<String, Object> copy = new HashMap<>(t);
                         int tier = getInt(t, "tier", 1);
                         copy.put("unlocked", tier <= maxTier);
+                        int[] stats = BattleCalculator.getSoldierStats(troopType, tier);
+                        copy.put("life", stats[0]);
+                        copy.put("att", stats[1]);
+                        copy.put("def", stats[2]);
+                        copy.put("sp", stats[3]);
                         return copy;
                     })
                     .collect(Collectors.toList());
@@ -129,6 +135,9 @@ public class PeerageService {
         logger.info("用户 {} 武将 {} 兵种升级到 {}阶 {}, 消耗白银 {}",
                 userId, general.getName(), targetTier, tierConfig.get("name"), cost);
 
+        int troopType = BattleCalculator.parseTroopType(troopCategory);
+        int[] newStats = BattleCalculator.getSoldierStats(troopType, targetTier);
+
         Map<String, Object> result = new HashMap<>();
         result.put("generalId", generalId);
         result.put("generalName", general.getName());
@@ -137,6 +146,10 @@ public class PeerageService {
         result.put("tierIcon", tierConfig.get("icon"));
         result.put("powerMultiplier", tierConfig.get("powerMultiplier"));
         result.put("cost", cost);
+        result.put("life", newStats[0]);
+        result.put("att", newStats[1]);
+        result.put("def", newStats[2]);
+        result.put("sp", newStats[3]);
         return result;
     }
 
