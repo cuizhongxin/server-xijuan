@@ -200,12 +200,12 @@ public class GameServerController {
         try {
             List<Map<String, Object>> welcomeAtts = new ArrayList<>();
             Map<String, Object> goldAtt = new LinkedHashMap<>();
-            goldAtt.put("itemType", "gold");
-            goldAtt.put("itemName", "黄金");
+            goldAtt.put("itemType", "boundGold");
+            goldAtt.put("itemName", "绑金");
             goldAtt.put("count", 3000);
             welcomeAtts.add(goldAtt);
             mailService.sendSystemMail(gameUserId, "新手礼包",
-                    "欢迎来到三国霸业！这是你的新手礼包，包含3000黄金。\n请尽快选择阵营(魏/蜀/吴)，开启你的征程！",
+                    "欢迎来到三国霸业！这是你的新手礼包，包含3000绑金。\n请尽快选择阵营(魏/蜀/吴)，开启你的征程！",
                     welcomeAtts);
             logger.info("新玩家欢迎邮件已发送: {}", gameUserId);
         } catch (Exception e) {
@@ -362,8 +362,8 @@ public class GameServerController {
                 try {
                     List<Map<String, Object>> atts = new ArrayList<>();
                     Map<String, Object> goldAtt = new LinkedHashMap<>();
-                    goldAtt.put("itemType", "gold");
-                    goldAtt.put("itemName", "黄金");
+                    goldAtt.put("itemType", "boundGold");
+                    goldAtt.put("itemName", "绑金");
                     goldAtt.put("count", 3000);
                     atts.add(goldAtt);
                     Map<String, Object> vipAtt = new LinkedHashMap<>();
@@ -372,7 +372,7 @@ public class GameServerController {
                     vipAtt.put("count", 300);
                     atts.add(vipAtt);
                     mailService.sendSystemMail(gameUserId, "每日俸禄",
-                            "主公辛苦了！这是你今日的俸禄：3000黄金、300VIP点数。\n请及时领取！",
+                            "主公辛苦了！这是你今日的俸禄：3000绑金、300VIP点数。\n请及时领取！",
                             atts);
                     sent++;
                 } catch (Exception e) {

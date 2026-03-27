@@ -89,6 +89,9 @@ public class MailService {
                 case "gold":
                     userResourceService.addGold(userId, count);
                     break;
+                case "boundGold":
+                    userResourceService.addBoundGold(userId, count);
+                    break;
                 case "food":
                     userResourceService.addFood(userId, count);
                     break;
