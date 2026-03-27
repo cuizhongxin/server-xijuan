@@ -21,4 +21,17 @@
         ORDER BY t.sort_order
     </select>
 
+    <select id="findByTemplateIds" resultType="java.util.HashMap">
+        SELECT general_template_id AS templateId,
+               trait_name AS traitName, trait_desc AS traitDesc,
+               effect_type AS effectType, effect_value AS effectValue,
+               troop_restrict AS troopRestrict, sort_order AS sortOrder
+        FROM general_famous_trait
+        WHERE general_template_id IN
+        <foreach item="id" collection="ids" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        ORDER BY general_template_id, sort_order
+    </select>
+
 </mapper>

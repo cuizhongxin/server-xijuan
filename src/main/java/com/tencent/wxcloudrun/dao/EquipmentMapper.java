@@ -24,4 +24,6 @@ public interface EquipmentMapper {
     List<Equipment> findUnequippedByUserId(@Param("userId") String userId);
     
     List<Equipment> findEquippedByGeneralId(@Param("generalId") String generalId);
+
+    void unequipByGeneralId(@Param("generalId") String generalId);
 }

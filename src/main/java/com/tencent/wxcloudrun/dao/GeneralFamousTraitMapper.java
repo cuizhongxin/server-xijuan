@@ -12,4 +12,6 @@ public interface GeneralFamousTraitMapper {
     List<Map<String, Object>> findByGeneralTemplateId(@Param("generalTemplateId") int generalTemplateId);
 
     List<Map<String, Object>> findByGeneralName(@Param("name") String name);
+
+    List<Map<String, Object>> findByTemplateIds(@Param("ids") List<Integer> ids);
 }

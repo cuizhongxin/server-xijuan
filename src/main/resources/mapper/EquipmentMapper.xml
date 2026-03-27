@@ -166,4 +166,9 @@
         SELECT * FROM equipment WHERE equipped_general_id = #{generalId} AND equipped = true
     </select>
 
+    <update id="unequipByGeneralId">
+        UPDATE equipment SET equipped = false, equipped_general_id = NULL
+        WHERE equipped_general_id = #{generalId} AND equipped = true
+    </update>
+
 </mapper>

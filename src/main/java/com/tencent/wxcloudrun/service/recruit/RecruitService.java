@@ -636,6 +636,9 @@ public class RecruitService {
     }
     
     private String formatTrait(GeneralConfig.Trait trait) {
+        if (trait.displayText != null && !trait.displayText.isEmpty()) {
+            return trait.displayText;
+        }
         if ("special".equals(trait.type)) { return trait.value.toString(); }
         if ("tactics_trigger".equals(trait.type)) { return "兵法发动概率翻倍"; }
         String name;

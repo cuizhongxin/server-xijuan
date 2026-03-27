@@ -1,7 +1,7 @@
 package com.tencent.wxcloudrun.config;
 
 import com.tencent.wxcloudrun.dao.GeneralQualityMapper;
-import com.tencent.wxcloudrun.dao.GeneralSlotTraitMapper;
+import com.tencent.wxcloudrun.dao.GeneralFamousTraitMapper;
 import com.tencent.wxcloudrun.dao.GeneralTemplateMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,7 +24,7 @@ public class GeneralConfig {
     @Autowired
     private GeneralTemplateMapper generalTemplateMapper;
     @Autowired
-    private GeneralSlotTraitMapper generalSlotTraitMapper;
+    private GeneralFamousTraitMapper generalFamousTraitMapper;
 
     /** 品质定义（启动时从 general_quality 加载并缓存） */
     private final Map<String, Quality> qualities = new LinkedHashMap<>();
@@ -64,7 +64,7 @@ public class GeneralConfig {
     }
 
     /**
-     * 按品质获取该品质下所有将领模板（从数据库 general_template + general_slot + general_slot_trait 查询）
+     * 按品质获取该品质下所有将领模板（从数据库 general_template + general_slot + general_famous_trait 查询）
      */
     public List<GeneralTemplate> getAllGeneralsByQuality(String quality) {
         List<Map<String, Object>> rows = generalTemplateMapper.listByQualityCode(quality);
@@ -87,21 +87,27 @@ public class GeneralConfig {
     }
 
     private List<GeneralTemplate> buildGeneralTemplates(List<Map<String, Object>> rows) {
-        Set<Integer> slotIds = new HashSet<>();
+        Set<Integer> templateIds = new HashSet<>();
         for (Map<String, Object> row : rows) {
-            Object sid = row.get("slotId");
-            if (sid != null) slotIds.add(((Number) sid).intValue());
+            Object tid = row.get("templateId");
+            if (tid != null) templateIds.add(((Number) tid).intValue());
         }
-        List<Integer> slotIdList = new ArrayList<>(slotIds);
-        List<Map<String, Object>> traitRows = generalSlotTraitMapper.findBySlotIds(slotIdList);
-        Map<Integer, List<Trait>> traitsBySlotId = new HashMap<>();
-        for (Map<String, Object> tr : traitRows != null ? traitRows : Collections.<Map<String, Object>>emptyList()) {
-            Object sid = tr.get("slotId");
-            String traitType = (String) tr.get("traitType");
-            String traitValue = (String) tr.get("traitValue");
-            if (sid == null || traitType == null) continue;
-            int slotId = ((Number) sid).intValue();
-            traitsBySlotId.computeIfAbsent(slotId, k -> new ArrayList<>()).add(parseTrait(traitType, traitValue));
+
+        Map<Integer, List<Trait>> traitsByTemplateId = new HashMap<>();
+        if (!templateIds.isEmpty()) {
+            List<Map<String, Object>> traitRows = generalFamousTraitMapper.findByTemplateIds(new ArrayList<>(templateIds));
+            for (Map<String, Object> tr : traitRows != null ? traitRows : Collections.<Map<String, Object>>emptyList()) {
+                Object tid = tr.get("templateId");
+                String traitName = (String) tr.get("traitName");
+                String traitDesc = (String) tr.get("traitDesc");
+                String effectType = (String) tr.get("effectType");
+                Number effectValue = (Number) tr.get("effectValue");
+                if (tid == null || effectType == null) continue;
+                int tplId = ((Number) tid).intValue();
+                String displayText = (traitName != null ? traitName : "") + "：" + (traitDesc != null ? traitDesc : "");
+                traitsByTemplateId.computeIfAbsent(tplId, k -> new ArrayList<>())
+                        .add(new Trait(effectType, effectValue != null ? effectValue.intValue() : 0, displayText));
+            }
         }
 
         List<GeneralTemplate> result = new ArrayList<>();
@@ -109,31 +115,20 @@ public class GeneralConfig {
             String name = (String) row.get("name");
             String faction = (String) row.get("faction");
             Object sid = row.get("slotId");
+            Object tid = row.get("templateId");
             String avatar = stripInvisibleChars((String) row.get("avatar"));
             String qualityCode = (String) row.get("qualityCode");
             String type = (String) row.get("type");
             String troopType = (String) row.get("troopType");
             if (name == null || qualityCode == null || type == null) continue;
             int slotId = sid != null ? ((Number) sid).intValue() : 0;
+            int templateId = tid != null ? ((Number) tid).intValue() : 0;
             Object siObj = row.get("slotIndex");
             int slotIndex = siObj != null ? ((Number) siObj).intValue() : 0;
-            List<Trait> traits = traitsBySlotId.getOrDefault(slotId, Collections.emptyList());
+            List<Trait> traits = traitsByTemplateId.getOrDefault(templateId, Collections.emptyList());
             result.add(new GeneralTemplate(name, qualityCode, faction != null ? faction : "群", type, troopType, traits, avatar, slotId, slotIndex));
         }
         return result;
-    }
-
-    private static Trait parseTrait(String traitType, String traitValue) {
-        if (traitValue == null) traitValue = "";
-        if ("special".equals(traitType)) {
-            return new Trait(traitType, traitValue);
-        }
-        try {
-            return new Trait(traitType, Integer.parseInt(traitValue.trim()));
-        } catch (NumberFormatException e) {
-            logger.error("解析特性异常", e);
-            return new Trait(traitType, traitValue);
-        }
     }
 
     // --------------- 内部类（保持与 RecruitService 等调用方兼容） ---------------
@@ -214,10 +209,17 @@ public class GeneralConfig {
     public static class Trait {
         public String type;
         public Object value;
+        public String displayText;
 
         public Trait(String type, Object value) {
             this.type = type;
             this.value = value;
+        }
+
+        public Trait(String type, Object value, String displayText) {
+            this.type = type;
+            this.value = value;
+            this.displayText = displayText;
         }
     }
 

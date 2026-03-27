@@ -1,8 +1,8 @@
 package com.tencent.wxcloudrun.service.general;
 
+import com.tencent.wxcloudrun.dao.EquipmentMapper;
 import com.tencent.wxcloudrun.dao.GeneralFamousTraitMapper;
 import com.tencent.wxcloudrun.dao.GeneralSlotMapper;
-import com.tencent.wxcloudrun.dao.GeneralSlotTraitMapper;
 import com.tencent.wxcloudrun.dao.GeneralTemplateMapper;
 import com.tencent.wxcloudrun.model.General;
 import com.tencent.wxcloudrun.repository.GeneralRepository;
@@ -28,6 +28,9 @@ public class GeneralService {
     
     @Autowired
     private GeneralRepository generalRepository;
+
+    @Autowired
+    private EquipmentMapper equipmentMapper;
     
     @Autowired
     private com.tencent.wxcloudrun.service.warehouse.WarehouseService warehouseService;
@@ -38,8 +41,6 @@ public class GeneralService {
     @Autowired
     private GeneralSlotMapper generalSlotMapper;
 
-    @Autowired
-    private GeneralSlotTraitMapper generalSlotTraitMapper;
     @Autowired
     private GeneralTemplateMapper generalTemplateMapper;
     @Autowired
@@ -133,11 +134,7 @@ public class GeneralService {
             logger.warn("查询武将模板头像失败: name={}", name, e);
         }
         
-        // 优先从新名将特性表加载，降级用旧 slot 特性
         List<String> traitDescs = loadFamousTraits(name);
-        if (traitDescs.isEmpty()) {
-            traitDescs = loadTraitDescsBySlotId(slotId);
-        }
         
         return General.builder()
             .id(id).userId(userId).name(name).avatar(avatar).faction(faction)
@@ -231,45 +228,6 @@ public class GeneralService {
     }
 
     /**
-     * 兼容旧接口：根据 slotId 加载特性（降级用）
-     */
-    private List<String> loadTraitDescsBySlotId(int slotId) {
-        List<String> result = new ArrayList<>();
-        if (slotId <= 0) return result;
-        try {
-            List<Map<String, Object>> traitRows = generalSlotTraitMapper.findBySlotIds(
-                    Collections.singletonList(slotId));
-            if (traitRows != null) {
-                for (Map<String, Object> row : traitRows) {
-                    String traitType = (String) row.get("traitType");
-                    String traitValue = (String) row.get("traitValue");
-                    if (traitType == null) continue;
-                    result.add(formatTraitDesc(traitType, traitValue));
-                }
-            }
-        } catch (Exception e) {
-            logger.warn("查询武将特性失败: slotId={}", slotId, e);
-        }
-        return result;
-    }
-
-    private String formatTraitDesc(String traitType, String traitValue) {
-        if ("special".equals(traitType)) return traitValue != null ? traitValue : "";
-        if ("tactics_trigger".equals(traitType)) return "兵法发动概率翻倍";
-        String name;
-        switch (traitType) {
-            case "attack": name = "攻击力"; break;
-            case "defense": name = "防御力"; break;
-            case "valor": name = "武勇"; break;
-            case "command": name = "统御"; break;
-            case "dodge": name = "闪避"; break;
-            case "mobility": name = "机动性"; break;
-            default: name = traitType;
-        }
-        return name + "+" + (traitValue != null ? traitValue : "0");
-    }
-    
-    /**
      * 等级成长系数 - 每级增长 = 基础属性 × growthRate
      *
      * 不同品质成长率不同，高品质武将每级成长更多:
@@ -292,7 +250,7 @@ public class GeneralService {
      *
      * slotBase: general_slot 表中该品质+兵种+类型的基础六维
      * growthRate: 品质成长系数 (orange 0.06 ~ white 0.03)
-     * traitBonus: general_slot_trait 表中的名将特性加成（仅橙色有）
+     * traitBonus: general_famous_trait 表中的名将特性加成（战斗时由 applyFamousTraitsToUnit 统一应用）
      *
      * 示例（橙色步兵统帅 Lv50）:
      *   base_attack=150, growthRate=0.06
@@ -335,32 +293,7 @@ public class GeneralService {
         int command = (int) (baseCommand + baseCommand * growthRate * lvGrowth);
         int dodge = (int) Math.min(50, baseDodge + baseDodge * growthRate * lvGrowth);
         int mobility = (int) (baseMobility + baseMobility * growthRate * lvGrowth);
-        int tacticsTriggerMultiplier = 1;
-
-        // 加载特性加成
-        List<Map<String, Object>> traits = generalSlotTraitMapper.findBySlotIds(Collections.singletonList(slotId));
-        if (traits != null) {
-            for (Map<String, Object> trait : traits) {
-                String traitType = (String) trait.get("traitType");
-                String traitValue = (String) trait.get("traitValue");
-                if (traitType == null || traitValue == null) continue;
-                if ("special".equals(traitType)) continue;
-                try {
-                    int v = Integer.parseInt(traitValue.trim());
-                    switch (traitType) {
-                        case "attack": atk += v; break;
-                        case "defense": def += v; break;
-                        case "valor": valor += v; break;
-                        case "command": command += v; break;
-                        case "dodge": dodge = (int) Math.min(50, dodge + v); break;
-                        case "mobility": mobility += v; break;
-                        case "tactics_trigger": tacticsTriggerMultiplier = v; break;
-                    }
-                } catch (NumberFormatException ignored) {}
-            }
-        }
-
-        return new int[]{atk, def, valor, command, dodge, mobility, tacticsTriggerBonus, tacticsTriggerMultiplier};
+        return new int[]{atk, def, valor, command, dodge, mobility, tacticsTriggerBonus, 1};
     }
 
     /**
@@ -372,21 +305,6 @@ public class GeneralService {
         return toInt(slot.get("tacticsTriggerBonus"));
     }
 
-    /**
-     * 根据 slotId 获取兵法发动概率倍率（含"兵法发动概率提升"名将特性时返回2，否则1）
-     */
-    public int getTacticsTriggerMultiplier(int slotId) {
-        List<Map<String, Object>> traits = generalSlotTraitMapper.findBySlotIds(Collections.singletonList(slotId));
-        if (traits != null) {
-            for (Map<String, Object> trait : traits) {
-                if ("tactics_trigger".equals(trait.get("traitType"))) {
-                    try { return Integer.parseInt(((String) trait.get("traitValue")).trim()); }
-                    catch (Exception e) { return 2; }
-                }
-            }
-        }
-        return 1;
-    }
 
     /**
      * 兼容旧接口 - 无 slotId 时的降级计算（用于初始化等场景）
@@ -527,6 +445,7 @@ public class GeneralService {
         if (general.getStatusLocked() != null && general.getStatusLocked()) {
             throw new RuntimeException("武将已锁定，无法解雇");
         }
+        equipmentMapper.unequipByGeneralId(generalId);
         generalRepository.delete(generalId);
         logger.info("解雇武将: userId={}, generalId={}, name={}", userId, generalId, general.getName());
         return true;
