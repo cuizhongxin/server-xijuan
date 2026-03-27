@@ -62,31 +62,69 @@ public class BattleService {
                 BattleCalculator.TacticsResult tr = BattleCalculator.calcDamageWithTactics(
                         attacker, target, aliveEnemies);
 
+                // 以逸待劳打断判定：攻击方触发声东击西时，检查防守方全队是否有人装备以逸待劳
+                BattleCalculator.BattleUnit counterUnit = BattleCalculator.findCounterUnit(aliveEnemies, attacker, tr.triggered);
+                boolean countered = counterUnit != null && BattleCalculator.rollCounter(counterUnit);
+
                 ActionLog action = new ActionLog();
                 action.attackerName = attacker.name;
                 action.targetName = target.name;
                 action.attackerIsA = attackerIsA;
                 action.attackerIdx = attackerIsA ? sideA.indexOf(attacker) : sideB.indexOf(attacker);
                 action.targetIdx = attackerIsA ? sideB.indexOf(target) : sideA.indexOf(target);
-                action.tacticsTriggered = tr.triggered;
-                action.tacticsName = tr.tacticsName;
-                action.effectDesc = tr.effectDesc;
-                action.specialTarget = tr.specialTarget;
                 action.hits = new ArrayList<>();
 
-                for (BattleCalculator.DamageResult dr : tr.damages) {
+                if (countered && counterUnit != null) {
+                    action.tacticsTriggered = true;
+                    action.tacticsName = tr.tacticsName;
+                    action.effectDesc = "声东击西被" + counterUnit.name + "以逸待劳打断！";
                     HitDetail hit = new HitDetail();
-                    hit.isDodge = dr.isDodge;
-                    hit.soldierLoss = dr.soldierLoss;
-                    hit.isCrit = dr.isCrit;
-                    if (!dr.isDodge) {
-                        target.soldierCount = Math.max(0, target.soldierCount - dr.soldierLoss);
-                    }
+                    hit.soldierLoss = 0;
                     hit.targetRemaining = target.soldierCount;
                     action.hits.add(hit);
+                } else {
+                    action.tacticsTriggered = tr.triggered;
+                    action.tacticsName = tr.tacticsName;
+                    action.effectDesc = tr.effectDesc;
+                    action.specialTarget = tr.specialTarget;
+                    for (BattleCalculator.DamageResult dr : tr.damages) {
+                        HitDetail hit = new HitDetail();
+                        hit.isDodge = dr.isDodge;
+                        hit.soldierLoss = dr.soldierLoss;
+                        hit.isCrit = dr.isCrit;
+                        if (!dr.isDodge) {
+                            target.soldierCount = Math.max(0, target.soldierCount - dr.soldierLoss);
+                        }
+                        hit.targetRemaining = target.soldierCount;
+                        action.hits.add(hit);
+                    }
                 }
 
                 roundLog.actions.add(action);
+
+                // 以逸待劳反击：打断声东击西后，由装备以逸待劳的武将对发动者造成伤害
+                if (countered && counterUnit != null) {
+                    BattleCalculator.DamageResult counterDr = BattleCalculator.calcCounterDamage(counterUnit, attacker);
+                    ActionLog counterAction = new ActionLog();
+                    counterAction.attackerName = counterUnit.name;
+                    counterAction.targetName = attacker.name;
+                    counterAction.attackerIsA = !attackerIsA;
+                    counterAction.attackerIdx = attackerIsA ? sideB.indexOf(counterUnit) : sideA.indexOf(counterUnit);
+                    counterAction.targetIdx = attackerIsA ? sideA.indexOf(attacker) : sideB.indexOf(attacker);
+                    counterAction.isCounter = true;
+                    counterAction.hits = new ArrayList<>();
+
+                    HitDetail counterHit = new HitDetail();
+                    counterHit.isDodge = counterDr.isDodge;
+                    counterHit.soldierLoss = counterDr.soldierLoss;
+                    counterHit.isCounter = true;
+                    if (!counterDr.isDodge) {
+                        attacker.soldierCount = Math.max(0, attacker.soldierCount - counterDr.soldierLoss);
+                    }
+                    counterHit.targetRemaining = attacker.soldierCount;
+                    counterAction.hits.add(counterHit);
+                    roundLog.actions.add(counterAction);
+                }
 
                 if (sideAAllDead(sideA) || sideAAllDead(sideB)) break;
             }
@@ -156,13 +194,14 @@ public class BattleService {
                                 r.roundNum, atkLabel, a.tacticsName,
                                 a.effectDesc != null ? a.effectDesc : ""));
                     }
+                    String actionPrefix = a.isCounter ? "以逸待劳！反击" : "攻击";
                     for (HitDetail h : a.hits) {
                         if (h.isDodge) {
-                            log.add(String.format("第%d回合: %s攻击，%s闪避！",
-                                    r.roundNum, atkLabel, a.targetName));
+                            log.add(String.format("第%d回合: %s%s，%s闪避！",
+                                    r.roundNum, atkLabel, actionPrefix, a.targetName));
                         } else {
-                            log.add(String.format("第%d回合: %s攻击%s，减员%d，剩余兵力%d",
-                                    r.roundNum, atkLabel, a.targetName, h.soldierLoss, h.targetRemaining));
+                            log.add(String.format("第%d回合: %s%s%s，减员%d，剩余兵力%d",
+                                    r.roundNum, atkLabel, actionPrefix, a.targetName, h.soldierLoss, h.targetRemaining));
                         }
                     }
                 }
@@ -189,12 +228,14 @@ public class BattleService {
         public String tacticsName;
         public String effectDesc;
         public String specialTarget;
+        public boolean isCounter;
         public List<HitDetail> hits;
     }
 
     public static class HitDetail {
         public boolean isDodge;
         public boolean isCrit;
+        public boolean isCounter;
         public int soldierLoss;
         public int targetRemaining;
     }

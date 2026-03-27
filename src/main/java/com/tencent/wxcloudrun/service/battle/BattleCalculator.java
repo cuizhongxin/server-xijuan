@@ -6,8 +6,8 @@ import java.util.*;
  * 统一战斗计算器
  *
  * 武将四维:
- *   武勇(valor)  → 攻击时伤害输出加成: valorBonus = 1 + valor/400
- *   统御(command) → 防守时伤害减免:     commandReduction = command/(command+400)
+ *   武勇(valor)  → 攻击时伤害输出加成: valorBonus = 1 + valor/200
+ *   统御(command) → 防守时伤害减免:     commandReduction = command/(command+200)
  *   攻击(attack)  → 直接加到军队总攻击
  *   防御(defense)  → 直接加到军队总防御
  *
@@ -229,14 +229,14 @@ public class BattleCalculator {
     // ==================== 武勇 → 进攻伤害加成 ====================
 
     public static double getValorBonus(int valor) {
-        return 1.0 + valor / 400.0;
+        return 1.0 + valor / 200.0;
     }
 
     // ==================== 统御 → 防守伤害减免 ====================
 
     public static double getCommandReduction(int command) {
         if (command <= 0) return 0;
-        return (double) command / (command + 400.0);
+        return (double) command / (command + 200.0);
     }
 
     // ==================== 闪避判定 ====================
@@ -282,6 +282,25 @@ public class BattleCalculator {
                 ? attacker.targetSoldierLife : getSoldierLife(target.troopType, target.soldierTier);
         int soldierLife = (int)(baseSoldierLife * (1.0 + target.traitLifePct / 100.0));
 
+        // 步兵被动兵法：防御方减伤
+        if (target.tacticsId != null && finalDamage > 0) {
+            switch (target.tacticsId) {
+                case "t_infantry_1": // 方圆阵 - 全减伤
+                    finalDamage *= Math.max(0.3, 1.0 - target.tacticsEffectValue / 100.0);
+                    break;
+                case "t_infantry_2": // 偃月阵 - 减骑兵伤害
+                    if (attacker.troopType == 2) {
+                        finalDamage *= Math.max(0.2, 1.0 - target.tacticsEffectValue / 100.0);
+                    }
+                    break;
+                case "t_infantry_3": // 长蛇阵 - 减弓兵伤害
+                    if (attacker.troopType == 3) {
+                        finalDamage *= Math.max(0.2, 1.0 - target.tacticsEffectValue / 100.0);
+                    }
+                    break;
+            }
+        }
+
         int soldierLoss;
         if (finalDamage <= 0) {
             soldierLoss = 1 + random.nextInt(5);
@@ -294,8 +313,7 @@ public class BattleCalculator {
             soldierLoss = 0;
         }
 
-        boolean isCrit = false;
-        return new DamageResult(soldierLoss, isCrit, false, soldierLoss);
+        return new DamageResult(soldierLoss, false, false, soldierLoss);
     }
 
     // ==================== 兵种类型转换 ====================
@@ -432,7 +450,7 @@ public class BattleCalculator {
         }
 
         // 偷袭类兵法被免疫时直接视为未触发
-        if (target.traitImmuneAmbush && ("t_cavalry_2".equals(tid) || "t_cavalry_3".equals(tid))) {
+        if (target.traitImmuneAmbush && "t_cavalry_2".equals(tid)) {
             result.damages.add(calcDamage(attacker, target));
             return result;
         }
@@ -475,17 +493,7 @@ public class BattleCalculator {
                 attacker.totalAttack = origAtk;
                 break;
             }
-            case "t_cavalry_3": {
-                double dmgRatio = attacker.tacticsEffectValue / 100.0;
-                result.effectDesc = "以逸待劳！伏击";
-                int origAtk = attacker.totalAttack;
-                DamageResult dr = calcDamage(attacker, target);
-                dr.soldierLoss = Math.max(1, (int)(dr.soldierLoss * Math.max(0.3, dmgRatio)));
-                dr.soldierLoss = Math.max(1, Math.min(dr.soldierLoss, target.soldierCount));
-                result.damages.add(dr);
-                attacker.totalAttack = origAtk;
-                break;
-            }
+            // t_cavalry_3 (以逸待劳) 已改为被动反击兵法，不在此主动触发
             case "t_cavalry_4": {
                 double pierceRatio = attacker.tacticsEffectValue / 100.0;
                 result.effectDesc = "战神突击！贯穿攻击";
@@ -537,6 +545,34 @@ public class BattleCalculator {
         }
 
         return result;
+    }
+
+    // ==================== 反击判定（以逸待劳） ====================
+    // APK原版：骑兵兵法，一定概率打断敌方的偷袭(声东击西)，并对目标造成 effectValue% 伤害
+    // 触发条件：攻击方触发了声东击西(t_cavalry_2)，防御方队伍中有人装备以逸待劳(t_cavalry_3)
+
+    public static BattleUnit findCounterUnit(List<BattleUnit> defenders, BattleUnit attacker, boolean attackerTacticsTriggered) {
+        if (!attackerTacticsTriggered || !"t_cavalry_2".equals(attacker.tacticsId)) return null;
+        for (BattleUnit d : defenders) {
+            if (d.soldierCount > 0 && "t_cavalry_3".equals(d.tacticsId)) return d;
+        }
+        return null;
+    }
+
+    public static boolean rollCounter(BattleUnit counterUnit) {
+        double rate = (counterUnit.tacticsTriggerRate + counterUnit.tacticsTriggerBonus) * counterUnit.tacticsTriggerMultiplier / 100.0;
+        return random.nextDouble() < Math.min(0.50, rate);
+    }
+
+    public static DamageResult calcCounterDamage(BattleUnit defender, BattleUnit attacker) {
+        DamageResult dr = calcDamage(defender, attacker);
+        if (dr.isDodge) return dr;
+        double dmgRatio = defender.tacticsEffectValue / 100.0;
+        dr.soldierLoss = Math.max(1, (int)(dr.soldierLoss * Math.max(0.3, dmgRatio)));
+        dr.soldierLoss = Math.min(dr.soldierLoss, attacker.soldierCount);
+        dr.damage = dr.soldierLoss;
+        dr.isCounter = true;
+        return dr;
     }
 
     // ==================== 数据类 ====================
