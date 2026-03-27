@@ -6,6 +6,7 @@ import com.tencent.wxcloudrun.dao.GeneralSlotTraitMapper;
 import com.tencent.wxcloudrun.dao.GeneralTemplateMapper;
 import com.tencent.wxcloudrun.model.General;
 import com.tencent.wxcloudrun.repository.GeneralRepository;
+import com.tencent.wxcloudrun.service.battle.BattleCalculator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -188,6 +189,45 @@ public class GeneralService {
             logger.warn("查询名将特性数据失败: name={}", generalName, e);
             return Collections.emptyList();
         }
+    }
+
+    /**
+     * 将名将特性加成应用到已构建的 BattleUnit 上（供各战斗场景统一调用）
+     */
+    public void applyFamousTraitsToUnit(BattleCalculator.BattleUnit unit, String generalName, int troopType) {
+        List<Map<String, Object>> traits = loadFamousTraitData(generalName);
+        if (traits.isEmpty()) return;
+
+        int traitAtkBonus = 0, traitDefBonus = 0, traitDmgBonus = 0;
+        int traitDamageResist = 0;
+        double traitLifePct = 0;
+        boolean traitImmuneAmbush = false;
+
+        for (Map<String, Object> t : traits) {
+            String effectType = (String) t.get("effectType");
+            int effectValue = t.get("effectValue") != null ? ((Number) t.get("effectValue")).intValue() : 0;
+            int troopR = t.get("troopRestrict") != null ? ((Number) t.get("troopRestrict")).intValue() : 0;
+            if (troopR != 0 && troopR != troopType) continue;
+
+            switch (effectType) {
+                case "soldier_damage": case "troop_damage":  traitDmgBonus += effectValue; break;
+                case "army_attack":    case "troop_attack":  traitAtkBonus += effectValue; break;
+                case "army_defense":   case "troop_defense": traitDefBonus += effectValue; break;
+                case "damage_resist":   traitDamageResist += effectValue; break;
+                case "soldier_life_pct": traitLifePct += effectValue; break;
+                case "army_mobility":   unit.mobility += effectValue; break;
+                case "army_dodge":      unit.dodge += effectValue; break;
+                case "soldier_count":   unit.soldierCount += effectValue; unit.maxSoldierCount += effectValue; break;
+                case "tactics_prob": case "troop_tactics": unit.tacticsTriggerMultiplier = 2.0; break;
+                case "immune_ambush":   traitImmuneAmbush = true; break;
+            }
+        }
+        unit.totalAttack += traitAtkBonus;
+        unit.totalDefense += traitDefBonus;
+        unit.traitDmgBonus += traitDmgBonus;
+        unit.traitDamageResist += traitDamageResist;
+        unit.traitLifePct += traitLifePct;
+        unit.traitImmuneAmbush = traitImmuneAmbush;
     }
 
     /**

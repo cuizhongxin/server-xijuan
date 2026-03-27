@@ -431,6 +431,12 @@ public class BattleCalculator {
             return result;
         }
 
+        // 偷袭类兵法被免疫时直接视为未触发
+        if (target.traitImmuneAmbush && ("t_cavalry_2".equals(tid) || "t_cavalry_3".equals(tid))) {
+            result.damages.add(calcDamage(attacker, target));
+            return result;
+        }
+
         result.triggered = true;
         result.tacticsName = attacker.tacticsName;
 

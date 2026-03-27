@@ -48,6 +48,10 @@ public class AllianceWarService {
 
     @Autowired
     private MailService mailService;
+
+    @Autowired
+    @org.springframework.context.annotation.Lazy
+    private com.tencent.wxcloudrun.service.general.GeneralService generalService;
     
     // 今日盟战（内存缓存，同时持久化到数据库）
     private AllianceWar todayWar;
@@ -628,6 +632,7 @@ public class AllianceWarService {
                                 eq.getOrDefault("speed", 0), eq.getOrDefault("hit", 0),
                                 eq.getOrDefault("dodge", 0), 0, 0, 0);
                         u.position = i;
+                        generalService.applyFamousTraitsToUnit(u, g.getName(), troopType);
                         units.add(u);
                     }
                     return units;

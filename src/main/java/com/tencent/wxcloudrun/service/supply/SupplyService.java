@@ -57,6 +57,7 @@ public class SupplyService {
     @Autowired private SuitConfigService suitConfigService;
     @Autowired private PlayerNameResolver playerNameResolver;
     @Autowired @org.springframework.context.annotation.Lazy private com.tencent.wxcloudrun.service.dailytask.DailyTaskService dailyTaskService;
+    @Autowired @org.springframework.context.annotation.Lazy private com.tencent.wxcloudrun.service.general.GeneralService generalService;
 
     private List<Map<String, Object>> gradeConfigs = new ArrayList<>();
 
@@ -617,6 +618,7 @@ public class SupplyService {
                     eq.getOrDefault("speed", 0), eq.getOrDefault("hit", 0),
                     eq.getOrDefault("dodge", 0), 0, 0, 0);
             u.position = i;
+            generalService.applyFamousTraitsToUnit(u, g.getName(), troopType);
             units.add(u);
         }
         return units;

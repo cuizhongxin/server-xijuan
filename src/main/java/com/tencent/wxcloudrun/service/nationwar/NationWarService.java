@@ -50,6 +50,10 @@ public class NationWarService {
 
     @Autowired
     private SuitConfigService suitConfigService;
+
+    @Autowired
+    @Lazy
+    private com.tencent.wxcloudrun.service.general.GeneralService generalService;
     
     // 国家信息（游戏配置，只读，保留内存）
     private final Map<String, Nation> nations = new LinkedHashMap<>();
@@ -689,6 +693,7 @@ public class NationWarService {
                                 eq.getOrDefault("speed", 0), eq.getOrDefault("hit", 0),
                                 eq.getOrDefault("dodge", 0), 0, 0, 0);
                         u.position = i;
+                        generalService.applyFamousTraitsToUnit(u, g.getName(), troopType);
                         units.add(u);
                     }
                     return units;
