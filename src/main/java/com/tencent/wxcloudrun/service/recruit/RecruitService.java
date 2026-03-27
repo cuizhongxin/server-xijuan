@@ -239,7 +239,7 @@ public class RecruitService {
             throw new BusinessException(400, "武将位已满（" + currentCount + "/" + maxSlots + "）");
         }
         
-        // 引导期间招募：免费 + 固定武将
+        // 引导招募：每种类型仅免费一次（玩家尚未拥有对应固定武将时触发）
         if (isInGuide(userId)) {
             String fixedName = null;
             String fixedQuality = null;
@@ -251,22 +251,27 @@ public class RecruitService {
                 fixedQuality = "blue";
             }
             if (fixedName != null) {
-                General guideGeneral = tryGuideRecruit(userId, fixedName, fixedQuality);
-                if (guideGeneral == null) {
-                    logger.warn("引导招募: 固定武将{}获取失败, 降级为免费随机招募(quality={})", fixedName, fixedQuality);
-                    guideGeneral = recruitOneByQuality(userId, fixedQuality);
+                final String guideName = fixedName;
+                boolean alreadyOwned = generalRepository.findByUserId(userId).stream()
+                        .anyMatch(g -> guideName.equals(g.getName()));
+                if (!alreadyOwned) {
+                    General guideGeneral = tryGuideRecruit(userId, fixedName, fixedQuality);
+                    if (guideGeneral == null) {
+                        logger.warn("引导招募: 固定武将{}获取失败, 降级为免费随机招募(quality={})", fixedName, fixedQuality);
+                        guideGeneral = recruitOneByQuality(userId, fixedQuality);
+                    }
+                    userResourceService.updateGeneralCount(userId, currentCount + 1);
+                    generalRepository.saveAll(Collections.singletonList(guideGeneral));
+                    UserResource resource = getUserResource(userId);
+                    logger.info("引导招募(免费): userId={}, 获得{}", userId, guideGeneral.getName());
+                    return RecruitResult.builder()
+                            .general(guideGeneral)
+                            .soulPointGained(0)
+                            .totalSoulPoint(resource.getSoulPoint() != null ? resource.getSoulPoint() : 0)
+                            .remainingTokens(0)
+                            .tokenType(tokenType)
+                            .build();
                 }
-                userResourceService.updateGeneralCount(userId, currentCount + 1);
-                generalRepository.saveAll(Collections.singletonList(guideGeneral));
-                UserResource resource = getUserResource(userId);
-                logger.info("引导招募: userId={}, 获得{}", userId, guideGeneral.getName());
-                return RecruitResult.builder()
-                        .general(guideGeneral)
-                        .soulPointGained(0)
-                        .totalSoulPoint(resource.getSoulPoint() != null ? resource.getSoulPoint() : 0)
-                        .remainingTokens(0)
-                        .tokenType(tokenType)
-                        .build();
             }
         }
         
@@ -285,7 +290,7 @@ public class RecruitService {
         // 红色以上名将全服通告
         tryAnnounceRecruit(userId, general);
         
-        // 高级招募额外获得将魂
+        // 高级招募获得将魂
         int soulGained = 0;
         if ("SENIOR".equalsIgnoreCase(tokenType)) {
             soulGained = SOUL_MIN + random.nextInt(SOUL_MAX - SOUL_MIN + 1);

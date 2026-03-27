@@ -424,6 +424,11 @@ public class BossWarService {
         BossTemplate t = BOSS_TEMPLATES.get(bossId);
         if (t == null) throw new RuntimeException("Boss不存在");
 
+        int playerLevel = levelService.getUserLevel(userId).getLevel();
+        if (playerLevel < t.minLevel) {
+            throw new RuntimeException("等级不足，需要达到" + t.minLevel + "级才能挑战" + t.name + "（当前" + playerLevel + "级）");
+        }
+
         BossState state = refreshBossState(serverId, t);
         if (!"active".equals(state.status)) throw new RuntimeException("Boss当前不可攻击");
         if (state.remainingHp <= 0) throw new RuntimeException("Boss已被击杀");
