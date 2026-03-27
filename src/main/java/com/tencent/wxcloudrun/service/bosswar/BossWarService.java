@@ -34,7 +34,7 @@ public class BossWarService {
     private static final int DURATION_MINUTES = 30;
 
     private static final int SQUAD_SIZE = 6;
-    private static final int BASE_COOLDOWN_SEC = 0;
+    private static final int BASE_COOLDOWN_SEC = 90;
     private static final double COMMON_DROP_RATE = 0.25;
     private static final double EQUIP_DROP_RATE = 0.10;
     private static final double STRONG_SQUAD_CHANCE = 0.3;
@@ -70,7 +70,7 @@ public class BossWarService {
         //                          1431 异族士兵 exp=4000, 1432 首领卫队 exp=8500
         BOSS_TEMPLATES.put(BOSS_HJLK, new BossTemplate(BOSS_HJLK, "黄巾流寇", 25,
                 "boss_hangjzk.png", 20,
-                new int[]{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23},
+                new int[]{0, 3, 6, 9, 15, 22},
                 3_000_000L, 500,
                 new String[]{"黄巾刀盾手","黄巾长枪兵","黄巾弓箭手","黄巾骑兵","黄巾法师","黄巾渠帅"},
                 new String[]{"黄巾卫队刀盾","黄巾卫队长枪","黄巾卫队弓手","黄巾卫队骑兵","黄巾卫队法师","黄巾卫队统领"},
@@ -670,12 +670,14 @@ public class BossWarService {
         Map<String, Object> result = new HashMap<>();
         if (random.nextInt(100) < config.tiandiPct) {
             addItemToWarehouse(userId, TIANDI_CHEST_ID, "天地宝盒", "17010.jpg", "5", 1);
-            result.put("item", "天地宝盒");
+            result.put("itemName", "天地宝盒");
+            result.put("itemCount", 1);
             result.put("isTiandi", true);
         } else {
             String[] item = config.fallbackItems[random.nextInt(config.fallbackItems.length)];
             addItemToWarehouse(userId, item[0], item[1], item[2], item[3], 1);
-            result.put("item", item[1]);
+            result.put("itemName", item[1]);
+            result.put("itemCount", 1);
             result.put("isTiandi", false);
         }
         return result;
@@ -734,7 +736,7 @@ public class BossWarService {
 
         Map<String, Object> result = new HashMap<>();
         result.put("setName", setName);
-        result.put("equipment", fullPartName);
+        result.put("equipName", fullPartName);
         result.put("equipmentId", equip.getId());
         return result;
     }
