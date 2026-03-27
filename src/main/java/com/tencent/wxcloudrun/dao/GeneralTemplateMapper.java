@@ -29,4 +29,9 @@ public interface GeneralTemplateMapper {
      * 按名称查询模板（返回 avatar, slot_id 等），用于 buildGeneral 时获取头像
      */
     Map<String, Object> findByName(@Param("name") String name);
+
+    /**
+     * 按ID查询模板（含 growth_attack_bonus, growth_defense_bonus）
+     */
+    Map<String, Object> findById(@Param("id") int id);
 }

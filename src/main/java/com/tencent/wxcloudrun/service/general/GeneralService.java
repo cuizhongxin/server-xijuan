@@ -228,10 +228,11 @@ public class GeneralService {
     }
 
     /**
-     * 等级成长系数 - 每级增长 = 基础属性 × growthRate
+     * 品质成长系数（仅作为兼容兜底）
      *
-     * 不同品质成长率不同，高品质武将每级成长更多:
-     *   orange=0.06, purple=0.05, red=0.045, blue=0.04, green=0.035, white=0.03
+     * APK 风格应优先读取 general_slot.growth_* 独立成长值。
+     * 当历史数据中的 growth_* 为空或为0时，退化到以下按品质比例的旧规则，
+     * 以避免旧库升级后出现“升级不加属性”。
      */
     private static final Map<String, Double> GROWTH_RATES = new LinkedHashMap<>();
     static {
@@ -243,32 +244,33 @@ public class GeneralService {
         GROWTH_RATES.put("white", 0.03);
     }
 
+    private static final int ADVANCED_GROWTH_ATTACK_BONUS = 1;
+    private static final int ADVANCED_GROWTH_DEFENSE_BONUS = 1;
+
     /**
-     * v3 基于 general_slot 表的属性计算
-     *
-     * 公式: 属性 = slotBase + slotBase × growthRate × (level - 1) + traitBonus
-     *
-     * slotBase: general_slot 表中该品质+兵种+类型的基础六维
-     * growthRate: 品质成长系数 (orange 0.06 ~ white 0.03)
-     * traitBonus: general_famous_trait 表中的名将特性加成（战斗时由 applyFamousTraitsToUnit 统一应用）
-     *
-     * 示例（橙色步兵统帅 Lv50）:
-     *   base_attack=150, growthRate=0.06
-     *   attack = 150 + 150 × 0.06 × 49 + traitAttack = 150 + 441 + 400 = 991
-     *
-     * 对比（紫色步兵统帅 Lv50）:
-     *   base_attack=130, growthRate=0.05
-     *   attack = 130 + 130 × 0.05 × 49 = 130 + 318 = 448
-     *
-     * 橙色比紫色同级高 ~120%，体现品质差异
-     */
-    /**
-     * v3 基于 general_slot 表的属性计算
+     * APK 风格属性计算（默认不附加进阶成长）
      *
      * 返回: [atk, def, valor, command, dodge, mobility, tacticsTriggerBonus, tacticsTriggerMultiplier]
      * 第7个元素为兵法发动概率加成(%), 第8个元素为兵法发动倍率(默认1, 翻倍为2)
      */
     public int[] calcAttributesBySlot(int slotId, int level) {
+        return calcAttributesBySlot(slotId, level, 0, 0);
+    }
+
+    /**
+     * APK 风格属性计算（支持附加成长）
+     *
+     * 公式:
+     *   攻击 = base_attack + (growth_attack + attackGrowthBonus) * (level - 1)
+     *   防御 = base_defense + (growth_defense + defenseGrowthBonus) * (level - 1)
+     *   武勇 = base_valor + growth_valor * (level - 1)
+     *   统御 = base_command + growth_command * (level - 1)
+     *
+     * 注:
+     * - 狂化武将沿用 APK 文案“进阶后攻击成长+1、防御成长+1”
+     * - 当 growth_* 为空或为0时，退化到旧规则（base * 品质成长率）
+     */
+    public int[] calcAttributesBySlot(int slotId, int level, int attackGrowthBonus, int defenseGrowthBonus) {
         Map<String, Object> slot = generalSlotMapper.findById(slotId);
         if (slot == null) {
             logger.warn("找不到 slotId={}, 使用默认属性", slotId);
@@ -283,14 +285,24 @@ public class GeneralService {
         int baseMobility = toInt(slot.get("baseMobility"));
         int tacticsTriggerBonus = toInt(slot.get("tacticsTriggerBonus"));
         String qualityCode = (String) slot.get("qualityCode");
+        double growthAttack = toDouble(slot.get("growthAttack"));
+        double growthDefense = toDouble(slot.get("growthDefense"));
+        double growthValor = toDouble(slot.get("growthValor"));
+        double growthCommand = toDouble(slot.get("growthCommand"));
 
         double growthRate = GROWTH_RATES.getOrDefault(qualityCode, 0.03);
         int lvGrowth = level - 1;
 
-        int atk = (int) (baseAtk + baseAtk * growthRate * lvGrowth);
-        int def = (int) (baseDef + baseDef * growthRate * lvGrowth);
-        int valor = (int) (baseValor + baseValor * growthRate * lvGrowth);
-        int command = (int) (baseCommand + baseCommand * growthRate * lvGrowth);
+        // 历史兼容: 旧库 growth_* 可能是0，回退到 base * growthRate
+        if (growthAttack <= 0) growthAttack = baseAtk * growthRate;
+        if (growthDefense <= 0) growthDefense = baseDef * growthRate;
+        if (growthValor <= 0) growthValor = baseValor * growthRate;
+        if (growthCommand <= 0) growthCommand = baseCommand * growthRate;
+
+        int atk = (int) (baseAtk + (growthAttack + attackGrowthBonus) * lvGrowth);
+        int def = (int) (baseDef + (growthDefense + defenseGrowthBonus) * lvGrowth);
+        int valor = (int) (baseValor + growthValor * lvGrowth);
+        int command = (int) (baseCommand + growthCommand * lvGrowth);
         int dodge = (int) Math.min(50, baseDodge + baseDodge * growthRate * lvGrowth);
         int mobility = (int) (baseMobility + baseMobility * growthRate * lvGrowth);
         return new int[]{atk, def, valor, command, dodge, mobility, tacticsTriggerBonus, 1};
@@ -364,7 +376,9 @@ public class GeneralService {
             general.setLevel(newLevel);
             // 优先用 slotId 精确计算，降级用旧公式
             if (general.getSlotId() != null && general.getSlotId() > 0) {
-                int[] attrs = calcAttributesBySlot(general.getSlotId(), newLevel);
+                int growthAtkBonus = getAdvanceGrowthAttackBonus(general);
+                int growthDefBonus = getAdvanceGrowthDefenseBonus(general);
+                int[] attrs = calcAttributesBySlot(general.getSlotId(), newLevel, growthAtkBonus, growthDefBonus);
                 general.setAttrAttack(attrs[0]);
                 general.setAttrDefense(attrs[1]);
                 general.setAttrValor(attrs[2]);
@@ -561,29 +575,30 @@ public class GeneralService {
     // ============ APK 1:1 将领进阶系统 ============
     // 紫色名将: 仅需进阶之书 x1
     // 橙色名将: 进阶之书 x1 + 献祭指定武将(被消耗)
+    // 进阶后: templateId 切换到狂化模板, 攻防成长+1, 获得进阶特性(从DB加载)
 
-    private static final Map<String, String[]> ADVANCE_TABLE = new LinkedHashMap<>();
+    /** 原武将名 → 狂化模板ID */
+    private static final Map<String, Integer> ADVANCE_TEMPLATE_MAP = new LinkedHashMap<>();
     static {
-        // {狂将名, 品质, 阵营, 特性名, 特性效果}
-        ADVANCE_TABLE.put("华雄",   new String[]{"华雄(狂)",   "4", "群", "统领进阶", "军队满编人数+60"});
-        ADVANCE_TABLE.put("高顺",   new String[]{"高顺(狂)",   "4", "群", "统领进阶", "军队满编人数+60"});
-        ADVANCE_TABLE.put("公孙瓒", new String[]{"公孙瓒(狂)", "4", "群", "统领进阶", "军队满编人数+60"});
-        ADVANCE_TABLE.put("吕布",   new String[]{"吕布(狂)",   "5", "群", "急速狂攻", "机动性+4"});
-        ADVANCE_TABLE.put("曹仁",   new String[]{"曹仁(狂)",   "4", "魏", "狂暴攻击", "军队攻击力+310"});
-        ADVANCE_TABLE.put("夏侯渊", new String[]{"夏侯渊(狂)", "4", "魏", "狂暴攻击", "军队攻击力+310"});
-        ADVANCE_TABLE.put("张辽",   new String[]{"张辽(狂)",   "5", "魏", "铁骑纵横", "骑兵战法发动概率提升"});
-        ADVANCE_TABLE.put("关平",   new String[]{"关平(狂)",   "4", "蜀", "狂暴攻击", "军队攻击力+310"});
-        ADVANCE_TABLE.put("关兴",   new String[]{"关兴(狂)",   "4", "蜀", "狂暴攻击", "军队攻击力+310"});
-        ADVANCE_TABLE.put("关羽",   new String[]{"关羽(狂)",   "5", "蜀", "铁骑纵横", "骑兵战法发动概率提升"});
-        ADVANCE_TABLE.put("丁奉",   new String[]{"丁奉(狂)",   "4", "吴", "狂暴攻击", "军队攻击力+310"});
-        ADVANCE_TABLE.put("程普",   new String[]{"程普(狂)",   "4", "吴", "狂暴攻击", "军队攻击力+310"});
-        ADVANCE_TABLE.put("凌统",   new String[]{"凌统(狂)",   "5", "吴", "铁骑纵横", "骑兵战法发动概率提升"});
+        ADVANCE_TEMPLATE_MAP.put("华雄",   900);
+        ADVANCE_TEMPLATE_MAP.put("高顺",   901);
+        ADVANCE_TEMPLATE_MAP.put("公孙瓒", 902);
+        ADVANCE_TEMPLATE_MAP.put("吕布",   903);
+        ADVANCE_TEMPLATE_MAP.put("曹仁",   904);
+        ADVANCE_TEMPLATE_MAP.put("夏侯渊", 905);
+        ADVANCE_TEMPLATE_MAP.put("张辽",   906);
+        ADVANCE_TEMPLATE_MAP.put("关平",   907);
+        ADVANCE_TEMPLATE_MAP.put("关兴",   908);
+        ADVANCE_TEMPLATE_MAP.put("关羽",   909);
+        ADVANCE_TEMPLATE_MAP.put("丁奉",   910);
+        ADVANCE_TEMPLATE_MAP.put("程普",   911);
+        ADVANCE_TEMPLATE_MAP.put("凌统",   912);
     }
 
     /** 橙色名将进阶需要献祭的武将(被消耗) */
     private static final Map<String, String[]> ADVANCE_SACRIFICE = new LinkedHashMap<>();
     static {
-        ADVANCE_SACRIFICE.put("吕布", new String[]{"华雄(狂)", "马腾"});
+        ADVANCE_SACRIFICE.put("吕布", new String[]{"华雄(狂)", "马腾", "公孙瓒(狂)"});
         ADVANCE_SACRIFICE.put("张辽", new String[]{"曹仁(狂)", "夏侯渊(狂)"});
         ADVANCE_SACRIFICE.put("关羽", new String[]{"关平(狂)", "关兴(狂)"});
         ADVANCE_SACRIFICE.put("凌统", new String[]{"丁奉(狂)", "程普(狂)"});
@@ -591,8 +606,9 @@ public class GeneralService {
 
     private static final String ADVANCE_BOOK_ITEM_ID = "15016";
 
+
     /**
-     * 武将进阶 — APK 1:1 还原
+     * 武将进阶 — 切换到狂化模板，成长+1，特性从DB加载
      * 紫色: 消耗进阶之书 x1
      * 橙色: 消耗进阶之书 x1 + 献祭指定武将
      */
@@ -606,9 +622,14 @@ public class GeneralService {
             throw new RuntimeException("该将领已经进阶过了");
         }
 
-        String[] advData = name != null ? ADVANCE_TABLE.get(name) : null;
-        if (advData == null) {
+        Integer advTemplateId = name != null ? ADVANCE_TEMPLATE_MAP.get(name) : null;
+        if (advTemplateId == null) {
             throw new RuntimeException("该将领不可进阶，仅限特定名将");
+        }
+
+        Map<String, Object> advTemplate = generalTemplateMapper.findById(advTemplateId);
+        if (advTemplate == null) {
+            throw new RuntimeException("狂化模板数据异常: templateId=" + advTemplateId);
         }
 
         // 检查并消耗献祭武将(橙色名将需要)
@@ -644,43 +665,53 @@ public class GeneralService {
             logger.info("进阶献祭武将: {} (id={})", sac.getName(), sac.getId());
         }
 
-        String newName = advData[0];
-        String traitName = advData[4];
-        String traitDesc = advData[5];
-
+        String newName = (String) advTemplate.get("name");
         general.setName(newName);
+        general.setTemplateId(String.valueOf(advTemplateId));
 
-        int baseAtk = general.getAttrAttack() != null ? general.getAttrAttack() : 0;
-        int baseDef = general.getAttrDefense() != null ? general.getAttrDefense() : 0;
-        general.setAttrAttack(baseAtk + general.getLevel());
-        general.setAttrDefense(baseDef + general.getLevel());
+        // 从狂化模板读取成长加成，重算当前等级属性
+        int growthAtkBonus = advTemplate.get("growthAttackBonus") != null
+                ? ((Number) advTemplate.get("growthAttackBonus")).intValue() : 0;
+        int growthDefBonus = advTemplate.get("growthDefenseBonus") != null
+                ? ((Number) advTemplate.get("growthDefenseBonus")).intValue() : 0;
 
-        List<String> traits = general.getTraits() != null ? new ArrayList<>(general.getTraits()) : new ArrayList<>();
-        traits.add(traitName + ": " + traitDesc);
+        if (general.getSlotId() != null && general.getSlotId() > 0 && general.getLevel() != null) {
+            int[] attrs = calcAttributesBySlot(general.getSlotId(), general.getLevel(), growthAtkBonus, growthDefBonus);
+            general.setAttrAttack(attrs[0]);
+            general.setAttrDefense(attrs[1]);
+            general.setAttrValor(attrs[2]);
+            general.setAttrCommand(attrs[3]);
+            general.setAttrDodge((double) attrs[4]);
+            general.setAttrMobility(attrs[5]);
+        }
+
+        // 从DB加载狂化模板的全部特性(继承原特性 + 进阶特性)
+        List<String> traits = loadFamousTraits(newName);
         general.setTraits(traits);
 
-        if ("统领进阶".equals(traitName)) {
-            int maxCount = general.getSoldierMaxCount() != null ? general.getSoldierMaxCount() : 100;
-            general.setSoldierMaxCount(maxCount + 60);
-        } else if ("狂暴攻击".equals(traitName)) {
-            general.setAttrAttack(general.getAttrAttack() + 310);
-        } else if ("急速狂攻".equals(traitName)) {
-            int mob = general.getAttrMobility() != null ? general.getAttrMobility() : 0;
-            general.setAttrMobility(mob + 4);
+        // soldier_count 类型的进阶特性永久提升满编人数
+        List<Map<String, Object>> traitData = loadFamousTraitData(newName);
+        for (Map<String, Object> t : traitData) {
+            String effectType = (String) t.get("effectType");
+            int effectValue = t.get("effectValue") != null ? ((Number) t.get("effectValue")).intValue() : 0;
+            if ("soldier_count".equals(effectType) && effectValue > 0) {
+                int maxCount = general.getSoldierMaxCount() != null ? general.getSoldierMaxCount() : 100;
+                general.setSoldierMaxCount(maxCount + effectValue);
+            }
         }
 
         general.setUpdateTime(System.currentTimeMillis());
         generalRepository.save(general);
 
-        logger.info("将领进阶成功: userId={}, {} → {}, 获得特性[{}], 献祭={}", userId, name, newName, traitName, sacrificedNames);
+        logger.info("将领进阶成功: userId={}, {} → {}, templateId={}, 献祭={}",
+                userId, name, newName, advTemplateId, sacrificedNames);
 
         Map<String, Object> result = new HashMap<>();
         result.put("success", true);
         result.put("generalId", generalId);
         result.put("oldName", name);
         result.put("newName", newName);
-        result.put("traitName", traitName);
-        result.put("traitDesc", traitDesc);
+        result.put("advancedTemplateId", advTemplateId);
         if (!sacrificedNames.isEmpty()) {
             result.put("sacrificedGenerals", sacrificedNames);
         }
@@ -688,7 +719,7 @@ public class GeneralService {
     }
 
     /**
-     * 获取武将进阶信息 — APK 1:1 还原
+     * 获取武将进阶信息 — 从DB读取狂化模板数据
      */
     public Map<String, Object> getAdvanceInfo(String userId, String generalId) {
         General general = (generalId != null && !generalId.isEmpty() && !"__none__".equals(generalId))
@@ -697,8 +728,8 @@ public class GeneralService {
 
         String name = general != null ? general.getName() : null;
         boolean alreadyAdvanced = name != null && name.endsWith("(狂)");
-        String[] advData = (name != null && !alreadyAdvanced) ? ADVANCE_TABLE.get(name) : null;
-        boolean canAdvance = advData != null;
+        Integer advTemplateId = (name != null && !alreadyAdvanced) ? ADVANCE_TEMPLATE_MAP.get(name) : null;
+        boolean canAdvance = advTemplateId != null;
 
         Map<String, Object> result = new HashMap<>();
         result.put("generalId", generalId);
@@ -708,10 +739,14 @@ public class GeneralService {
 
         List<General> allGenerals = generalRepository.findByUserId(userId);
 
-        if (canAdvance) {
-            result.put("advancedName", advData[0]);
-            result.put("traitName", advData[4]);
-            result.put("traitDesc", advData[5]);
+        if (canAdvance && advTemplateId != null) {
+            Map<String, Object> advTpl = generalTemplateMapper.findById(advTemplateId);
+            String advName = advTpl != null ? (String) advTpl.get("name") : name + "(狂)";
+            result.put("advancedName", advName);
+
+            List<String> advTraits = loadFamousTraits(advName);
+            result.put("advancedTraits", advTraits);
+
             result.put("materialItemId", ADVANCE_BOOK_ITEM_ID);
             result.put("materialName", "进阶之书");
             result.put("materialNeed", 1);
@@ -722,7 +757,6 @@ public class GeneralService {
             } catch (Exception e) { /* */ }
             result.put("materialHave", bookCount);
 
-            // 献祭武将需求(橙色名将)
             String[] sacNames = ADVANCE_SACRIFICE.get(name);
             List<Map<String, Object>> sacrificeReqs = new ArrayList<>();
             boolean allSacrificeReady = true;
@@ -744,26 +778,29 @@ public class GeneralService {
             List<String> bonusDesc = new ArrayList<>();
             bonusDesc.add("攻击成长+1");
             bonusDesc.add("防御成长+1");
-            bonusDesc.add("获得特性: " + advData[4] + " — " + advData[5]);
+            for (String trait : advTraits) {
+                bonusDesc.add("获得特性: " + trait);
+            }
             result.put("bonusDesc", bonusDesc);
         }
 
-        // 返回所有可进阶的名将列表(前端选择用)
         List<Map<String, Object>> eligibleList = new ArrayList<>();
         for (General g : allGenerals) {
             String gName = g.getName();
             if (gName == null || gName.endsWith("(狂)")) continue;
-            String[] gAdv = ADVANCE_TABLE.get(gName);
-            if (gAdv == null) continue;
+            Integer gAdvId = ADVANCE_TEMPLATE_MAP.get(gName);
+            if (gAdvId == null) continue;
+
+            Map<String, Object> gAdvTpl = generalTemplateMapper.findById(gAdvId);
+            String gAdvName = gAdvTpl != null ? (String) gAdvTpl.get("name") : gName + "(狂)";
+
             Map<String, Object> item = new HashMap<>();
             item.put("id", g.getId());
             item.put("name", gName);
             item.put("level", g.getLevel());
             item.put("qualityId", g.getQualityId());
             item.put("qualityColor", g.getQualityColor());
-            item.put("advancedName", gAdv[0]);
-            item.put("traitName", gAdv[4]);
-            item.put("traitDesc", gAdv[5]);
+            item.put("advancedName", gAdvName);
             item.put("avatar", g.getAvatar());
             item.put("hasSacrificeReq", ADVANCE_SACRIFICE.containsKey(gName));
             eligibleList.add(item);
@@ -771,5 +808,41 @@ public class GeneralService {
         result.put("eligibleGenerals", eligibleList);
 
         return result;
+    }
+
+    /**
+     * 获取武将成长加成（优先从模板DB读取，兼容旧数据用名字判断）
+     */
+    private int getAdvanceGrowthAttackBonus(General general) {
+        if (general == null) return 0;
+        if (general.getTemplateId() != null) {
+            try {
+                int templateId = Integer.parseInt(general.getTemplateId());
+                Map<String, Object> tpl = generalTemplateMapper.findById(templateId);
+                if (tpl != null && tpl.get("growthAttackBonus") != null) {
+                    return ((Number) tpl.get("growthAttackBonus")).intValue();
+                }
+            } catch (Exception ignored) { }
+        }
+        return isAdvancedGeneral(general) ? ADVANCED_GROWTH_ATTACK_BONUS : 0;
+    }
+
+    private int getAdvanceGrowthDefenseBonus(General general) {
+        if (general == null) return 0;
+        if (general.getTemplateId() != null) {
+            try {
+                int templateId = Integer.parseInt(general.getTemplateId());
+                Map<String, Object> tpl = generalTemplateMapper.findById(templateId);
+                if (tpl != null && tpl.get("growthDefenseBonus") != null) {
+                    return ((Number) tpl.get("growthDefenseBonus")).intValue();
+                }
+            } catch (Exception ignored) { }
+        }
+        return isAdvancedGeneral(general) ? ADVANCED_GROWTH_DEFENSE_BONUS : 0;
+    }
+
+    private boolean isAdvancedGeneral(General general) {
+        String name = general != null ? general.getName() : null;
+        return name != null && name.endsWith("(狂)");
     }
 }

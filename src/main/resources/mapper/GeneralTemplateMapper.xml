@@ -12,6 +12,7 @@
         FROM general_template t
         INNER JOIN general_slot s ON t.slot_id = s.id
         WHERE s.quality_code = #{qualityCode}
+          AND t.growth_attack_bonus = 0
         ORDER BY t.sort_order
     </select>
 
@@ -25,6 +26,7 @@
         FROM general_template t
         INNER JOIN general_slot s ON t.slot_id = s.id
         WHERE s.quality_code = #{qualityCode}
+          AND t.growth_attack_bonus = 0
           AND t.faction IN
         <foreach collection="factions" item="f" open="(" separator="," close=")">
             #{f}
@@ -36,6 +38,15 @@
         SELECT t.id AS templateId, t.name, t.avatar, t.slot_id AS slotId, t.faction
         FROM general_template t
         WHERE t.name = #{name}
+        LIMIT 1
+    </select>
+
+    <select id="findById" resultType="java.util.HashMap">
+        SELECT t.id AS templateId, t.name, t.avatar, t.slot_id AS slotId, t.faction,
+               t.growth_attack_bonus AS growthAttackBonus,
+               t.growth_defense_bonus AS growthDefenseBonus
+        FROM general_template t
+        WHERE t.id = #{id}
         LIMIT 1
     </select>
 

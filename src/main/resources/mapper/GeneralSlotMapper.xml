@@ -6,7 +6,10 @@
         SELECT id, quality_code AS qualityCode, troop_type AS troopType, slot_index AS slotIndex,
                type, base_attack AS baseAttack, base_defense AS baseDefense, base_valor AS baseValor,
                base_command AS baseCommand, base_dodge AS baseDodge, base_mobility AS baseMobility,
-               base_power AS basePower, sort_order AS sortOrder, is_virtual AS isVirtual,
+               base_power AS basePower,
+               growth_attack AS growthAttack, growth_defense AS growthDefense,
+               growth_valor AS growthValor, growth_command AS growthCommand,
+               sort_order AS sortOrder, is_virtual AS isVirtual,
                IFNULL(base_tactics_trigger_bonus, 0) AS tacticsTriggerBonus
         FROM general_slot
         WHERE id = #{id}
