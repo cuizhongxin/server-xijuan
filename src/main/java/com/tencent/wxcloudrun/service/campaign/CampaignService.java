@@ -1097,33 +1097,66 @@ public class CampaignService {
             }
         }
 
-        // 构建敌方单位 (APK风格: NPC士兵属性 + 阵型加成，无武将四维)
-        int enemyLevel = stage.getEnemyLevel() != null ? stage.getEnemyLevel() : 1;
-        int enemyTier = stage.getEnemySoldierTier() != null ? stage.getEnemySoldierTier()
-                : BattleCalculator.levelToFormationLevel(enemyLevel);
-        int enemyFormLv = stage.getEnemyFormationLevel() != null ? stage.getEnemyFormationLevel()
-                : BattleCalculator.levelToFormationLevel(enemyLevel);
-        int enemyTroopType = BattleCalculator.parseTroopType(
-                stage.getEnemyTroopType() != null ? stage.getEnemyTroopType() : "步");
-        int enemyMaxSoldiers = BattleCalculator.getFormationMaxPeople(enemyFormLv);
+        // 构建敌方全阵型单位（使用 formation 中所有 NPC）
+        List<BattleCalculator.BattleUnit> enemyUnits = new ArrayList<>();
+        List<Campaign.StageNpc> formation = stage.getFormation();
+        if (formation != null && !formation.isEmpty()) {
+            for (Campaign.StageNpc npc : formation) {
+                int npcLv = npc.getLevel() != null ? npc.getLevel() : 1;
+                int npcTroopType = BattleCalculator.parseTroopType(
+                        npc.getTroopType() != null ? npc.getTroopType() : "步");
+                int npcTier = npc.getSoldierTier() != null ? npc.getSoldierTier()
+                        : BattleCalculator.levelToFormationLevel(npcLv);
+                int npcFormLv = BattleCalculator.levelToFormationLevel(npcLv);
+                int npcMaxSoldiers = npc.getSoldierCount() != null ? npc.getSoldierCount()
+                        : BattleCalculator.getFormationMaxPeople(npcFormLv);
 
-        BattleCalculator.BattleUnit enemy = BattleCalculator.assembleNpcBattleUnit(
-                stage.getEnemyGeneralName(), enemyLevel,
-                enemyTroopType, enemyTier,
-                stage.getEnemyTroops() != null ? stage.getEnemyTroops() : enemyMaxSoldiers,
-                enemyMaxSoldiers,
-                enemyFormLv,
-                stage.getEnemyValor() != null ? stage.getEnemyValor() : 0,
-                stage.getEnemyCommand() != null ? stage.getEnemyCommand() : 0);
-        double eFormScale = enemyLevel <= 5 ? 0.15 : (enemyLevel <= 10 ? 0.3 : (enemyLevel <= 20 ? 0.7 : 1.0));
-        if (eFormScale < 1.0) {
-            int cutAtt = (int)(BattleCalculator.getFormationAddAtt(enemyFormLv) * (1.0 - eFormScale));
-            int cutDef = (int)(BattleCalculator.getFormationAddDef(enemyFormLv) * (1.0 - eFormScale));
-            enemy.totalAttack = Math.max(enemy.totalAttack - cutAtt, 1);
-            enemy.totalDefense = Math.max(enemy.totalDefense - cutDef, 1);
+                BattleCalculator.BattleUnit eu = BattleCalculator.assembleNpcBattleUnit(
+                        npc.getName(), npcLv, npcTroopType, npcTier,
+                        npcMaxSoldiers, npcMaxSoldiers, npcFormLv,
+                        npc.getValor() != null ? npc.getValor() : 0,
+                        npc.getCommand() != null ? npc.getCommand() : 0);
+
+                double fScale = npcLv <= 5 ? 0.15 : (npcLv <= 10 ? 0.3 : (npcLv <= 20 ? 0.7 : 1.0));
+                if (fScale < 1.0) {
+                    int cutAtt = (int)(BattleCalculator.getFormationAddAtt(npcFormLv) * (1.0 - fScale));
+                    int cutDef = (int)(BattleCalculator.getFormationAddDef(npcFormLv) * (1.0 - fScale));
+                    eu.totalAttack = Math.max(eu.totalAttack - cutAtt, 1);
+                    eu.totalDefense = Math.max(eu.totalDefense - cutDef, 1);
+                }
+                eu.position = npc.getPosition() != null ? npc.getPosition() : enemyUnits.size();
+                if (npc.getTacticsId() != null) {
+                    eu.tacticsId = npc.getTacticsId();
+                }
+                enemyUnits.add(eu);
+            }
+        } else {
+            // fallback: 无 formation 时用 stage 主将字段构建单个敌方单位
+            int enemyLevel = stage.getEnemyLevel() != null ? stage.getEnemyLevel() : 1;
+            int enemyTier = stage.getEnemySoldierTier() != null ? stage.getEnemySoldierTier()
+                    : BattleCalculator.levelToFormationLevel(enemyLevel);
+            int enemyFormLv = stage.getEnemyFormationLevel() != null ? stage.getEnemyFormationLevel()
+                    : BattleCalculator.levelToFormationLevel(enemyLevel);
+            int enemyTroopType = BattleCalculator.parseTroopType(
+                    stage.getEnemyTroopType() != null ? stage.getEnemyTroopType() : "步");
+            int enemyMaxSoldiers = BattleCalculator.getFormationMaxPeople(enemyFormLv);
+            BattleCalculator.BattleUnit enemy = BattleCalculator.assembleNpcBattleUnit(
+                    stage.getEnemyGeneralName(), enemyLevel,
+                    enemyTroopType, enemyTier,
+                    stage.getEnemyTroops() != null ? stage.getEnemyTroops() : enemyMaxSoldiers,
+                    enemyMaxSoldiers, enemyFormLv,
+                    stage.getEnemyValor() != null ? stage.getEnemyValor() : 0,
+                    stage.getEnemyCommand() != null ? stage.getEnemyCommand() : 0);
+            double eFormScale = enemyLevel <= 5 ? 0.15 : (enemyLevel <= 10 ? 0.3 : (enemyLevel <= 20 ? 0.7 : 1.0));
+            if (eFormScale < 1.0) {
+                int cutAtt = (int)(BattleCalculator.getFormationAddAtt(enemyFormLv) * (1.0 - eFormScale));
+                int cutDef = (int)(BattleCalculator.getFormationAddDef(enemyFormLv) * (1.0 - eFormScale));
+                enemy.totalAttack = Math.max(enemy.totalAttack - cutAtt, 1);
+                enemy.totalDefense = Math.max(enemy.totalDefense - cutDef, 1);
+            }
+            enemy.position = 0;
+            enemyUnits.add(enemy);
         }
-        enemy.position = 0;
-        List<BattleCalculator.BattleUnit> enemyUnits = Collections.singletonList(enemy);
 
         BattleService.BattleReport report = battleService.fight(playerUnits, enemyUnits, 20);
 
