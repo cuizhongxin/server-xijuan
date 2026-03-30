@@ -67,11 +67,11 @@ public class MailController {
         return ApiResponse.success("删除成功");
     }
 
-    /** 未读数量 */
+    /** 未读数量 + 未领取附件数 */
     @GetMapping("/unread")
-    public ApiResponse<Integer> unread(HttpServletRequest request) {
+    public ApiResponse<Map<String, Object>> unread(HttpServletRequest request) {
         String userId = String.valueOf(request.getAttribute("userId"));
-        return ApiResponse.success(mailService.getUnreadCount(userId));
+        return ApiResponse.success(mailService.getMailBadge(userId));
     }
 
     private String getLordName(HttpServletRequest request, String compositeUserId) {

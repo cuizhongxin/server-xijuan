@@ -39,9 +39,8 @@
                wi.icon AS wi_icon, wi.quality AS wi_quality, wi.count AS wi_count,
                wi.max_stack AS wi_max_stack, wi.description AS wi_description,
                wi.usable AS wi_usable, wi.bound AS wi_bound
-        FROM warehouse w
+        FROM (SELECT * FROM warehouse WHERE user_id = #{userId} ORDER BY update_time DESC LIMIT 1) w
         LEFT JOIN warehouse_item wi ON w.id = wi.warehouse_id
-        WHERE w.user_id = #{userId}
     </select>
 
     <insert id="upsertWarehouse">

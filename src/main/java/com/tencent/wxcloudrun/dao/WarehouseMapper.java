@@ -11,7 +11,7 @@ public interface WarehouseMapper {
     
     Warehouse findByUserId(@Param("userId") String userId);
 
-    @org.apache.ibatis.annotations.Select("SELECT equipment_ids FROM warehouse WHERE user_id = #{userId}")
+    @org.apache.ibatis.annotations.Select("SELECT equipment_ids FROM warehouse WHERE user_id = #{userId} ORDER BY update_time DESC LIMIT 1")
     String getEquipmentIdsStr(@Param("userId") String userId);
     
     void upsertWarehouse(Warehouse warehouse);

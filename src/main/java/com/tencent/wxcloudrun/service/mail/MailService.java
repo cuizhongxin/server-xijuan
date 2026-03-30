@@ -190,4 +190,21 @@ public class MailService {
     public int getUnreadCount(String userId) {
         return mailMapper.countUnread(userId);
     }
+
+    /**
+     * 未领取附件数量
+     */
+    public int getUnclaimedCount(String userId) {
+        return mailMapper.countUnclaimedAttachment(userId);
+    }
+
+    /**
+     * 邮件提醒摘要（未读 + 未领取附件）
+     */
+    public Map<String, Object> getMailBadge(String userId) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("unread", mailMapper.countUnread(userId));
+        result.put("unclaimed", mailMapper.countUnclaimedAttachment(userId));
+        return result;
+    }
 }

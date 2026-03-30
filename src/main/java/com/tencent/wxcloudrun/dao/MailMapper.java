@@ -39,4 +39,7 @@ public interface MailMapper {
 
     @Select("SELECT COUNT(*) FROM mail WHERE receiver_id = #{receiverId} AND deleted = 0 AND is_read = 0")
     int countUnread(@Param("receiverId") String receiverId);
+
+    @Select("SELECT COUNT(*) FROM mail WHERE receiver_id = #{receiverId} AND deleted = 0 AND has_attachment = 1 AND attachment_claimed = 0")
+    int countUnclaimedAttachment(@Param("receiverId") String receiverId);
 }
