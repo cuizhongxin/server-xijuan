@@ -237,12 +237,8 @@ public class BossWarService {
         boolean changed = false;
 
         if (tw.active) {
-            if (!"active".equals(state.status) && !"killed".equals(state.status)) {
-                resetBoss(state, t, serverId);
-                state.windowStartMs = tw.startMs;
-                changed = true;
-            }
-            if ("active".equals(state.status) && state.windowStartMs != tw.startMs) {
+            boolean newWindow = state.windowStartMs != tw.startMs;
+            if (newWindow || (!"active".equals(state.status) && !"killed".equals(state.status))) {
                 resetBoss(state, t, serverId);
                 state.windowStartMs = tw.startMs;
                 changed = true;
@@ -773,15 +769,6 @@ public class BossWarService {
         int curHour = cal.get(Calendar.HOUR_OF_DAY);
         int curMin = cal.get(Calendar.MINUTE);
         double curTime = curHour + curMin / 60.0;
-
-        // 测试模式: 黄巾流寇全天常驻
-        if (t.id == BOSS_HJLK) {
-            Calendar start = (Calendar) cal.clone();
-            start.set(Calendar.MINUTE, 0); start.set(Calendar.SECOND, 0); start.set(Calendar.MILLISECOND, 0);
-            Calendar end = (Calendar) start.clone();
-            end.add(Calendar.MINUTE, 60);
-            return new TimeWindow(true, start.getTimeInMillis(), end.getTimeInMillis(), 0);
-        }
 
         for (int hour : t.appearHours) {
             double endTime = hour + DURATION_MINUTES / 60.0;
