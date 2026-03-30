@@ -12,6 +12,7 @@ import com.tencent.wxcloudrun.service.formation.FormationService;
 import com.tencent.wxcloudrun.service.general.GeneralService;
 import com.tencent.wxcloudrun.service.SuitConfigService;
 import com.tencent.wxcloudrun.service.UserResourceService;
+import com.tencent.wxcloudrun.service.level.LevelService;
 import com.tencent.wxcloudrun.service.battle.BattleCalculator;
 import com.tencent.wxcloudrun.service.battle.BattleService;
 import com.tencent.wxcloudrun.service.nationwar.NationWarService;
@@ -48,6 +49,7 @@ public class HeroRankService {
     private final GeneralService generalService;
     private final SuitConfigService suitConfigService;
     private final UserResourceService userResourceService;
+    private final LevelService levelService;
     private final UserTacticsMapper userTacticsMapper;
     private final TacticsConfig tacticsConfig;
     private final NationWarService nationWarService;
@@ -465,8 +467,7 @@ public class HeroRankService {
         int serverId = extractServerId(userId);
         String name = getPlayerName(userId);
         String nation = getPlayerNation(userId);
-        UserResource res = userResourceService.getUserResource(userId);
-        int level = res.getLevel() != null ? res.getLevel() : 1;
+        int level = levelService.getUserLevel(userId).getLevel();
         int power = level * 500;
         int ranking = heroRankMapper.countByServerId(serverId) + 1;
 

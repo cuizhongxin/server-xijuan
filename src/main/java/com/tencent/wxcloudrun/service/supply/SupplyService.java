@@ -13,6 +13,7 @@ import com.tencent.wxcloudrun.service.battle.BattleCalculator;
 import com.tencent.wxcloudrun.service.battle.BattleService;
 import com.tencent.wxcloudrun.service.PlayerNameResolver;
 import com.tencent.wxcloudrun.service.SuitConfigService;
+import com.tencent.wxcloudrun.service.level.LevelService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,6 +57,7 @@ public class SupplyService {
     @Autowired private BattleService battleService;
     @Autowired private SuitConfigService suitConfigService;
     @Autowired private PlayerNameResolver playerNameResolver;
+    @Autowired private LevelService levelService;
     @Autowired @org.springframework.context.annotation.Lazy private com.tencent.wxcloudrun.service.dailytask.DailyTaskService dailyTaskService;
     @Autowired @org.springframework.context.annotation.Lazy private com.tencent.wxcloudrun.service.general.GeneralService generalService;
 
@@ -80,7 +82,7 @@ public class SupplyService {
         Map<String, Object> sd = getOrInitData(userId);
         Map<String, Object> activeTransport = transportMapper.findActiveByUserId(userId);
         UserResource res = userResourceRepository.findByUserId(userId);
-        int level = res != null && res.getLevel() != null ? res.getLevel() : 1;
+        int level = levelService.getUserLevel(userId).getLevel();
 
         int currentGradeId = parseIntSafe(sd.get("currentGradeId"), 1);
         Map<String, Object> gradeConfig = getGradeConfig(currentGradeId);
@@ -128,7 +130,7 @@ public class SupplyService {
         saveData(userId, sd, newGradeId, null);
         Map<String, Object> gradeConfig = getGradeConfig(newGradeId);
         UserResource res = userResourceRepository.findByUserId(userId);
-        int level = res != null && res.getLevel() != null ? res.getLevel() : 1;
+        int level = levelService.getUserLevel(userId).getLevel();
 
         Map<String, Object> result = new HashMap<>();
         result.put("gradeId", newGradeId);
@@ -167,7 +169,7 @@ public class SupplyService {
         saveData(userId, sd, newGradeId, tokens - 1);
         Map<String, Object> gradeConfig = getGradeConfig(newGradeId);
         UserResource res = userResourceRepository.findByUserId(userId);
-        int level = res != null && res.getLevel() != null ? res.getLevel() : 1;
+        int level = levelService.getUserLevel(userId).getLevel();
 
         Map<String, Object> result = new HashMap<>();
         result.put("previousGradeId", currentGradeId);
@@ -194,7 +196,7 @@ public class SupplyService {
         }
 
         UserResource res = userResourceRepository.findByUserId(userId);
-        int level = res != null && res.getLevel() != null ? res.getLevel() : 1;
+        int level = levelService.getUserLevel(userId).getLevel();
 
         int gradeId = parseIntSafe(sd.get("currentGradeId"), 1);
         Map<String, Object> gradeConfig = getGradeConfig(gradeId);
@@ -377,7 +379,7 @@ public class SupplyService {
         }
 
         UserResource myRes = userResourceRepository.findByUserId(userId);
-        int myLevel = myRes != null && myRes.getLevel() != null ? myRes.getLevel() : 1;
+        int myLevel = levelService.getUserLevel(userId).getLevel();
 
         List<BattleCalculator.BattleUnit> sideA = formationService.buildPlayerBattleUnits(userId);
 

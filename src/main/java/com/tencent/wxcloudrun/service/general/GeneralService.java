@@ -287,24 +287,19 @@ public class GeneralService {
         String qualityCode = (String) slot.get("qualityCode");
         double growthAttack = toDouble(slot.get("growthAttack"));
         double growthDefense = toDouble(slot.get("growthDefense"));
-        double growthValor = toDouble(slot.get("growthValor"));
-        double growthCommand = toDouble(slot.get("growthCommand"));
 
         double growthRate = GROWTH_RATES.getOrDefault(qualityCode, 0.03);
         int lvGrowth = level - 1;
 
-        // 历史兼容: 旧库 growth_* 可能是0，回退到 base * growthRate
         if (growthAttack <= 0) growthAttack = baseAtk * growthRate;
         if (growthDefense <= 0) growthDefense = baseDef * growthRate;
-        if (growthValor <= 0) growthValor = baseValor * growthRate;
-        if (growthCommand <= 0) growthCommand = baseCommand * growthRate;
 
         int atk = (int) (baseAtk + (growthAttack + attackGrowthBonus) * lvGrowth);
         int def = (int) (baseDef + (growthDefense + defenseGrowthBonus) * lvGrowth);
-        int valor = (int) (baseValor + growthValor * lvGrowth);
-        int command = (int) (baseCommand + growthCommand * lvGrowth);
-        int dodge = (int) Math.min(50, baseDodge + baseDodge * growthRate * lvGrowth);
-        int mobility = (int) (baseMobility + baseMobility * growthRate * lvGrowth);
+        int valor = baseValor;
+        int command = baseCommand;
+        int dodge = (int) baseDodge;
+        int mobility = baseMobility;
         return new int[]{atk, def, valor, command, dodge, mobility, tacticsTriggerBonus, 1};
     }
 
@@ -323,20 +318,19 @@ public class GeneralService {
      * 仍然保留品质倍率逻辑，但基础值对齐 general_slot 表的白色基准
      */
     public int[] calcAttributes(double qualityMultiplier, String troopType, int level) {
-        // 白色基准值（对齐 general_slot 表 white 行: 90/90/45/45/9/45）
         int baseAtk = 90, baseDef = 90, baseValor = 0, baseCommand = 0;
         double baseDodge = 2.0;
         int baseMobility = 10;
 
-        double growthRate = 0.03; // 白色成长率作为基准
+        double growthRate = 0.03;
         int lvGrowth = level - 1;
 
         int atk = (int) ((baseAtk + baseAtk * growthRate * lvGrowth) * qualityMultiplier);
         int def = (int) ((baseDef + baseDef * growthRate * lvGrowth) * qualityMultiplier);
-        int valor = (int) ((baseValor + baseValor * growthRate * lvGrowth) * qualityMultiplier);
-        int command = (int) ((baseCommand + baseCommand * growthRate * lvGrowth) * qualityMultiplier);
-        int dodge = (int) Math.min(50, (baseDodge + baseDodge * growthRate * lvGrowth) * qualityMultiplier);
-        int mobility = (int) ((baseMobility + baseMobility * growthRate * lvGrowth) * qualityMultiplier);
+        int valor = baseValor;
+        int command = baseCommand;
+        int dodge = (int) baseDodge;
+        int mobility = baseMobility;
 
         return new int[]{atk, def, valor, command, dodge, mobility};
     }
@@ -669,7 +663,6 @@ public class GeneralService {
         general.setName(newName);
         general.setTemplateId(String.valueOf(advTemplateId));
 
-        // 从狂化模板读取成长加成，重算当前等级属性
         int growthAtkBonus = advTemplate.get("growthAttackBonus") != null
                 ? ((Number) advTemplate.get("growthAttackBonus")).intValue() : 0;
         int growthDefBonus = advTemplate.get("growthDefenseBonus") != null
@@ -840,6 +833,7 @@ public class GeneralService {
         }
         return isAdvancedGeneral(general) ? ADVANCED_GROWTH_DEFENSE_BONUS : 0;
     }
+
 
     private boolean isAdvancedGeneral(General general) {
         String name = general != null ? general.getName() : null;

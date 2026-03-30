@@ -3,6 +3,7 @@ package com.tencent.wxcloudrun.service;
 import com.tencent.wxcloudrun.exception.BusinessException;
 import com.tencent.wxcloudrun.model.UserResource;
 import com.tencent.wxcloudrun.repository.UserResourceRepository;
+import com.tencent.wxcloudrun.service.level.LevelService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +23,9 @@ public class UserResourceService {
     
     @Autowired
     private UserResourceRepository resourceRepository;
+    
+    @Autowired @org.springframework.context.annotation.Lazy
+    private LevelService levelService;
     
     /**
      * 获取用户资源（自动初始化）
@@ -384,7 +388,7 @@ public class UserResourceService {
         
         java.util.Map<String, Object> result = new java.util.HashMap<>();
         
-        int level = resource.getLevel() != null ? resource.getLevel() : 1;
+        int level = levelService.getUserLevel(odUserId).getLevel();
         int baseSlots = getBaseSlotsByLevel(level);
         int purchasedSlots = resource.getPurchasedSlots() != null ? resource.getPurchasedSlots() : 0;
         int vipBonusSlots = getVipBonusSlots(resource.getVipLevel());
@@ -407,7 +411,7 @@ public class UserResourceService {
     public java.util.Map<String, Object> purchaseGeneralSlot(String odUserId) {
         UserResource resource = getUserResource(odUserId);
         
-        int level = resource.getLevel() != null ? resource.getLevel() : 1;
+        int level = levelService.getUserLevel(odUserId).getLevel();
         int baseSlots = getBaseSlotsByLevel(level);
         int purchasedSlots = resource.getPurchasedSlots() != null ? resource.getPurchasedSlots() : 0;
         int vipBonusSlots = getVipBonusSlots(resource.getVipLevel());
@@ -495,7 +499,7 @@ public class UserResourceService {
      */
     public int getMaxGeneralSlots(String odUserId) {
         UserResource resource = getUserResource(odUserId);
-        int level = resource.getLevel() != null ? resource.getLevel() : 1;
+        int level = levelService.getUserLevel(odUserId).getLevel();
         int baseSlots = getBaseSlotsByLevel(level);
         int purchasedSlots = resource.getPurchasedSlots() != null ? resource.getPurchasedSlots() : 0;
         int vipBonusSlots = getVipBonusSlots(resource.getVipLevel());

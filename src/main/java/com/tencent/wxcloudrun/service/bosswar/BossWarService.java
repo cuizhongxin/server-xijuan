@@ -119,7 +119,7 @@ public class BossWarService {
         BOSS_CHEST.put(BOSS_YZJT, new String[]{"11073", "讨逆宝箱", "11073.jpg", "4"});
     }
 
-    private static final String TIANDI_CHEST_ID = "17010";
+    private static final String TIANDI_CHEST_ID = "11064";
     private static final Map<String, ChestLootConfig> CHEST_LOOT = new LinkedHashMap<>();
     static {
         CHEST_LOOT.put("11070", new ChestLootConfig(5, new String[][]{
@@ -248,10 +248,12 @@ public class BossWarService {
                 state.status = "escaped";
                 changed = true;
                 getWoundedPool(serverId, t.id).clear();
+                logger.info("Boss逃跑，不发放宝箱: serverId={}, bossId={}", serverId, t.id);
                 try {
-                    settleAndAnnounce(serverId, t, state);
+                    chatService.sendSystemMessage(serverId, "world",
+                            "【" + t.name + "】已逃离战场，未能击败！");
                 } catch (Exception e) {
-                    logger.error("Boss结算异常: serverId={}, bossId={}", serverId, t.id, e);
+                    logger.warn("Boss逃跑通告发送失败", e);
                 }
             }
         }
@@ -665,7 +667,7 @@ public class BossWarService {
 
         Map<String, Object> result = new HashMap<>();
         if (random.nextInt(100) < config.tiandiPct) {
-            addItemToWarehouse(userId, TIANDI_CHEST_ID, "天地宝盒", "17010.jpg", "5", 1);
+            addItemToWarehouse(userId, TIANDI_CHEST_ID, "天地宝盒", "11064.jpg", "5", 1);
             result.put("itemName", "天地宝盒");
             result.put("itemCount", 1);
             result.put("isTiandi", true);
