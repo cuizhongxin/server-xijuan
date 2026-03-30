@@ -385,8 +385,8 @@ public class BossWarService {
             entry.put("rank", i + 1);
             entry.put("playerName", resolvePlayerName((String) ranking.get(i).get("userId")));
             entry.put("damage", ranking.get(i).get("totalDamage"));
-            entry.put("chestName", "killed".equals(state.status) ? chestName : "");
-            entry.put("chestCount", "killed".equals(state.status) ? chestCounts[i] : 0);
+            entry.put("chestName", chestName);
+            entry.put("chestCount", chestCounts[i]);
             topList.add(entry);
         }
         report.put("top3", topList);
@@ -692,7 +692,8 @@ public class BossWarService {
             logger.warn("持久化战报失败", e);
         }
 
-        List<Map<String, Object>> chestResult = distributeChests(serverId, t.id, null, state.windowStartMs);
+        String lastHitter = "killed".equals(state.status) ? state.lastKiller : null;
+        List<Map<String, Object>> chestResult = distributeChests(serverId, t.id, lastHitter, state.windowStartMs);
         if (chestResult == null || chestResult.isEmpty()) return;
 
         StringBuilder sb = new StringBuilder();
