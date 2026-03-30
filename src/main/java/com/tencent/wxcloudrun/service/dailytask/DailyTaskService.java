@@ -9,6 +9,7 @@ import com.tencent.wxcloudrun.model.UserResource;
 import com.tencent.wxcloudrun.model.Warehouse;
 import com.tencent.wxcloudrun.repository.GeneralRepository;
 import com.tencent.wxcloudrun.service.UserResourceService;
+import com.tencent.wxcloudrun.service.level.LevelService;
 import com.tencent.wxcloudrun.service.warehouse.WarehouseService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +26,7 @@ public class DailyTaskService {
 
     @Autowired private DailyTaskMapper taskMapper;
     @Autowired private UserResourceService userResourceService;
+    @Autowired private LevelService levelService;
     @Autowired private WarehouseService warehouseService;
     @Autowired private GeneralRepository generalRepository;
     @Autowired private CampaignProgressMapper campaignProgressMapper;
@@ -162,7 +164,7 @@ public class DailyTaskService {
 
     private List<Map<String, Object>> buildAchievements(String userId) {
         UserResource resource = userResourceService.getUserResource(userId);
-        int playerLevel = resource.getLevel() != null ? resource.getLevel() : 1;
+        int playerLevel = levelService.getUserLevel(userId).getLevel();
 
         List<General> generals = generalRepository.findByUserId(userId);
         int orangeCount = 0;
@@ -332,7 +334,7 @@ public class DailyTaskService {
         }
 
         UserResource resource = userResourceService.getUserResource(userId);
-        int playerLevel = resource.getLevel() != null ? resource.getLevel() : 1;
+        int playerLevel = levelService.getUserLevel(userId).getLevel();
         List<General> generals = generalRepository.findByUserId(userId);
         int orangeCount = 0;
         for (General g : generals) {

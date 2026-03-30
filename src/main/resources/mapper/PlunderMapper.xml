@@ -32,9 +32,12 @@
     </insert>
 
     <select id="findUserLevelsByServerId" resultType="java.util.HashMap">
-        SELECT od_user_id AS userId, level, silver, wood, paper, food, `rank`
-        FROM user_resource
-        WHERE od_user_id LIKE CONCAT('%\_', #{serverSuffix})
+        SELECT r.od_user_id AS userId,
+               COALESCE(l.level, 1) AS level,
+               r.silver, r.wood, r.paper, r.food, r.`rank`
+        FROM user_resource r
+        LEFT JOIN user_level l ON l.user_id = r.od_user_id
+        WHERE r.od_user_id LIKE CONCAT('%\_', #{serverSuffix})
     </select>
 
 </mapper>

@@ -15,6 +15,7 @@ import com.tencent.wxcloudrun.service.battle.BattleCalculator;
 import com.tencent.wxcloudrun.service.battle.BattleService;
 import com.tencent.wxcloudrun.service.PlayerNameResolver;
 import com.tencent.wxcloudrun.service.SuitConfigService;
+import com.tencent.wxcloudrun.service.level.LevelService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -66,6 +67,9 @@ public class PlunderService {
     @Autowired
     private PlayerNameResolver playerNameResolver;
 
+    @Autowired
+    private LevelService levelService;
+
     @org.springframework.beans.factory.annotation.Autowired @org.springframework.context.annotation.Lazy
     private com.tencent.wxcloudrun.service.dailytask.DailyTaskService dailyTaskService;
 
@@ -74,8 +78,7 @@ public class PlunderService {
      */
     public Map<String, Object> getPlunderInfo(String userId) {
         PlunderData pd = plunderRepository.getOrInit(userId);
-        UserResource resource = userResourceRepository.findByUserId(userId);
-        int level = resource != null && resource.getLevel() != null ? resource.getLevel() : 1;
+        int level = levelService.getUserLevel(userId).getLevel();
 
         Map<String, Object> info = new HashMap<>();
         int available = pd.getAvailableCount() != null ? pd.getAvailableCount() : 0;
@@ -98,8 +101,7 @@ public class PlunderService {
      * 获取掠夺目标列表（优先玩家，不足NPC填充）
      */
     public Map<String, Object> getTargetList(String userId, int page) {
-        UserResource myResource = userResourceRepository.findByUserId(userId);
-        int myLevel = myResource != null && myResource.getLevel() != null ? myResource.getLevel() : 1;
+        int myLevel = levelService.getUserLevel(userId).getLevel();
 
         // 从数据库查询冷却中的玩家ID
         long cooldownSince = System.currentTimeMillis() - PlunderConfig.PLUNDER_COOLDOWN_MS;
@@ -195,8 +197,8 @@ public class PlunderService {
             throw new BusinessException(400, "掠夺次数已用完，请等待恢复或购买额外次数");
         }
 
+        int myLevel = levelService.getUserLevel(userId).getLevel();
         UserResource myResource = userResourceRepository.findByUserId(userId);
-        int myLevel = myResource != null && myResource.getLevel() != null ? myResource.getLevel() : 1;
 
         // 获取完整阵型（含装备+兵法+天赋加成）
         List<BattleCalculator.BattleUnit> playerBattleUnits = formationService.buildPlayerBattleUnits(userId);
@@ -238,12 +240,11 @@ public class PlunderService {
 
             // NPC生成虚拟武将（数量与玩家阵型一致）
             int npcCount = Math.max(1, playerBattleUnits.size());
-            int npcPower = npc.getPower();
             enemyUnits = new ArrayList<>();
             for (int i = 0; i < npcCount; i++) {
-                int eAttack = npcPower / npcCount / 2 + targetLevel * 5;
-                int eDefense = npcPower / npcCount / 3 + targetLevel * 3;
-                int eTroops = targetLevel * 80 + 500;
+                int eAttack = targetLevel * 4;
+                int eDefense = targetLevel * 4;
+                int eTroops = 500;
                 enemyUnits.add(new int[]{eAttack, eDefense, eTroops});
             }
         } else {
@@ -251,7 +252,7 @@ public class PlunderService {
             if (targetResource == null) throw new BusinessException(400, "玩家不存在");
 
             targetName = playerNameResolver.resolve(targetId);
-            targetLevel = targetResource.getLevel() != null ? targetResource.getLevel() : 1;
+            targetLevel = levelService.getUserLevel(targetId).getLevel();
             tSilver = targetResource.getSilver() != null ? targetResource.getSilver() : 0;
             tWood = targetResource.getWood() != null ? targetResource.getWood() : 0;
             tPaper = targetResource.getPaper() != null ? targetResource.getPaper() : 0;
@@ -271,7 +272,7 @@ public class PlunderService {
                 enemyUnits.add(new int[]{eAttack, eDefense, eTroops});
             }
             if (enemyUnits.isEmpty()) {
-                enemyUnits.add(new int[]{targetLevel * 10, targetLevel * 6, targetLevel * 80 + 500});
+                enemyUnits.add(new int[]{targetLevel * 10, targetLevel * 6, 500});
             }
         }
 
@@ -280,17 +281,26 @@ public class PlunderService {
         List<BattleCalculator.BattleUnit> enemyBattleUnits = new ArrayList<>();
         for (int i = 0; i < enemyUnits.size(); i++) {
             int[] eu = enemyUnits.get(i);
-            int eTier = Math.max(1, Math.min(10, 1 + targetLevel / 20));
             int eTroopType = 1 + (i % 3);
-            int eFormLv = BattleCalculator.levelToFormationLevel(targetLevel);
-            int eMaxSc = eu.length > 2 ? eu[2] : BattleCalculator.getFormationMaxPeople(eFormLv);
-            enemyBattleUnits.add(BattleCalculator.assembleBattleUnit(
-                    "敌将" + (i + 1), targetLevel,
-                    eu[0], eu.length > 1 ? eu[1] : 50,
-                    targetLevel * 2, targetLevel * 2, 5, 15,
-                    eTroopType, eTier, eMaxSc, eMaxSc, eFormLv,
-                    0, 0, 0, 0, 0, 0, 0, 0));
-            enemyBattleUnits.get(i).position = i;
+            int eSoldiers = eu.length > 2 ? eu[2] : 500;
+
+            BattleCalculator.BattleUnit u = new BattleCalculator.BattleUnit();
+            u.name = isNpcTarget ? (faction != null ? faction : "敌将") + (i + 1) : "敌将" + (i + 1);
+            u.level = targetLevel;
+            u.troopType = eTroopType;
+            u.soldierTier = Math.max(1, Math.min(10, 1 + targetLevel / 20));
+            u.soldierCount = eSoldiers;
+            u.maxSoldierCount = eSoldiers;
+            u.totalAttack = eu[0];
+            u.totalDefense = eu.length > 1 ? eu[1] : eu[0];
+            u.soldierLife = isNpcTarget ? 100 : BattleCalculator.getSoldierLife(eTroopType, u.soldierTier);
+            u.valor = isNpcTarget ? 0 : targetLevel * 2;
+            u.command = isNpcTarget ? 0 : targetLevel * 2;
+            u.dodge = 5;
+            u.hit = 15;
+            u.mobility = 10;
+            u.position = i;
+            enemyBattleUnits.add(u);
         }
 
         BattleService.BattleReport report = battleService.fight(playerBattleUnits, enemyBattleUnits, 20);
