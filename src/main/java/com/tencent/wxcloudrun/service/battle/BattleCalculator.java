@@ -250,7 +250,9 @@ public class BattleCalculator {
 
     public static DamageResult calcDamage(BattleUnit attacker, BattleUnit target) {
         if (isDodge(attacker.hit, target.dodge)) {
-            return new DamageResult(0, false, true, 0);
+            DamageResult dodge = new DamageResult(0, false, true, 0);
+            dodge.targetUnit = target;
+            return dodge;
         }
 
         double atk = attacker.totalAttack;
@@ -313,7 +315,9 @@ public class BattleCalculator {
             soldierLoss = 0;
         }
 
-        return new DamageResult(soldierLoss, false, false, soldierLoss);
+        DamageResult dr = new DamageResult(soldierLoss, false, false, soldierLoss);
+        dr.targetUnit = target;
+        return dr;
     }
 
     // ==================== 兵种类型转换 ====================
@@ -416,14 +420,10 @@ public class BattleCalculator {
 
         String tid = attacker.tacticsId;
 
-        // ===== 步兵被动兵法 =====
-        if ("t_infantry_1".equals(tid)) {
-            // 方圆阵 - 全减伤
-            // 效果在被攻击时触发，此处标记
-        } else if ("t_infantry_2".equals(tid)) {
-            // 偃月阵 - 减骑兵伤害
-        } else if ("t_infantry_3".equals(tid)) {
-            // 长蛇阵 - 减弓兵伤害
+        // ===== 步兵被动兵法（纯受击减伤，攻击时无主动效果） =====
+        if ("t_infantry_1".equals(tid) || "t_infantry_2".equals(tid) || "t_infantry_3".equals(tid)) {
+            result.damages.add(calcDamage(attacker, target));
+            return result;
         }
 
         // ===== 弓兵被动: 落月弓 =====
@@ -633,6 +633,7 @@ public class BattleCalculator {
         public boolean isDodge;
         public int soldierLoss;     // 士兵损失数（核心指标）
         public boolean isCounter;
+        public BattleUnit targetUnit; // 实际受伤目标（兵法可能改变攻击目标，如声东击西）
 
         public DamageResult(int damage, boolean isCrit, boolean isDodge, int soldierLoss) {
             this.damage = damage;

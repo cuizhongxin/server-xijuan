@@ -88,14 +88,17 @@ public class BattleService {
                     action.effectDesc = tr.effectDesc;
                     action.specialTarget = tr.specialTarget;
                     for (BattleCalculator.DamageResult dr : tr.damages) {
+                        BattleCalculator.BattleUnit actualTarget = dr.targetUnit != null ? dr.targetUnit : target;
                         HitDetail hit = new HitDetail();
                         hit.isDodge = dr.isDodge;
                         hit.soldierLoss = dr.soldierLoss;
                         hit.isCrit = dr.isCrit;
                         if (!dr.isDodge) {
-                            target.soldierCount = Math.max(0, target.soldierCount - dr.soldierLoss);
+                            actualTarget.soldierCount = Math.max(0, actualTarget.soldierCount - dr.soldierLoss);
                         }
-                        hit.targetRemaining = target.soldierCount;
+                        hit.targetRemaining = actualTarget.soldierCount;
+                        hit.targetIdx = attackerIsA ? sideB.indexOf(actualTarget) : sideA.indexOf(actualTarget);
+                        hit.targetName = actualTarget.name;
                         action.hits.add(hit);
                     }
                 }
@@ -238,6 +241,8 @@ public class BattleService {
         public boolean isCounter;
         public int soldierLoss;
         public int targetRemaining;
+        public int targetIdx = -1;
+        public String targetName;
     }
 
     public static class UnitSummary {
