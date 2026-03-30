@@ -4,23 +4,30 @@
 
     <resultMap id="plunderDataMap" type="com.tencent.wxcloudrun.model.PlunderData">
         <id property="userId" column="user_id"/>
-        <result property="todayCount" column="today_plunder_count"/>
+        <result property="availableCount" column="available_count"/>
+        <result property="lastRecoverTime" column="last_recover_time"/>
         <result property="todayPurchased" column="today_purchased_count"/>
         <result property="lastResetDate" column="last_plunder_date"/>
+        <result property="todayCount" column="today_plunder_count"/>
     </resultMap>
 
     <select id="findByUserId" resultMap="plunderDataMap">
-        SELECT user_id, today_plunder_count, today_purchased_count, last_plunder_date
+        SELECT user_id, available_count, last_recover_time,
+               today_purchased_count, last_plunder_date, today_plunder_count
         FROM plunder_data WHERE user_id = #{userId}
     </select>
 
     <insert id="upsert">
-        INSERT INTO plunder_data (user_id, today_plunder_count, today_purchased_count, last_plunder_date, update_time)
-        VALUES (#{userId}, #{todayCount}, #{todayPurchased}, #{lastResetDate}, #{updateTime})
+        INSERT INTO plunder_data (user_id, available_count, last_recover_time,
+                                  today_purchased_count, last_plunder_date, today_plunder_count, update_time)
+        VALUES (#{userId}, #{availableCount}, #{lastRecoverTime},
+                #{todayPurchased}, #{lastResetDate}, #{todayCount}, #{updateTime})
         ON DUPLICATE KEY UPDATE
-            today_plunder_count = #{todayCount},
+            available_count = #{availableCount},
+            last_recover_time = #{lastRecoverTime},
             today_purchased_count = #{todayPurchased},
             last_plunder_date = #{lastResetDate},
+            today_plunder_count = #{todayCount},
             update_time = #{updateTime}
     </insert>
 

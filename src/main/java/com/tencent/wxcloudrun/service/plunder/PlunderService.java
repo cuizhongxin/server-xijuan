@@ -78,13 +78,19 @@ public class PlunderService {
         int level = resource != null && resource.getLevel() != null ? resource.getLevel() : 1;
 
         Map<String, Object> info = new HashMap<>();
-        info.put("todayCount", pd.getTodayCount());
+        int available = pd.getAvailableCount() != null ? pd.getAvailableCount() : 0;
+        info.put("availableCount", available);
+        info.put("maxCount", PlunderConfig.MAX_PLUNDER_COUNT);
         info.put("todayPurchased", pd.getTodayPurchased());
-        info.put("dailyLimit", PlunderConfig.DAILY_PLUNDER_LIMIT);
-        info.put("availableCount", pd.getAvailableCount());
         info.put("maxPurchase", PlunderConfig.MAX_PURCHASE_TIMES);
         info.put("nextPurchaseCost", PlunderConfig.getPurchaseCost(pd.getTodayPurchased()));
         info.put("playerLevel", level);
+        // 恢复倒计时信息
+        long lastRecover = pd.getLastRecoverTime() != null ? pd.getLastRecoverTime() : 0;
+        long nextRecoverMs = (available < PlunderConfig.MAX_PLUNDER_COUNT && lastRecover > 0)
+                ? lastRecover + PlunderConfig.PLUNDER_RECOVER_MS - System.currentTimeMillis() : 0;
+        info.put("nextRecoverSec", Math.max(0, nextRecoverMs / 1000));
+        info.put("recoverIntervalSec", PlunderConfig.PLUNDER_RECOVER_MS / 1000);
         return info;
     }
 
@@ -184,8 +190,9 @@ public class PlunderService {
     public Map<String, Object> doPlunder(String userId, String targetId) {
         PlunderData pd = plunderRepository.getOrInit(userId);
 
-        if (pd.getAvailableCount() <= 0) {
-            throw new BusinessException(400, "今日掠夺次数已用完，可购买额外次数");
+        int available = pd.getAvailableCount() != null ? pd.getAvailableCount() : 0;
+        if (available <= 0) {
+            throw new BusinessException(400, "掠夺次数已用完，请等待恢复或购买额外次数");
         }
 
         UserResource myResource = userResourceRepository.findByUserId(userId);
@@ -325,8 +332,9 @@ public class PlunderService {
             }
         }
 
-        // 更新今日次数
-        pd.setTodayCount(pd.getTodayCount() + 1);
+        // 扣减可用次数
+        pd.setAvailableCount(Math.max(0, (pd.getAvailableCount() != null ? pd.getAvailableCount() : 0) - 1));
+        pd.setTodayCount((pd.getTodayCount() != null ? pd.getTodayCount() : 0) + 1);
         plunderRepository.save(pd);
 
         // 写入掠夺记录到数据库
@@ -355,7 +363,7 @@ public class PlunderService {
         result.put("paperGain", paperGain);
         result.put("foodGain", foodGain);
         result.put("availableCount", pd.getAvailableCount());
-        result.put("todayCount", pd.getTodayCount());
+        result.put("maxCount", PlunderConfig.MAX_PLUNDER_COUNT);
         result.put("playerPower", playerBattleUnits.stream().mapToInt(u -> u.totalAttack + u.totalDefense).sum());
         result.put("targetPower", enemyBattleUnits.stream().mapToInt(u -> u.totalAttack + u.totalDefense).sum());
         result.put("battleLog", battleLog);
@@ -373,11 +381,12 @@ public class PlunderService {
      */
     public Map<String, Object> purchaseCount(String userId) {
         PlunderData pd = plunderRepository.getOrInit(userId);
-        if (pd.getTodayPurchased() >= PlunderConfig.MAX_PURCHASE_TIMES) {
+        int purchased = pd.getTodayPurchased() != null ? pd.getTodayPurchased() : 0;
+        if (purchased >= PlunderConfig.MAX_PURCHASE_TIMES) {
             throw new BusinessException(400, "今日购买次数已达上限");
         }
 
-        int cost = PlunderConfig.getPurchaseCost(pd.getTodayPurchased());
+        int cost = PlunderConfig.getPurchaseCost(purchased);
         UserResource resource = userResourceRepository.findByUserId(userId);
         if (resource == null || resource.getGold() == null || resource.getGold() < cost) {
             throw new BusinessException(400, "黄金不足，需要" + cost + "黄金");
@@ -386,13 +395,16 @@ public class PlunderService {
         resource.setGold(resource.getGold() - cost);
         userResourceRepository.save(resource);
 
-        pd.setTodayPurchased(pd.getTodayPurchased() + 1);
+        pd.setTodayPurchased(purchased + 1);
+        int current = pd.getAvailableCount() != null ? pd.getAvailableCount() : 0;
+        pd.setAvailableCount(current + 1);
         plunderRepository.save(pd);
 
         Map<String, Object> result = new HashMap<>();
         result.put("cost", cost);
         result.put("todayPurchased", pd.getTodayPurchased());
         result.put("availableCount", pd.getAvailableCount());
+        result.put("maxCount", PlunderConfig.MAX_PLUNDER_COUNT);
         result.put("nextCost", PlunderConfig.getPurchaseCost(pd.getTodayPurchased()));
         result.put("remainingGold", resource.getGold());
         return result;

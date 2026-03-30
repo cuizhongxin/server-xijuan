@@ -18,9 +18,14 @@ public class PlunderConfig {
 
     private static final Logger logger = LoggerFactory.getLogger(PlunderConfig.class);
 
-    public static final int DAILY_PLUNDER_LIMIT = 12;
+    /** APK: maxRobNum=12 */
+    public static final int MAX_PLUNDER_COUNT = 12;
+    /** 每30分钟恢复1次掠夺次数 */
     public static final long PLUNDER_RECOVER_MS = 30 * 60 * 1000L;
+    public static final int PLUNDER_RECOVER_AMOUNT = 1;
     public static final int MAX_PURCHASE_TIMES = 10;
+    @Deprecated
+    public static final int DAILY_PLUNDER_LIMIT = MAX_PLUNDER_COUNT;
     public static final int PAGE_SIZE = 10;
     public static final int LEVEL_RANGE = 10;
     public static final int PLUNDER_COOLDOWN_MS = 3600 * 1000;

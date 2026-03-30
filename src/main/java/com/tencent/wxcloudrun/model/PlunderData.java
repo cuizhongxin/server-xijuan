@@ -1,12 +1,14 @@
 package com.tencent.wxcloudrun.model;
 
+import com.tencent.wxcloudrun.config.PlunderConfig;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * 用户掠夺每日数据（只保存次数和购买信息，记录已独立到 plunder_record 表）
+ * 用户掠夺数据 — 时间自动恢复模型
+ * 参考APK: 最大12次，每30分钟恢复1次
  */
 @Data
 @Builder
@@ -16,23 +18,22 @@ public class PlunderData {
 
     private String userId;
 
-    /** 今日已掠夺次数 */
+    /** 当前可用掠夺次数（含购买的额外次数） */
     @Builder.Default
-    private Integer todayCount = 0;
+    private Integer availableCount = PlunderConfig.MAX_PLUNDER_COUNT;
 
-    /** 今日已购买次数 */
+    /** 上次恢复计算时间戳(ms) */
+    @Builder.Default
+    private Long lastRecoverTime = 0L;
+
+    /** 今日已购买额外次数 */
     @Builder.Default
     private Integer todayPurchased = 0;
 
-    /** 上次重置日期 yyyyMMdd */
+    /** 上次购买重置日期 yyyyMMdd */
     private String lastResetDate;
 
-    /**
-     * 获取今日可用掠夺次数
-     */
-    public int getAvailableCount() {
-        int total = 24 + (todayPurchased != null ? todayPurchased : 0);
-        int used = todayCount != null ? todayCount : 0;
-        return Math.max(0, total - used);
-    }
+    /** 兼容旧字段: 今日已掠夺次数（不再使用，仅保留以防旧数据） */
+    @Builder.Default
+    private Integer todayCount = 0;
 }

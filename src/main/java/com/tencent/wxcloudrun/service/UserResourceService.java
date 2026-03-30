@@ -16,8 +16,9 @@ public class UserResourceService {
     
     private static final Logger logger = LoggerFactory.getLogger(UserResourceService.class);
     
-    // 体力恢复间隔（5分钟恢复1点）
-    private static final long STAMINA_RECOVER_INTERVAL = 5 * 60 * 1000;
+    // 体力恢复间隔（参考APK：每30分钟恢复5点精力）
+    private static final long STAMINA_RECOVER_INTERVAL = 30 * 60 * 1000L;
+    private static final int STAMINA_RECOVER_AMOUNT = 5;
     
     @Autowired
     private UserResourceRepository resourceRepository;
@@ -42,18 +43,24 @@ public class UserResourceService {
      */
     private void recoverStamina(UserResource resource) {
         long now = System.currentTimeMillis();
-        long lastRecover = resource.getLastStaminaRecoverTime();
+        Long lastRecoverRaw = resource.getLastStaminaRecoverTime();
+        long lastRecover = lastRecoverRaw != null ? lastRecoverRaw : now;
+        int maxStam = resource.getMaxStamina() != null ? resource.getMaxStamina() : 100;
+        int current = resource.getStamina() != null ? resource.getStamina() : maxStam;
         
-        if (resource.getStamina() < resource.getMaxStamina()) {
+        if (current < maxStam) {
             long elapsed = now - lastRecover;
-            int recovered = (int) (elapsed / STAMINA_RECOVER_INTERVAL);
+            int ticks = (int) (elapsed / STAMINA_RECOVER_INTERVAL);
             
-            if (recovered > 0) {
-                int newStamina = Math.min(resource.getMaxStamina(), resource.getStamina() + recovered);
+            if (ticks > 0) {
+                int recovered = ticks * STAMINA_RECOVER_AMOUNT;
+                int newStamina = Math.min(maxStam, current + recovered);
                 resource.setStamina(newStamina);
-                resource.setLastStaminaRecoverTime(now);
+                resource.setLastStaminaRecoverTime(lastRecover + (long) ticks * STAMINA_RECOVER_INTERVAL);
                 resourceRepository.save(resource);
             }
+        } else {
+            resource.setLastStaminaRecoverTime(now);
         }
     }
     

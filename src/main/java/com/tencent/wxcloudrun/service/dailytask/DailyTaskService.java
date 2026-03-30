@@ -29,7 +29,8 @@ public class DailyTaskService {
     @Autowired private GeneralRepository generalRepository;
     @Autowired private CampaignProgressMapper campaignProgressMapper;
 
-    private static final int STAMINA_RECOVER_INTERVAL_MS = 600_000;
+    private static final long STAMINA_RECOVER_INTERVAL_MS = 30 * 60 * 1000L;
+    private static final int STAMINA_RECOVER_AMOUNT = 5;
     private static final int STAMINA_ITEM_ID = 11101;
     private static final int STAMINA_PER_PILL = 5;
 
@@ -91,7 +92,7 @@ public class DailyTaskService {
     }
 
     // ═══════════════════════════════════════════
-    //  getInfo — 返回三个Tab的完整数据
+    //  getInfo — 返回两个Tab的完整数据（精力已改为自动恢复，不再作为日常任务Tab）
     // ═══════════════════════════════════════════
 
     public Map<String, Object> getInfo(String userId) {
@@ -102,9 +103,6 @@ public class DailyTaskService {
 
         // Tab2: 成就
         result.put("achievements", buildAchievements(userId));
-
-        // Tab3: 精力
-        result.put("stamina", buildStaminaInfo(userId));
 
         return result;
     }
@@ -217,10 +215,14 @@ public class DailyTaskService {
         recoverStamina(resource);
 
         Map<String, Object> info = new LinkedHashMap<>();
-        info.put("current", resource.getStamina());
-        info.put("max", resource.getMaxStamina() != null ? resource.getMaxStamina() : 100);
+        int current = resource.getStamina() != null ? resource.getStamina() : 100;
+        int maxStam = resource.getMaxStamina() != null ? resource.getMaxStamina() : 100;
+        info.put("current", current);
+        info.put("max", maxStam);
+        info.put("recoverAmount", STAMINA_RECOVER_AMOUNT);
         long lastRecover = resource.getLastStaminaRecoverTime() != null ? resource.getLastStaminaRecoverTime() : 0;
-        long nextRecoverMs = lastRecover > 0 ? lastRecover + STAMINA_RECOVER_INTERVAL_MS - System.currentTimeMillis() : 0;
+        long nextRecoverMs = (current < maxStam && lastRecover > 0)
+                ? lastRecover + STAMINA_RECOVER_INTERVAL_MS - System.currentTimeMillis() : 0;
         info.put("nextRecoverSec", Math.max(0, nextRecoverMs / 1000));
         info.put("recoverInterval", STAMINA_RECOVER_INTERVAL_MS / 1000);
         return info;
@@ -388,25 +390,27 @@ public class DailyTaskService {
     // ═══════════════════════════════════════════
 
     public void recoverStamina(UserResource resource) {
+        long now = System.currentTimeMillis();
         int maxStam = resource.getMaxStamina() != null ? resource.getMaxStamina() : 100;
         int current = resource.getStamina() != null ? resource.getStamina() : maxStam;
         if (current >= maxStam) {
-            resource.setLastStaminaRecoverTime(System.currentTimeMillis());
+            resource.setLastStaminaRecoverTime(now);
             return;
         }
 
         long lastRecover = resource.getLastStaminaRecoverTime() != null ? resource.getLastStaminaRecoverTime() : 0;
         if (lastRecover <= 0) {
-            resource.setLastStaminaRecoverTime(System.currentTimeMillis());
+            resource.setLastStaminaRecoverTime(now);
             return;
         }
 
-        long elapsed = System.currentTimeMillis() - lastRecover;
-        int recovered = (int) (elapsed / STAMINA_RECOVER_INTERVAL_MS);
-        if (recovered > 0) {
+        long elapsed = now - lastRecover;
+        int ticks = (int) (elapsed / STAMINA_RECOVER_INTERVAL_MS);
+        if (ticks > 0) {
+            int recovered = ticks * STAMINA_RECOVER_AMOUNT;
             int newStamina = Math.min(maxStam, current + recovered);
             resource.setStamina(newStamina);
-            resource.setLastStaminaRecoverTime(lastRecover + (long) recovered * STAMINA_RECOVER_INTERVAL_MS);
+            resource.setLastStaminaRecoverTime(lastRecover + (long) ticks * STAMINA_RECOVER_INTERVAL_MS);
             userResourceService.saveUserResource(resource);
         }
     }

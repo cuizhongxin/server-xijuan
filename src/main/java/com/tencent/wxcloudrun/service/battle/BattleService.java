@@ -145,11 +145,11 @@ public class BattleService {
 
         report.sideASummary = new ArrayList<>();
         for (BattleCalculator.BattleUnit u : sideA) {
-            report.sideASummary.add(new UnitSummary(u.name, u.soldierCount, u.maxSoldierCount, u.troopType, u.soldierTier, u.level, u.position));
+            report.sideASummary.add(new UnitSummary(u));
         }
         report.sideBSummary = new ArrayList<>();
         for (BattleCalculator.BattleUnit u : sideB) {
-            report.sideBSummary.add(new UnitSummary(u.name, u.soldierCount, u.maxSoldierCount, u.troopType, u.soldierTier, u.level, u.position));
+            report.sideBSummary.add(new UnitSummary(u));
         }
 
         return report;
@@ -248,6 +248,11 @@ public class BattleService {
         public int soldierTier;
         public int level;
         public int position;
+        public String tacticsId;
+        public String tacticsName;
+        public int tacticsLevel;
+        public double tacticsTriggerRate;
+        public double tacticsEffectValue;
 
         public UnitSummary(String name, int soldierCount, int maxSoldierCount, int troopType, int soldierTier, int level, int position) {
             this.name = name;
@@ -257,6 +262,21 @@ public class BattleService {
             this.soldierTier = soldierTier;
             this.level = level;
             this.position = position;
+        }
+
+        public UnitSummary(BattleCalculator.BattleUnit u) {
+            this.name = u.name;
+            this.soldierCount = u.soldierCount;
+            this.maxSoldierCount = u.maxSoldierCount;
+            this.troopType = u.troopType;
+            this.soldierTier = u.soldierTier;
+            this.level = u.level;
+            this.position = u.position;
+            this.tacticsId = u.tacticsId;
+            this.tacticsName = u.tacticsName;
+            this.tacticsLevel = u.tacticsLevel;
+            this.tacticsTriggerRate = u.tacticsTriggerRate;
+            this.tacticsEffectValue = u.tacticsEffectValue;
         }
     }
 }

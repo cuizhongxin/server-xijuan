@@ -12,9 +12,13 @@ public interface PlunderMapper {
 
     PlunderData findByUserId(@Param("userId") String userId);
 
-    void upsert(@Param("userId") String userId, @Param("todayCount") Integer todayCount,
-                @Param("todayPurchased") Integer todayPurchased, @Param("lastResetDate") String lastResetDate,
-                @Param("createTime") Long createTime, @Param("updateTime") Long updateTime);
+    void upsert(@Param("userId") String userId,
+                @Param("availableCount") Integer availableCount,
+                @Param("lastRecoverTime") Long lastRecoverTime,
+                @Param("todayPurchased") Integer todayPurchased,
+                @Param("lastResetDate") String lastResetDate,
+                @Param("todayCount") Integer todayCount,
+                @Param("updateTime") Long updateTime);
 
     /**
      * 获取同区服用户ID和等级信息（用于匹配掠夺对象）
