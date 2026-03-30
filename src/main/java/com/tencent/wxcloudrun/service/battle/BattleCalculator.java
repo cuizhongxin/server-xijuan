@@ -455,6 +455,20 @@ public class BattleCalculator {
             return result;
         }
 
+        // 声东击西：敌方无存活弓兵时不触发
+        if ("t_cavalry_2".equals(tid)) {
+            boolean hasArcher = false;
+            if (allEnemies != null) {
+                for (BattleUnit e : allEnemies) {
+                    if (e.troopType == 3 && e.soldierCount > 0) { hasArcher = true; break; }
+                }
+            }
+            if (!hasArcher) {
+                result.damages.add(calcDamage(attacker, target));
+                return result;
+            }
+        }
+
         result.triggered = true;
         result.tacticsName = attacker.tacticsName;
 
