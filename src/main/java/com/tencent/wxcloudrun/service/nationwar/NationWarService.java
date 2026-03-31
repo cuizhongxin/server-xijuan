@@ -7,6 +7,7 @@ import com.tencent.wxcloudrun.model.NationWar;
 import com.tencent.wxcloudrun.model.NationWar.*;
 import com.tencent.wxcloudrun.model.General;
 import com.tencent.wxcloudrun.model.UserResource;
+import com.tencent.wxcloudrun.service.chat.ChatService;
 import com.tencent.wxcloudrun.service.UserResourceService;
 import com.tencent.wxcloudrun.service.SuitConfigService;
 import com.tencent.wxcloudrun.service.alliance.AllianceService;
@@ -37,6 +38,7 @@ public class NationWarService {
     @Autowired @Lazy private FormationService formationService;
     @Autowired private SuitConfigService suitConfigService;
     @Autowired @Lazy private com.tencent.wxcloudrun.service.general.GeneralService generalService;
+    @Autowired @Lazy private ChatService chatService;
 
     private final Map<String, Nation> nations = new LinkedHashMap<>();
     private final Map<String, City> cities = new LinkedHashMap<>();
@@ -52,6 +54,7 @@ public class NationWarService {
     private static final String CHIBI_CITY_ID = "CHIBI";
     private static final String SESSION_ID_PREFIX = "SESSION_";
     private static final int DEFAULT_SWITCH_ROUNDS = 4;
+    private static final int BASE_SILVER_PER_MERIT = 50;
 
     private static final Set<String> PLAYER_SELECTABLE_NATION_IDS =
             new HashSet<>(Arrays.asList("WEI", "SHU", "WU"));
@@ -59,6 +62,7 @@ public class NationWarService {
     /** 当天活跃的国战会话（内存中缓存，定期持久化到DB） */
     private volatile NationWarSession activeSession;
     private boolean testMode = false;
+    private final Map<String, Integer> killStreakMap = new HashMap<>();
 
     static int extractServerId(String compositeUserId) {
         if (compositeUserId == null) return 1;
@@ -398,6 +402,7 @@ public class NationWarService {
     public void startRegistration() {
         String today = todayStr();
         activeSession = createSession(today);
+        killStreakMap.clear();
         saveSession(activeSession);
         logger.info("国战报名开始: {}", today);
     }
@@ -934,6 +939,10 @@ public class NationWarService {
     private void processCityBattleTick(String cityId, CityBattle battle, int roundNum) {
         List<PlayerWarState> sideAPlayers = new ArrayList<>();
         List<PlayerWarState> sideBPlayers = new ArrayList<>();
+        if (!Boolean.TRUE.equals(battle.getIsChibiBattle())
+                && (battle.getNpcDefenders() == null || battle.getNpcDefenders().isEmpty())) {
+            battle.setNpcDefenders(generateNpcDefenders(battle.getSideBNation(), cityId));
+        }
 
         for (PlayerWarState ps : activeSession.getPlayerStates().values()) {
             if (!cityId.equals(ps.getCurrentCityId())) continue;
@@ -1045,12 +1054,15 @@ public class NationWarService {
             int merit = defenderLevel * 2;
             int score = defenderLevel * 10;
             attacker.setWins(attacker.getWins() + 1);
+            int attackerStreak = nextKillStreak(attacker, true);
             attacker.setTotalMerit(attacker.getTotalMerit() + merit);
             attacker.setTotalScore(attacker.getTotalScore() + score);
             battle.setSideAScore(battle.getSideAScore() + score);
             addPlayerMerit(attacker.getOdUserId(), merit);
+            publishKillStreak(cityId, attacker, attackerStreak);
             if (defender != null) {
                 int lossMerit = defenderLevel;
+                nextKillStreak(defender, false);
                 defender.setLosses(defender.getLosses() + 1);
                 defender.setTotalMerit(defender.getTotalMerit() + lossMerit);
                 addPlayerMerit(defender.getOdUserId(), lossMerit);
@@ -1062,6 +1074,7 @@ public class NationWarService {
                     .meritGained(merit).scoreGained(score).build());
         } else {
             int lossMerit = attackerLevel;
+            nextKillStreak(attacker, false);
             attacker.setLosses(attacker.getLosses() + 1);
             attacker.setTotalMerit(attacker.getTotalMerit() + lossMerit);
             addPlayerMerit(attacker.getOdUserId(), lossMerit);
@@ -1069,10 +1082,12 @@ public class NationWarService {
                 int merit = attackerLevel * 2;
                 int score = attackerLevel * 10;
                 defender.setWins(defender.getWins() + 1);
+                int defenderStreak = nextKillStreak(defender, true);
                 defender.setTotalMerit(defender.getTotalMerit() + merit);
                 defender.setTotalScore(defender.getTotalScore() + score);
                 battle.setSideBScore(battle.getSideBScore() + score);
                 addPlayerMerit(defender.getOdUserId(), merit);
+                publishKillStreak(cityId, defender, defenderStreak);
                 roundResult.getFights().add(RoundFight.builder()
                         .attackerId(attacker.getOdUserId()).attackerName(attacker.getPlayerName()).attackerLevel(attackerLevel)
                         .defenderId(defenderId).defenderName(defenderName).defenderLevel(defenderLevel)
@@ -1087,6 +1102,30 @@ public class NationWarService {
                         .meritGained(0).scoreGained(attackerLevel * 10).build());
             }
         }
+    }
+
+    private int nextKillStreak(PlayerWarState player, boolean won) {
+        if (player == null) return 0;
+        String uid = player.getOdUserId();
+        if (uid == null || uid.startsWith("NPC_")) return 0;
+        int next = won ? (killStreakMap.getOrDefault(uid, 0) + 1) : 0;
+        killStreakMap.put(uid, next);
+        return next;
+    }
+
+    private void publishKillStreak(String cityId, PlayerWarState winner, int streak) {
+        if (winner == null) return;
+        if (streak != 4 && streak != 6 && streak != 8 && streak != 10) return;
+        String title;
+        if (streak == 4) title = "大杀特杀";
+        else if (streak == 6) title = "无人可挡";
+        else if (streak == 8) title = "变态杀戮";
+        else title = "已经超神了";
+
+        int serverId = extractServerId(winner.getOdUserId());
+        String cityName = cities.get(cityId) != null ? cities.get(cityId).getName() : cityId;
+        String message = "【国战战报】" + winner.getPlayerName() + " 在" + cityName + " " + title + "（" + streak + "连胜）！";
+        chatService.sendSystemMessage(serverId, "world", message);
     }
 
     private List<BattleCalculator.BattleUnit> buildUnitsFromState(PlayerWarState ps, String cityId) {
@@ -1242,7 +1281,13 @@ public class NationWarService {
     private void updateMeritExchangeRate(String nationId) {
         Nation nation = nations.get(nationId);
         if (nation == null) return;
-        nation.setMeritExchangeRate(1.0 + (nation.getCities().size() - 6) * 0.1);
+        nation.setMeritExchangeRate(calculateNationExchangeRate(nation));
+    }
+
+    private double calculateNationExchangeRate(Nation nation) {
+        if (nation == null || nation.getCities() == null) return 1.0;
+        int extraCities = Math.max(0, nation.getCities().size() - 6);
+        return 1.0 + extraCities * 0.1;
     }
 
     private void addPlayerMerit(String odUserId, int merit) {
@@ -1256,14 +1301,21 @@ public class NationWarService {
         return merit != null ? merit : 0;
     }
 
-    public Map<String, Object> exchangeMerit(String odUserId, int meritAmount) {
+    public Map<String, Object> exchangeMerit(String odUserId, int meritAmount, String cityId) {
         int currentMerit = getPlayerMerit(odUserId);
         if (meritAmount > currentMerit) throw new BusinessException(400, "军功不足");
         String playerNation = getPlayerNation(odUserId);
         if (playerNation == null) throw new BusinessException(400, "请先选择国家");
         Nation nation = nations.get(playerNation);
-        double rate = nation != null ? nation.getMeritExchangeRate() : 1.0;
-        long silverGained = (long)(meritAmount * 10 * rate);
+        if (nation == null) throw new BusinessException(400, "国家信息异常");
+
+        String capitalId = nation.getCapitalId();
+        if (cityId == null || cityId.isEmpty() || !capitalId.equals(cityId)) {
+            throw new BusinessException(400, "请在本国都城兑换");
+        }
+
+        double rate = calculateNationExchangeRate(nation);
+        long silverGained = (long)(meritAmount * BASE_SILVER_PER_MERIT * rate);
         nationWarMapper.upsertPlayerMerit(odUserId, currentMerit - meritAmount);
         userResourceService.addSilver(odUserId, silverGained);
         Map<String, Object> result = new HashMap<>();
@@ -1273,6 +1325,10 @@ public class NationWarService {
         result.put("exchangeRate", rate);
         result.put("remainingMerit", currentMerit - meritAmount);
         return result;
+    }
+
+    public Map<String, Object> exchangeMerit(String odUserId, int meritAmount) {
+        return exchangeMerit(odUserId, meritAmount, null);
     }
 
     // ==================== 查询接口 ====================
@@ -1316,6 +1372,82 @@ public class NationWarService {
         }
         result.put("cityBattles", battlesSummary);
         result.put("playerCount", activeSession.getPlayerStates().size());
+        return result;
+    }
+
+    public Map<String, Object> getCityRuntimeStatus(String odUserId, String cityId) {
+        Map<String, Object> result = new HashMap<>();
+        City city = cities.get(cityId);
+        if (city == null) throw new BusinessException(400, "城市不存在");
+
+        result.put("cityId", cityId);
+        result.put("cityName", city.getName());
+        result.put("owner", city.getOwner());
+        result.put("defense", city.getDefenseBonus());
+        result.put("garrison", 100);
+        result.put("signupRequired", MIN_SIGN_UP);
+        result.put("signupCount", 0);
+        result.put("nationSignupCounts", new LinkedHashMap<String, Integer>());
+        result.put("phase", activeSession != null ? activeSession.getPhase().name() : "PREPARING");
+
+        String playerNation = getPlayerNation(odUserId);
+        result.put("playerNation", playerNation);
+
+        if (activeSession == null) return result;
+
+        CityRegistration reg = activeSession.getRegistrations().get(cityId);
+        if (reg != null && reg.getNationSignups() != null) {
+            Map<String, Integer> nationCounts = new LinkedHashMap<>();
+            int total = 0;
+            for (Map.Entry<String, List<WarParticipant>> e : reg.getNationSignups().entrySet()) {
+                int c = e.getValue() != null ? e.getValue().size() : 0;
+                nationCounts.put(e.getKey(), c);
+                total += c;
+            }
+            result.put("nationSignupCounts", nationCounts);
+            result.put("signupCount", total);
+            if (playerNation != null) {
+                result.put("mySignupCount", nationCounts.getOrDefault(playerNation, 0));
+            }
+        }
+
+        List<String> lockedNations = new ArrayList<>();
+        for (Map.Entry<String, String> e : activeSession.getNationTargets().entrySet()) {
+            if (cityId.equals(e.getValue())) lockedNations.add(e.getKey());
+        }
+        result.put("lockedNations", lockedNations);
+
+        CityBattle battle = activeSession.getCityBattles().get(cityId);
+        if (battle != null) {
+            result.put("hasBattle", true);
+            result.put("battleCityId", battle.getCityId());
+            result.put("sideANation", battle.getSideANation());
+            result.put("sideBNation", battle.getSideBNation());
+            result.put("sideAScore", battle.getSideAScore());
+            result.put("sideBScore", battle.getSideBScore());
+            result.put("victoryPoint", battle.getVictoryPoint());
+            result.put("winner", battle.getWinner());
+            result.put("isChibiBattle", battle.getIsChibiBattle());
+            int aliveNpc = 0;
+            if (battle.getNpcDefenders() != null) {
+                for (NpcDefender npc : battle.getNpcDefenders()) {
+                    if (npc != null && !Boolean.TRUE.equals(npc.getDead())) aliveNpc++;
+                }
+            }
+            result.put("npcDefenderAlive", aliveNpc);
+
+            PlayerWarState ps = activeSession.getPlayerStates().get(odUserId);
+            boolean involved = playerNation != null
+                    && (playerNation.equals(battle.getSideANation()) || playerNation.equals(battle.getSideBNation()));
+            result.put("playerInvolved", involved);
+            if (ps != null) {
+                result.put("playerCurrentCityId", ps.getCurrentCityId());
+                result.put("playerCanSwitch", ps.getAllDead() || ps.getRoundsAtCurrentCity() >= getRequiredRoundsForSwitch(ps.getVipLevel()));
+            }
+        } else {
+            result.put("hasBattle", false);
+        }
+
         return result;
     }
 

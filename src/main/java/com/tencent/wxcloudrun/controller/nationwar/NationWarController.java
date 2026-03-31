@@ -64,6 +64,7 @@ public class NationWarController {
             result.put("sessionPhase", session.getPhase().name());
             result.put("nationTargets", session.getNationTargets());
             result.put("currentRound", session.getCurrentRound());
+            result.put("cityBattles", session.getCityBattles());
         }
 
         return ApiResponse.success(result);
@@ -187,17 +188,8 @@ public class NationWarController {
     @GetMapping("/city/{cityId}/status")
     public ApiResponse<Map<String, Object>> getCityWarStatus(HttpServletRequest request,
                                                               @PathVariable String cityId) {
-        NationWar war = nationWarService.getTodayWar(cityId);
-        Map<String, Object> result = new HashMap<>();
-        if (war != null) {
-            result.put("hasWar", true);
-            result.put("war", war);
-            result.put("attackerCount", war.getAttackers() != null ? war.getAttackers().size() : 0);
-            result.put("defenderCount", war.getDefenders() != null ? war.getDefenders().size() : 0);
-        } else {
-            result.put("hasWar", false);
-        }
-        return ApiResponse.success(result);
+        String odUserId = String.valueOf(request.getAttribute("userId"));
+        return ApiResponse.success(nationWarService.getCityRuntimeStatus(odUserId, cityId));
     }
 
     @GetMapping("/war/{warId}")
@@ -241,17 +233,18 @@ public class NationWarController {
         result.put("merit", merit);
         result.put("nation", playerNation);
         result.put("exchangeRate", exchangeRate);
-        result.put("silverPerMerit", (int)(10 * exchangeRate));
+        result.put("silverPerMerit", (int)(50 * exchangeRate));
         return ApiResponse.success(result);
     }
 
     @PostMapping("/exchange")
     public ApiResponse<Map<String, Object>> exchangeMerit(HttpServletRequest request,
-                                                           @RequestBody Map<String, Integer> body) {
+                                                           @RequestBody Map<String, Object> body) {
         String odUserId = String.valueOf(request.getAttribute("userId"));
-        Integer meritAmount = body.get("meritAmount");
+        Integer meritAmount = body.get("meritAmount") != null ? ((Number) body.get("meritAmount")).intValue() : null;
+        String cityId = body.get("cityId") != null ? String.valueOf(body.get("cityId")) : null;
         if (meritAmount == null || meritAmount <= 0) return ApiResponse.error(400, "兑换数量无效");
-        return ApiResponse.success(nationWarService.exchangeMerit(odUserId, meritAmount));
+        return ApiResponse.success(nationWarService.exchangeMerit(odUserId, meritAmount, cityId));
     }
 
     // ==================== 测试接口 ====================
