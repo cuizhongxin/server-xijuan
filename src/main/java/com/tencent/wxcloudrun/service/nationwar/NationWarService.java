@@ -149,25 +149,25 @@ public class NationWarService {
                 .neighbors(Arrays.asList("RUNAN","XINYE","HANZHONG","JIANGXIA"))
                 .isCapital(false).defenseBonus(20).pic("cityBig0.png").flagX(0).flagY(10).build());
         cities.put("RUNAN", City.builder().id("RUNAN").name("汝南").owner("WEI").x(454).y(290)
-                .neighbors(Arrays.asList("CHIBI","XINYE","WANCHENG","XUCHANG"))
+                .neighbors(Arrays.asList("CHIBI","XINYE","WANCHENG","XUCHANG","JIANGXIA"))
                 .isCapital(false).defenseBonus(10).pic("cityMid1.png").flagX(0).flagY(10).build());
         cities.put("XINYE", City.builder().id("XINYE").name("新野").owner("WEI").x(328).y(332)
-                .neighbors(Arrays.asList("CHIBI","RUNAN","SHANGYONG"))
+                .neighbors(Arrays.asList("CHIBI","RUNAN","SHANGYONG","HANZHONG"))
                 .isCapital(false).defenseBonus(10).pic("cityMid2.png").flagX(-10).flagY(10).build());
         cities.put("SHANGYONG", City.builder().id("SHANGYONG").name("上庸").owner("WEI").x(397).y(369)
                 .neighbors(Arrays.asList("XINYE","WANCHENG"))
                 .isCapital(false).defenseBonus(10).pic("citySmall1.png").flagX(0).flagY(10).build());
         cities.put("WANCHENG", City.builder().id("WANCHENG").name("宛城").owner("WEI").x(508).y(357)
-                .neighbors(Arrays.asList("RUNAN","SHANGYONG","XUCHANG"))
+                .neighbors(Arrays.asList("RUNAN","SHANGYONG","XUCHANG","JIANGXIA"))
                 .isCapital(false).defenseBonus(10).pic("citySmall1.png").flagX(0).flagY(10).build());
         cities.put("XUCHANG", City.builder().id("XUCHANG").name("许昌").owner("WEI").x(598).y(324)
-                .neighbors(Arrays.asList("RUNAN","WANCHENG","LUOYANG"))
+                .neighbors(Arrays.asList("RUNAN","WANCHENG","LUOYANG","LUJIANG"))
                 .isCapital(false).defenseBonus(15).pic("citySmall1.png").flagX(0).flagY(10).build());
         cities.put("LUOYANG", City.builder().id("LUOYANG").name("洛阳").owner("WEI").x(680).y(363)
                 .neighbors(Arrays.asList("XUCHANG"))
                 .isCapital(true).defenseBonus(25).pic("cityBig1.png").flagX(10).flagY(10).build());
         cities.put("HANZHONG", City.builder().id("HANZHONG").name("汉中").owner("SHU").x(221).y(248)
-                .neighbors(Arrays.asList("CHIBI","XIANGYANG","JIANGZHOU"))
+                .neighbors(Arrays.asList("CHIBI","XIANGYANG","JIANGZHOU","XINYE"))
                 .isCapital(false).defenseBonus(10).pic("cityMid1.png").flagX(0).flagY(10).build());
         cities.put("XIANGYANG", City.builder().id("XIANGYANG").name("襄阳").owner("SHU").x(252).y(150)
                 .neighbors(Arrays.asList("HANZHONG","WULING","JIANNING"))
@@ -185,7 +185,7 @@ public class NationWarService {
                 .neighbors(Arrays.asList("JIANGZHOU"))
                 .isCapital(true).defenseBonus(25).pic("cityBig2.png").flagX(10).flagY(10).build());
         cities.put("JIANGXIA", City.builder().id("JIANGXIA").name("江夏").owner("WU").x(519).y(199)
-                .neighbors(Arrays.asList("CHIBI","CHANGSHA","LUJIANG"))
+                .neighbors(Arrays.asList("CHIBI","CHANGSHA","LUJIANG","RUNAN","WANCHENG"))
                 .isCapital(false).defenseBonus(10).pic("cityMid1.png").flagX(0).flagY(10).build());
         cities.put("CHANGSHA", City.builder().id("CHANGSHA").name("长沙").owner("WU").x(537).y(119)
                 .neighbors(Arrays.asList("JIANGXIA","CHAISANG"))
@@ -194,7 +194,7 @@ public class NationWarService {
                 .neighbors(Arrays.asList("CHANGSHA","LUJIANG","JIANYE"))
                 .isCapital(false).defenseBonus(10).pic("citySmall3.png").flagX(0).flagY(0).build());
         cities.put("LUJIANG", City.builder().id("LUJIANG").name("庐江").owner("WU").x(657).y(149)
-                .neighbors(Arrays.asList("JIANGXIA","CHAISANG","HEFEI"))
+                .neighbors(Arrays.asList("JIANGXIA","CHAISANG","HEFEI","XUCHANG"))
                 .isCapital(false).defenseBonus(10).pic("citySmall3.png").flagX(0).flagY(0).build());
         cities.put("HEFEI", City.builder().id("HEFEI").name("合肥").owner("WU").x(756).y(168)
                 .neighbors(Arrays.asList("LUJIANG","JIANYE"))
@@ -525,6 +525,8 @@ public class NationWarService {
         }
 
         createCityBattles();
+        autoJoinRegisteredPlayers();
+        generateNpcAttackers();
 
         activeSession.setPhase(SessionPhase.BATTLE);
         Calendar cal = Calendar.getInstance();
@@ -616,6 +618,121 @@ public class NationWarService {
                     .remainingSoldiers(100).dead(false).build());
         }
         return npcs;
+    }
+
+    private void autoJoinRegisteredPlayers() {
+        for (Map.Entry<String, CityBattle> battleEntry : activeSession.getCityBattles().entrySet()) {
+            String cityId = battleEntry.getKey();
+            CityBattle battle = battleEntry.getValue();
+
+            CityRegistration reg = activeSession.getRegistrations().get(cityId);
+            if (reg == null) continue;
+
+            for (Map.Entry<String, List<WarParticipant>> nationEntry : reg.getNationSignups().entrySet()) {
+                String nationId = nationEntry.getKey();
+                List<WarParticipant> participants = nationEntry.getValue();
+                if (participants == null) continue;
+
+                String side;
+                if (nationId.equals(battle.getSideANation())) side = "ATTACK";
+                else if (nationId.equals(battle.getSideBNation())) side = "DEFEND";
+                else continue;
+
+                for (WarParticipant p : participants) {
+                    if (activeSession.getPlayerStates().containsKey(p.getOdUserId())) continue;
+
+                    int vipLevel = 0;
+                    try {
+                        UserResource ur = userResourceService.getUserResource(p.getOdUserId());
+                        vipLevel = ur.getVipLevel() != null ? ur.getVipLevel() : 0;
+                    } catch (Exception e) { /* ignore */ }
+
+                    Map<String, Integer> remainingSoldiers = new LinkedHashMap<>();
+                    Map<String, Integer> maxSoldiers = new LinkedHashMap<>();
+                    initPlayerSoldiers(p.getOdUserId(), remainingSoldiers, maxSoldiers);
+
+                    PlayerWarState state = PlayerWarState.builder()
+                            .odUserId(p.getOdUserId()).playerName(p.getPlayerName()).nation(nationId)
+                            .level(p.getLevel()).power(p.getPower())
+                            .currentCityId(cityId).side(side)
+                            .roundsAtCurrentCity(0)
+                            .remainingSoldiers(remainingSoldiers).maxSoldiers(maxSoldiers)
+                            .allDead(false).canSwitch(false)
+                            .totalMerit(0).totalScore(0).wins(0).losses(0).byeCount(0)
+                            .vipLevel(vipLevel).build();
+                    activeSession.getPlayerStates().put(p.getOdUserId(), state);
+                }
+            }
+        }
+        logger.info("已自动加入{}名已报名玩家", activeSession.getPlayerStates().size());
+    }
+
+    private static final int NPC_ATTACKER_COUNT = 9;
+    private static final int NPC_ATTACKER_LEVEL = 15;
+    private static final int NPC_ATTACKER_POWER = 1200;
+
+    private void generateNpcAttackers() {
+        for (Map.Entry<String, CityBattle> battleEntry : activeSession.getCityBattles().entrySet()) {
+            String cityId = battleEntry.getKey();
+            CityBattle battle = battleEntry.getValue();
+
+            long sideACount = activeSession.getPlayerStates().values().stream()
+                    .filter(ps -> cityId.equals(ps.getCurrentCityId()) && "ATTACK".equals(ps.getSide()))
+                    .count();
+            long sideBPlayerCount = activeSession.getPlayerStates().values().stream()
+                    .filter(ps -> cityId.equals(ps.getCurrentCityId()) && "DEFEND".equals(ps.getSide()))
+                    .count();
+
+            if (sideACount < MIN_SIGN_UP) {
+                int npcNeeded = (int)(MIN_SIGN_UP - sideACount);
+                String attackNation = battle.getSideANation();
+                String nationName = nations.get(attackNation) != null ? nations.get(attackNation).getName() : attackNation;
+                for (int i = 0; i < npcNeeded; i++) {
+                    String npcId = "NPC_ATK_" + cityId + "_" + i;
+                    Map<String, Integer> remaining = new LinkedHashMap<>();
+                    Map<String, Integer> max = new LinkedHashMap<>();
+                    remaining.put("default", 100);
+                    max.put("default", 100);
+
+                    PlayerWarState npcState = PlayerWarState.builder()
+                            .odUserId(npcId).playerName(nationName + "援军" + (i + 1)).nation(attackNation)
+                            .level(NPC_ATTACKER_LEVEL).power(NPC_ATTACKER_POWER)
+                            .currentCityId(cityId).side("ATTACK")
+                            .roundsAtCurrentCity(0)
+                            .remainingSoldiers(remaining).maxSoldiers(max)
+                            .allDead(false).canSwitch(false)
+                            .totalMerit(0).totalScore(0).wins(0).losses(0).byeCount(0)
+                            .vipLevel(0).build();
+                    activeSession.getPlayerStates().put(npcId, npcState);
+                }
+                logger.info("城市{}进攻方补充{}个NPC援军", cityId, npcNeeded);
+            }
+
+            if (sideBPlayerCount < 1 && Boolean.TRUE.equals(battle.getIsChibiBattle())) {
+                int npcNeeded = NPC_ATTACKER_COUNT;
+                String defNation = battle.getSideBNation();
+                String nationName = nations.get(defNation) != null ? nations.get(defNation).getName() : defNation;
+                for (int i = 0; i < npcNeeded; i++) {
+                    String npcId = "NPC_BSIDE_" + cityId + "_" + i;
+                    Map<String, Integer> remaining = new LinkedHashMap<>();
+                    Map<String, Integer> max = new LinkedHashMap<>();
+                    remaining.put("default", 100);
+                    max.put("default", 100);
+
+                    PlayerWarState npcState = PlayerWarState.builder()
+                            .odUserId(npcId).playerName(nationName + "援军" + (i + 1)).nation(defNation)
+                            .level(NPC_ATTACKER_LEVEL).power(NPC_ATTACKER_POWER)
+                            .currentCityId(cityId).side("DEFEND")
+                            .roundsAtCurrentCity(0)
+                            .remainingSoldiers(remaining).maxSoldiers(max)
+                            .allDead(false).canSwitch(false)
+                            .totalMerit(0).totalScore(0).wins(0).losses(0).byeCount(0)
+                            .vipLevel(0).build();
+                    activeSession.getPlayerStates().put(npcId, npcState);
+                }
+                logger.info("赤壁城市{}防守方(B)补充{}个NPC", cityId, npcNeeded);
+            }
+        }
     }
 
     // ==================== 玩家加入/切换城市 ====================
