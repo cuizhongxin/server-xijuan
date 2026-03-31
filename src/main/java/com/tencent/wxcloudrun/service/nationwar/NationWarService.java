@@ -833,4 +833,93 @@ public class NationWarService {
     public boolean isNeutralOwner(String owner) {
         return "NEUTRAL".equals(owner);
     }
+
+    /**
+     * 测试: 一键国战流程（选一个目标城市 → 创建报名 → 注入NPC → 开始战斗 → 结算）
+     */
+    public Map<String, Object> quickTest(String odUserId, String playerName, String targetCityId, int npcAttackerCount) {
+        String playerNation = getPlayerNation(odUserId);
+        if (playerNation == null) throw new BusinessException(400, "请先选择国家");
+
+        if (targetCityId == null || targetCityId.isEmpty()) {
+            for (City city : cities.values()) {
+                if (!city.getOwner().equals(playerNation) && !city.getOwner().equals("NEUTRAL")) {
+                    targetCityId = city.getId();
+                    break;
+                }
+            }
+        }
+        City targetCity = cities.get(targetCityId);
+        if (targetCity == null) throw new BusinessException(400, "目标城市不存在: " + targetCityId);
+
+        String today = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
+        String warId = today + "_" + targetCityId;
+        NationWar war = createWar(warId, today, playerNation, targetCity);
+        saveWar(war);
+
+        WarParticipant me = WarParticipant.builder()
+                .odUserId(odUserId).playerName(playerName).nation(playerNation)
+                .level(50).power(20000).signUpTime(System.currentTimeMillis())
+                .wins(0).losses(0).scoreGained(0).meritGained(0).eliminated(false)
+                .build();
+        war.getAttackers().add(me);
+
+        String[] surnames = {"张", "王", "李", "赵", "刘", "陈", "杨", "黄"};
+        String[] givenNames = {"飞", "云", "龙", "虎", "豹", "鹰", "风", "雷"};
+        Random rng = new Random();
+        for (int i = 0; i < npcAttackerCount; i++) {
+            String npcName = surnames[rng.nextInt(surnames.length)] + givenNames[rng.nextInt(givenNames.length)] + (rng.nextInt(90) + 10);
+            WarParticipant npc = WarParticipant.builder()
+                    .odUserId("NPC_ATK_" + System.currentTimeMillis() + "_" + i)
+                    .playerName(npcName).nation(playerNation)
+                    .level(20 + rng.nextInt(30)).power(5000 + rng.nextInt(10000))
+                    .signUpTime(System.currentTimeMillis())
+                    .wins(0).losses(0).scoreGained(0).meritGained(0).eliminated(false)
+                    .build();
+            war.getAttackers().add(npc);
+        }
+        saveWar(war);
+
+        startWarBattleForce(war);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("message", "国战一键测试完成");
+        result.put("warId", warId);
+        result.put("targetCity", targetCity.getName());
+        result.put("attackNation", playerNation);
+        result.put("defendNation", targetCity.getOwner());
+        result.put("attackerCount", war.getAttackers().size());
+        result.put("defenderCount", war.getDefenders().size());
+        result.put("winner", war.getWinner());
+        result.put("attackScore", war.getAttackScore());
+        result.put("defendScore", war.getDefendScore());
+        result.put("battleCount", war.getBattles().size());
+        result.put("status", war.getStatus().name());
+
+        WarParticipant myResult = war.getAttackers().stream()
+                .filter(p -> odUserId.equals(p.getOdUserId())).findFirst().orElse(null);
+        if (myResult != null) {
+            result.put("myWins", myResult.getWins());
+            result.put("myLosses", myResult.getLosses());
+            result.put("myMerit", myResult.getMeritGained());
+        }
+        return result;
+    }
+
+    private void startWarBattleForce(NationWar war) {
+        war.setStatus(WarStatus.FIGHTING);
+        logger.info("国战测试 {} 强制开始战斗", war.getId());
+        simulateBattles(war);
+        saveWar(war);
+    }
+
+    /**
+     * 测试: 重置地图城市归属到初始状态
+     */
+    public void resetMap() {
+        nations.clear();
+        cities.clear();
+        initMapData();
+        logger.info("国战地图已重置为初始状态");
+    }
 }

@@ -601,6 +601,101 @@ public class AllianceWarService {
         log.info("重置盟战: {}", today);
     }
 
+    /**
+     * 测试: 注入NPC模拟玩家，来自不同虚拟联盟
+     * @param count 注入NPC数量
+     * @param allianceCount 联盟数量(NPC均匀分配到各联盟)
+     */
+    public List<WarParticipant> injectNpcs(int count, int allianceCount) {
+        if (!testMode) throw new BusinessException("非测试模式");
+        if (todayWar.getStatus() != WarStatus.REGISTERING && todayWar.getStatus() != WarStatus.NOT_STARTED) {
+            todayWar.setStatus(WarStatus.REGISTERING);
+        }
+
+        String[] allianceNames = {"青龙盟", "白虎盟", "朱雀盟", "玄武盟", "麒麟盟", "凤凰盟", "天狼盟", "苍龙盟"};
+        String[] surnames = {"张", "王", "李", "赵", "刘", "陈", "杨", "黄", "周", "吴", "孙", "马"};
+        String[] givenNames = {"飞", "云", "龙", "虎", "豹", "鹰", "风", "雷", "雨", "星", "月", "日"};
+        Random rng = new Random();
+
+        List<WarParticipant> injected = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            int allianceIdx = i % Math.min(allianceCount, allianceNames.length);
+            String allianceId = "NPC_ALLIANCE_" + (allianceIdx + 1);
+            String allianceName = allianceNames[allianceIdx];
+            String npcName = surnames[rng.nextInt(surnames.length)] + givenNames[rng.nextInt(givenNames.length)]
+                    + (rng.nextInt(90) + 10);
+            String npcId = "NPC_" + System.currentTimeMillis() + "_" + i;
+
+            int level = 20 + rng.nextInt(30);
+            long power = 5000L + rng.nextInt(15000);
+            int playerNumber = todayWar.getParticipants().size() + 1;
+
+            WarParticipant npc = WarParticipant.builder()
+                    .odUserId(npcId)
+                    .playerName(npcName)
+                    .allianceId(allianceId)
+                    .allianceName(allianceName)
+                    .playerNumber(playerNumber)
+                    .level(level)
+                    .power(power)
+                    .status(PlayerStatus.WAITING)
+                    .wins(0).losses(0).flags(0)
+                    .registerTime(System.currentTimeMillis())
+                    .build();
+
+            todayWar.getParticipants().add(npc);
+            injected.add(npc);
+        }
+
+        saveTodayWar();
+        log.info("注入{}个NPC, 分属{}个联盟", count, allianceCount);
+        return injected;
+    }
+
+    /**
+     * 测试: 一键完整流程（重置 → 开报名 → 注入NPC → 自己报名 → 开始战斗）
+     */
+    public Map<String, Object> quickTest(String odUserId, String playerName, int npcCount, int allianceCount) {
+        if (!testMode) throw new BusinessException("非测试模式");
+
+        resetWar();
+        todayWar.setStatus(WarStatus.REGISTERING);
+        saveTodayWar();
+
+        try {
+            register(odUserId, playerName, 50, 20000L);
+        } catch (BusinessException e) {
+            Alliance alliance = allianceService.getUserAlliance(odUserId);
+            String allianceId = alliance != null ? alliance.getId() : "TEST_ALLIANCE_0";
+            String allianceName = alliance != null ? alliance.getName() : "测试联盟";
+            int playerNumber = todayWar.getParticipants().size() + 1;
+            WarParticipant me = WarParticipant.builder()
+                    .odUserId(odUserId).playerName(playerName)
+                    .allianceId(allianceId).allianceName(allianceName)
+                    .playerNumber(playerNumber).level(50).power(20000L)
+                    .status(PlayerStatus.WAITING).wins(0).losses(0).flags(0)
+                    .registerTime(System.currentTimeMillis()).build();
+            todayWar.getParticipants().add(me);
+            saveTodayWar();
+        }
+        List<WarParticipant> npcs = injectNpcs(npcCount, allianceCount);
+
+        todayWar.setStatus(WarStatus.IN_PROGRESS);
+        todayWar.setStartTime(System.currentTimeMillis());
+        todayWar.setCurrentRound(1);
+        startNextRound();
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("message", "一键测试完成");
+        result.put("participantCount", todayWar.getParticipants().size());
+        result.put("status", todayWar.getStatus().name());
+        result.put("rounds", todayWar.getCurrentRound());
+        result.put("battles", todayWar.getBattles().size());
+        result.put("allianceRanks", todayWar.getAllianceRanks());
+        result.put("playerRanks", todayWar.getPlayerRanks());
+        return result;
+    }
+
     private List<BattleCalculator.BattleUnit> buildWarParticipantUnits(WarParticipant p) {
         String odUserId = p.getOdUserId();
         if (odUserId != null && !odUserId.startsWith("NPC_")) {

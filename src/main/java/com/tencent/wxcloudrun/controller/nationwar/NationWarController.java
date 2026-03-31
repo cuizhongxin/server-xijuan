@@ -6,6 +6,7 @@ import com.tencent.wxcloudrun.model.NationWar;
 import com.tencent.wxcloudrun.model.NationWar.WarBattle;
 import com.tencent.wxcloudrun.service.PlayerNameResolver;
 import com.tencent.wxcloudrun.service.nationwar.NationWarService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -18,6 +19,7 @@ import java.util.Map;
 /**
  * 国战控制器
  */
+@Slf4j
 @RestController
 @RequestMapping("/nationwar")
 public class NationWarController {
@@ -298,6 +300,61 @@ public class NationWarController {
         result.put("message", "国战已开始");
         
         return ApiResponse.success(result);
+    }
+
+    /**
+     * 一键国战测试（测试用）：自动创建报名 → 注入NPC进攻方 → 开始战斗 → 结算
+     */
+    @PostMapping("/quick-test")
+    public ApiResponse<Map<String, Object>> quickTest(
+            HttpServletRequest request,
+            @RequestBody(required = false) Map<String, Object> body) {
+        try {
+            String odUserId = String.valueOf(request.getAttribute("userId"));
+            String playerName = playerNameResolver.resolve(odUserId);
+            String targetCityId = (body != null && body.get("targetCityId") != null) ? (String) body.get("targetCityId") : null;
+            int npcCount = (body != null && body.get("npcCount") != null) ? ((Number) body.get("npcCount")).intValue() : 5;
+
+            Map<String, Object> result = nationWarService.quickTest(odUserId, playerName, targetCityId, npcCount);
+            return ApiResponse.success(result);
+        } catch (Exception e) {
+            log.error("国战一键测试异常", e);
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 手动报名国战（测试用，绕过时间限制，自动创建战争）
+     */
+    @PostMapping("/force-signup/{cityId}")
+    public ApiResponse<Map<String, Object>> forceSignUp(
+            HttpServletRequest request,
+            @PathVariable String cityId) {
+        try {
+            String odUserId = String.valueOf(request.getAttribute("userId"));
+            String playerName = playerNameResolver.resolve(odUserId);
+            Map<String, Object> result = nationWarService.signUp(odUserId, playerName, 50, 20000, cityId);
+            return ApiResponse.success(result);
+        } catch (Exception e) {
+            log.error("强制报名异常", e);
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 重置国战地图（测试用，恢复到初始状态）
+     */
+    @PostMapping("/reset-map")
+    public ApiResponse<Map<String, Object>> resetMap() {
+        try {
+            nationWarService.resetMap();
+            Map<String, Object> result = new HashMap<>();
+            result.put("message", "国战地图已重置为初始状态");
+            return ApiResponse.success(result);
+        } catch (Exception e) {
+            log.error("重置国战地图异常", e);
+            return ApiResponse.error(e.getMessage());
+        }
     }
 
     @GetMapping("/battle-detail/{warId}/{battleId}")

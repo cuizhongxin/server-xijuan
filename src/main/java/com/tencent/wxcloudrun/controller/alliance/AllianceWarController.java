@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -181,6 +182,43 @@ public class AllianceWarController {
             return ApiResponse.success(data);
         } catch (Exception e) {
             log.error("重置盟战异常", e);
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 注入NPC模拟参战者（测试用）
+     */
+    @PostMapping("/inject-npc")
+    public ApiResponse<Map<String, Object>> injectNpc(@RequestBody Map<String, Object> body) {
+        try {
+            int count = body.get("count") != null ? ((Number) body.get("count")).intValue() : 6;
+            int allianceCount = body.get("allianceCount") != null ? ((Number) body.get("allianceCount")).intValue() : 3;
+            List<WarParticipant> npcs = allianceWarService.injectNpcs(count, allianceCount);
+            Map<String, Object> data = new HashMap<>();
+            data.put("message", "注入" + npcs.size() + "个NPC");
+            data.put("totalParticipants", allianceWarService.getParticipants().size());
+            return ApiResponse.success(data);
+        } catch (Exception e) {
+            log.error("注入NPC异常", e);
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 一键测试：重置+报名+注入NPC+开始战斗+跑完全流程+发奖
+     */
+    @PostMapping("/quick-test")
+    public ApiResponse<Map<String, Object>> quickTest(HttpServletRequest request, @RequestBody(required = false) Map<String, Object> body) {
+        try {
+            String userId = getUserId(request);
+            String playerName = playerNameResolver.resolve(userId);
+            int npcCount = (body != null && body.get("npcCount") != null) ? ((Number) body.get("npcCount")).intValue() : 8;
+            int allianceCount = (body != null && body.get("allianceCount") != null) ? ((Number) body.get("allianceCount")).intValue() : 3;
+            Map<String, Object> result = allianceWarService.quickTest(userId, playerName, npcCount, allianceCount);
+            return ApiResponse.success(result);
+        } catch (Exception e) {
+            log.error("一键测试异常", e);
             return ApiResponse.error(e.getMessage());
         }
     }
