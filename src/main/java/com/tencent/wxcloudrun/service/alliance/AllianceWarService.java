@@ -1,7 +1,9 @@
 package com.tencent.wxcloudrun.service.alliance;
 
 import com.alibaba.fastjson.JSON;
+import com.tencent.wxcloudrun.config.TacticsConfig;
 import com.tencent.wxcloudrun.dao.AllianceWarMapper;
+import com.tencent.wxcloudrun.dao.UserTacticsMapper;
 import com.tencent.wxcloudrun.exception.BusinessException;
 import com.tencent.wxcloudrun.model.Alliance;
 import com.tencent.wxcloudrun.model.AllianceWar;
@@ -30,6 +32,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 public class AllianceWarService {
+    private static final int ROUND_DURATION_MINUTES = 5;
     
     @Autowired
     private AllianceService allianceService;
@@ -52,6 +55,12 @@ public class AllianceWarService {
     @Autowired
     @org.springframework.context.annotation.Lazy
     private com.tencent.wxcloudrun.service.general.GeneralService generalService;
+
+    @Autowired
+    private UserTacticsMapper userTacticsMapper;
+
+    @Autowired
+    private TacticsConfig tacticsConfig;
     
     // 今日盟战（内存缓存，同时持久化到数据库）
     private AllianceWar todayWar;
@@ -77,6 +86,12 @@ public class AllianceWarService {
     private void saveTodayWar() {
         allianceWarMapper.upsert(todayWar.getDate(), JSON.toJSONString(todayWar));
     }
+
+    private void ensureRewardPools() {
+        if (todayWar.getAllianceRewardPools() == null) {
+            todayWar.setAllianceRewardPools(new ArrayList<>());
+        }
+    }
     
     /**
      * 获取今日盟战信息
@@ -90,11 +105,16 @@ public class AllianceWarService {
      */
     public Map<String, Object> getWarStatus(String odUserId) {
         Map<String, Object> result = new HashMap<>();
+        ensureRewardPools();
         
         result.put("war", todayWar);
         result.put("status", todayWar.getStatus().name());
         result.put("currentRound", todayWar.getCurrentRound());
         result.put("participantCount", todayWar.getParticipants().size());
+        result.put("participants", todayWar.getParticipants());
+        result.put("roundDurationMinutes", todayWar.getRoundDurationMinutes());
+        result.put("nextRoundTime", todayWar.getNextRoundTime());
+        result.put("allianceRewardPools", todayWar.getAllianceRewardPools());
         
         boolean registered = todayWar.getParticipants().stream()
                 .anyMatch(p -> p.getOdUserId().equals(odUserId));
@@ -108,29 +128,117 @@ public class AllianceWarService {
             result.put("myParticipant", participant);
         }
         
-        result.put("nextPhaseInfo", getNextPhaseInfo());
+        result.put("nextEvent", getNextPhaseInfo());
         
         return result;
     }
+
+    public Map<String, Object> getMyAllianceRewardPool(String odUserId) {
+        ensureRewardPools();
+        Alliance alliance = allianceService.getUserAlliance(odUserId);
+        if (alliance == null) throw new BusinessException("请先加入联盟");
+        Map<String, Object> result = new LinkedHashMap<>();
+        AllianceRewardPool pool = todayWar.getAllianceRewardPools().stream()
+                .filter(p -> Objects.equals(p.getAllianceId(), alliance.getId()))
+                .findFirst().orElse(null);
+        boolean isLeader = Objects.equals(alliance.getLeaderId(), odUserId);
+        result.put("allianceId", alliance.getId());
+        result.put("allianceName", alliance.getName());
+        result.put("isLeader", isLeader);
+        result.put("pool", pool);
+        result.put("members", alliance.getMembers());
+        return result;
+    }
+
+    public Map<String, Object> distributeAllianceReward(String leaderUserId, List<Map<String, Object>> allocations) {
+        ensureRewardPools();
+        Alliance alliance = allianceService.getUserAlliance(leaderUserId);
+        if (alliance == null) throw new BusinessException("请先加入联盟");
+        if (!Objects.equals(alliance.getLeaderId(), leaderUserId)) {
+            throw new BusinessException("只有盟主可以分配联盟奖励");
+        }
+        AllianceRewardPool pool = todayWar.getAllianceRewardPools().stream()
+                .filter(p -> Objects.equals(p.getAllianceId(), alliance.getId()))
+                .findFirst().orElse(null);
+        if (pool == null) throw new BusinessException("本盟暂无待分配奖励");
+        if (Boolean.TRUE.equals(pool.getDistributed())) throw new BusinessException("奖励已分配");
+        if (allocations == null || allocations.isEmpty()) throw new BusinessException("请先填写分配方案");
+
+        Map<String, Integer> available = toItemCountMap(pool.getRewards());
+        Map<String, String> nameToId = toItemNameToIdMap(pool.getRewards());
+        Set<String> memberIds = alliance.getMembers().stream()
+                .map(Alliance.AllianceMember::getUserId)
+                .collect(Collectors.toSet());
+        List<RewardDistribution> records = new ArrayList<>();
+
+        for (Map<String, Object> row : allocations) {
+            String userId = row.get("userId") != null ? String.valueOf(row.get("userId")) : null;
+            if (userId == null || !memberIds.contains(userId)) {
+                throw new BusinessException("分配对象必须是本盟成员");
+            }
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> items = (List<Map<String, Object>>) row.get("items");
+            if (items == null || items.isEmpty()) continue;
+
+            List<Map<String, Object>> userAtts = new ArrayList<>();
+            for (Map<String, Object> item : items) {
+                String itemName = item.get("itemName") != null ? String.valueOf(item.get("itemName")) : null;
+                if (itemName == null) throw new BusinessException("itemName不能为空");
+                int count = item.get("count") != null ? ((Number) item.get("count")).intValue() : 0;
+                if (count <= 0) continue;
+                int left = available.getOrDefault(itemName, 0);
+                if (count > left) throw new BusinessException(itemName + "分配超出可用数量");
+                available.put(itemName, left - count);
+                int itemId = Integer.parseInt(nameToId.getOrDefault(itemName, "0"));
+                userAtts.addAll(buildRewardAttachments(itemName, itemId, count));
+            }
+            if (!userAtts.isEmpty()) {
+                String userName = alliance.getMembers().stream()
+                        .filter(m -> Objects.equals(m.getUserId(), userId))
+                        .map(Alliance.AllianceMember::getName)
+                        .findFirst().orElse(userId);
+                records.add(RewardDistribution.builder()
+                        .userId(userId)
+                        .userName(userName)
+                        .rewards(userAtts)
+                        .allocateTime(System.currentTimeMillis())
+                        .build());
+            }
+        }
+
+        if (records.isEmpty()) throw new BusinessException("没有有效分配内容");
+
+        for (RewardDistribution rd : records) {
+            if (rd.getUserId() == null || rd.getUserId().startsWith("NPC_")) continue;
+            mailService.sendSystemMail(rd.getUserId(), "盟战联盟奖励分配",
+                    "盟主已完成盟战奖励分配，请查收附件。", rd.getRewards());
+        }
+
+        pool.setDistributed(true);
+        pool.setDistributedBy(leaderUserId);
+        pool.setDistributeTime(System.currentTimeMillis());
+        pool.setDistributions(records);
+        saveTodayWar();
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("success", true);
+        result.put("distributedCount", records.size());
+        result.put("pool", pool);
+        return result;
+    }
     
-    private Map<String, Object> getNextPhaseInfo() {
-        Map<String, Object> info = new HashMap<>();
+    private String getNextPhaseInfo() {
         Calendar cal = Calendar.getInstance();
         int hour = cal.get(Calendar.HOUR_OF_DAY);
         int minute = cal.get(Calendar.MINUTE);
         
         if (hour < 20 || (hour == 20 && minute < 45)) {
-            info.put("nextPhase", "报名开始");
-            info.put("time", "20:45");
+            return "报名开始 20:45";
         } else if (hour == 20 && minute >= 45) {
-            info.put("nextPhase", "战斗开始");
-            info.put("time", "21:00");
+            return "战斗开始 21:00";
         } else {
-            info.put("nextPhase", "明日报名");
-            info.put("time", "20:45");
+            return "明日报名 20:45";
         }
-        
-        return info;
     }
     
     /**
@@ -165,6 +273,9 @@ public class AllianceWarService {
                 .wins(0)
                 .losses(0)
                 .flags(0)
+                .eliminatedRound(0)
+                .totalMerit(0)
+                .totalScore(0)
                 .registerTime(System.currentTimeMillis())
                 .build();
         
@@ -219,14 +330,8 @@ public class AllianceWarService {
             saveTodayWar();
             return;
         }
-        
-        todayWar.setStatus(WarStatus.IN_PROGRESS);
-        todayWar.setStartTime(System.currentTimeMillis());
-        todayWar.setCurrentRound(1);
-        
-        log.info("盟战开始，参战人数: {}", todayWar.getParticipants().size());
-        
-        startNextRound();
+
+        beginWar();
     }
     
     public void triggerWarStart() {
@@ -245,69 +350,104 @@ public class AllianceWarService {
         if (todayWar.getParticipants().size() < 2) {
             throw new BusinessException("参战人数不足2人");
         }
-        
+
+        beginWar();
+        // 测试入口立即执行当前轮，避免等待5分钟
+        processCurrentRoundIfDue(true);
+    }
+
+    @Scheduled(cron = "0 * * * * ?")
+    public void processRoundTick() {
+        processCurrentRoundIfDue(false);
+    }
+
+    private synchronized void beginWar() {
         todayWar.setStatus(WarStatus.IN_PROGRESS);
-        todayWar.setStartTime(System.currentTimeMillis());
+        long now = System.currentTimeMillis();
+        todayWar.setStartTime(now);
         todayWar.setCurrentRound(1);
-        
-        log.info("手动触发盟战开始，参战人数: {}", todayWar.getParticipants().size());
-        
-        startNextRound();
-    }
-    
-    private void startNextRound() {
-        List<WarParticipant> waitingPlayers = todayWar.getParticipants().stream()
-                .filter(p -> p.getStatus() == PlayerStatus.WAITING)
-                .collect(Collectors.toList());
-        
-        if (waitingPlayers.size() <= 1) {
-            Set<String> remainingAlliances = waitingPlayers.stream()
-                    .map(WarParticipant::getAllianceId)
-                    .collect(Collectors.toSet());
-            
-            if (remainingAlliances.size() <= 1) {
-                endWar();
-                return;
-            }
+        todayWar.setCurrentRoundStartTime(now);
+        todayWar.setNextRoundTime(now + ROUND_DURATION_MINUTES * 60_000L);
+        todayWar.setRoundDurationMinutes(ROUND_DURATION_MINUTES);
+
+        for (WarParticipant p : todayWar.getParticipants()) {
+            p.setStatus(PlayerStatus.WAITING);
+            p.setEliminatedRound(0);
+            if (p.getFlags() == null) p.setFlags(0);
+            if (p.getWins() == null) p.setWins(0);
+            if (p.getLosses() == null) p.setLosses(0);
+            if (p.getTotalMerit() == null) p.setTotalMerit(0);
+            if (p.getTotalScore() == null) p.setTotalScore(0);
+            initializeParticipantSoldierState(p);
         }
-        
-        Collections.shuffle(waitingPlayers);
-        
-        List<WarParticipant> paired = new ArrayList<>();
-        for (int i = 0; i < waitingPlayers.size(); i++) {
-            WarParticipant p1 = waitingPlayers.get(i);
-            if (paired.contains(p1)) continue;
-            
-            for (int j = i + 1; j < waitingPlayers.size(); j++) {
-                WarParticipant p2 = waitingPlayers.get(j);
-                if (paired.contains(p2)) continue;
-                
-                if (!p1.getAllianceId().equals(p2.getAllianceId())) {
-                    createBattle(p1, p2);
-                    paired.add(p1);
-                    paired.add(p2);
-                    break;
-                }
-            }
-        }
-        
-        for (WarParticipant p : waitingPlayers) {
-            if (!paired.contains(p)) {
-                log.info("玩家 {} 本轮轮空", p.getPlayerName());
-            }
-        }
-        
         saveTodayWar();
-        log.info("第{}轮配对完成，共{}场对战", todayWar.getCurrentRound(), paired.size() / 2);
+        log.info("盟战开始，参战人数: {}", todayWar.getParticipants().size());
     }
-    
-    private void createBattle(WarParticipant p1, WarParticipant p2) {
+
+    private synchronized void processCurrentRoundIfDue(boolean force) {
+        if (todayWar == null || todayWar.getStatus() != WarStatus.IN_PROGRESS) return;
+        long now = System.currentTimeMillis();
+        if (!force && todayWar.getNextRoundTime() != null && now < todayWar.getNextRoundTime()) return;
+        settleCurrentRound();
+    }
+
+    private void settleCurrentRound() {
+        List<String> aliveAlliances = getAliveAllianceIds();
+        if (aliveAlliances.size() <= 1) {
+            endWar();
+            return;
+        }
+
+        int round = todayWar.getCurrentRound() != null ? todayWar.getCurrentRound() : 1;
+        Collections.shuffle(aliveAlliances, new Random());
+        log.info("盟战第{}轮结算，活跃联盟: {}", round, aliveAlliances.size());
+
+        for (int i = 0; i < aliveAlliances.size(); i += 2) {
+            if (i + 1 >= aliveAlliances.size()) {
+                // 奇数联盟轮空晋级
+                continue;
+            }
+            String a1 = aliveAlliances.get(i);
+            String a2 = aliveAlliances.get(i + 1);
+            runAllianceDuel(a1, a2, round);
+        }
+
+        List<String> remain = getAliveAllianceIds();
+        if (remain.size() <= 1) {
+            endWar();
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        todayWar.setCurrentRound(round + 1);
+        todayWar.setCurrentRoundStartTime(now);
+        todayWar.setNextRoundTime(now + ROUND_DURATION_MINUTES * 60_000L);
+        saveTodayWar();
+    }
+
+    private void runAllianceDuel(String allianceA, String allianceB, int round) {
+        List<WarParticipant> sideA = getAliveAllianceParticipants(allianceA);
+        List<WarParticipant> sideB = getAliveAllianceParticipants(allianceB);
+        Collections.shuffle(sideA, new Random());
+        Collections.shuffle(sideB, new Random());
+
+        while (!sideA.isEmpty() && !sideB.isEmpty()) {
+            WarParticipant p1 = sideA.get(0);
+            WarParticipant p2 = sideB.get(0);
+            WarBattle battle = createBattle(round, p1, p2);
+            simulateBattle(battle, p1, p2, round);
+            todayWar.getBattles().add(battle);
+            if (!isParticipantAlive(p1)) sideA.remove(0);
+            if (!isParticipantAlive(p2)) sideB.remove(0);
+        }
+    }
+
+    private WarBattle createBattle(int round, WarParticipant p1, WarParticipant p2) {
         p1.setStatus(PlayerStatus.IN_BATTLE);
         p2.setStatus(PlayerStatus.IN_BATTLE);
-        
-        WarBattle battle = WarBattle.builder()
-                .id("battle_" + System.currentTimeMillis() + "_" + p1.getPlayerNumber())
-                .round(todayWar.getCurrentRound())
+        return WarBattle.builder()
+                .id("battle_" + round + "_" + System.nanoTime())
+                .round(round)
                 .player1Id(p1.getOdUserId())
                 .player1Name(p1.getPlayerName())
                 .player1Alliance(p1.getAllianceName())
@@ -316,82 +456,135 @@ public class AllianceWarService {
                 .player2Alliance(p2.getAllianceName())
                 .startTime(System.currentTimeMillis())
                 .rounds(new ArrayList<>())
+                .flagGained(0)
+                .meritGained(0)
                 .build();
-        
-        todayWar.getBattles().add(battle);
-        
-        simulateBattle(battle, p1, p2);
     }
-    
-    private void simulateBattle(WarBattle battle, WarParticipant p1, WarParticipant p2) {
+
+    private void simulateBattle(WarBattle battle, WarParticipant p1, WarParticipant p2, int round) {
         List<BattleCalculator.BattleUnit> sideA = buildWarParticipantUnits(p1);
         List<BattleCalculator.BattleUnit> sideB = buildWarParticipantUnits(p2);
         BattleService.BattleReport report = battleService.fight(sideA, sideB, 20);
-
         battle.setBattleReportJson(JSON.toJSONString(report));
-
-        int p1Score = report.victoryA ? 3 : 0;
-        int p2Score = report.victoryA ? 0 : 3;
+        battle.setEndTime(System.currentTimeMillis());
+        battle.setPlayer1Score(report.victoryA ? 1 : 0);
+        battle.setPlayer2Score(report.victoryA ? 0 : 1);
 
         for (BattleService.RoundLog rl : report.rounds) {
-            BattleRound round = new BattleRound();
-            round.setRoundNum(rl.roundNum);
-            if (!rl.actions.isEmpty()) {
-                BattleService.ActionLog first = rl.actions.get(0);
-                round.setAttackerId(p1.getOdUserId());
-                round.setDefenderId(p2.getOdUserId());
-                int totalLoss = first.hits != null ? first.hits.stream().mapToInt(h -> h.soldierLoss).sum() : 0;
-                round.setDamage(totalLoss);
-                round.setDescription(first.attackerName + " → " + first.targetName + " 减员" + totalLoss);
+            BattleRound br = new BattleRound();
+            br.setRoundNum(rl.roundNum);
+            br.setAttackerId(p1.getOdUserId());
+            br.setDefenderId(p2.getOdUserId());
+            int totalLoss = 0;
+            if (rl.actions != null) {
+                for (BattleService.ActionLog act : rl.actions) {
+                    if (act.hits != null) {
+                        totalLoss += act.hits.stream().mapToInt(h -> h.soldierLoss).sum();
+                    }
+                }
             }
-            battle.getRounds().add(round);
+            br.setDamage(totalLoss);
+            br.setDescription("第" + rl.roundNum + "回合减员 " + totalLoss);
+            battle.getRounds().add(br);
         }
-        
-        battle.setPlayer1Score(p1Score);
-        battle.setPlayer2Score(p2Score);
-        battle.setEndTime(System.currentTimeMillis());
-        
-        if (report.victoryA) {
-            battle.setWinnerId(p1.getOdUserId());
-            battle.setWinnerName(p1.getPlayerName());
-            p1.setWins(p1.getWins() + 1);
-            p1.setFlags(p1.getFlags() + 1);
-            p1.setStatus(PlayerStatus.WAITING);
-            p2.setLosses(p2.getLosses() + 1);
-            p2.setStatus(PlayerStatus.SPECTATING);
-        } else {
-            battle.setWinnerId(p2.getOdUserId());
-            battle.setWinnerName(p2.getPlayerName());
-            p2.setWins(p2.getWins() + 1);
-            p2.setFlags(p2.getFlags() + 1);
-            p2.setStatus(PlayerStatus.WAITING);
-            p1.setLosses(p1.getLosses() + 1);
-            p1.setStatus(PlayerStatus.SPECTATING);
+
+        updateRemainingAfterBattle(p1, sideA);
+        updateRemainingAfterBattle(p2, sideB);
+
+        WarParticipant winner = report.victoryA ? p1 : p2;
+        WarParticipant loser = report.victoryA ? p2 : p1;
+        int loserLevel = loser.getLevel() != null ? loser.getLevel() : 1;
+        int merit = Math.max(1, loserLevel * 2);
+        int score = loserLevel * 10;
+
+        winner.setWins((winner.getWins() != null ? winner.getWins() : 0) + 1);
+        winner.setFlags((winner.getFlags() != null ? winner.getFlags() : 0) + 1);
+        winner.setTotalMerit((winner.getTotalMerit() != null ? winner.getTotalMerit() : 0) + merit);
+        winner.setTotalScore((winner.getTotalScore() != null ? winner.getTotalScore() : 0) + score);
+        battle.setFlagGained(1);
+        battle.setMeritGained(merit);
+
+        loser.setLosses((loser.getLosses() != null ? loser.getLosses() : 0) + 1);
+        loser.setStatus(PlayerStatus.SPECTATING);
+        if (loser.getEliminatedRound() == null || loser.getEliminatedRound() == 0) {
+            loser.setEliminatedRound(round);
         }
-        
-        checkAndStartNextRound();
+
+        winner.setStatus(isParticipantAlive(winner) ? PlayerStatus.WAITING : PlayerStatus.SPECTATING);
+        if (!isParticipantAlive(winner) && (winner.getEliminatedRound() == null || winner.getEliminatedRound() == 0)) {
+            winner.setEliminatedRound(round);
+        }
+
+        battle.setWinnerId(winner.getOdUserId());
+        battle.setWinnerName(winner.getPlayerName());
     }
-    
-    private void checkAndStartNextRound() {
-        boolean allBattlesFinished = todayWar.getParticipants().stream()
-                .noneMatch(p -> p.getStatus() == PlayerStatus.IN_BATTLE);
-        
-        if (allBattlesFinished) {
-            List<WarParticipant> remaining = todayWar.getParticipants().stream()
-                    .filter(p -> p.getStatus() == PlayerStatus.WAITING)
-                    .collect(Collectors.toList());
-            
-            Set<String> alliances = remaining.stream()
-                    .map(WarParticipant::getAllianceId)
-                    .collect(Collectors.toSet());
-            
-            if (alliances.size() <= 1 || remaining.size() <= 1) {
-                endWar();
-            } else {
-                todayWar.setCurrentRound(todayWar.getCurrentRound() + 1);
-                startNextRound();
+
+    private List<String> getAliveAllianceIds() {
+        return todayWar.getParticipants().stream()
+                .filter(this::isParticipantAlive)
+                .map(WarParticipant::getAllianceId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+    }
+
+    private List<WarParticipant> getAliveAllianceParticipants(String allianceId) {
+        return todayWar.getParticipants().stream()
+                .filter(p -> allianceId.equals(p.getAllianceId()) && isParticipantAlive(p))
+                .collect(Collectors.toList());
+    }
+
+    private boolean isParticipantAlive(WarParticipant p) {
+        if (p == null) return false;
+        if (p.getEliminatedRound() != null && p.getEliminatedRound() > 0 && p.getStatus() == PlayerStatus.SPECTATING) {
+            return false;
+        }
+        Integer remain = p.getTotalRemainingSoldiers();
+        if (remain == null) return true;
+        return remain > 0;
+    }
+
+    private void initializeParticipantSoldierState(WarParticipant p) {
+        if (p == null) return;
+        if (p.getRemainingSoldiers() != null && !p.getRemainingSoldiers().isEmpty()) {
+            int total = p.getRemainingSoldiers().values().stream().mapToInt(v -> Math.max(v, 0)).sum();
+            p.setTotalRemainingSoldiers(total);
+            if (p.getTotalInitialSoldiers() == null || p.getTotalInitialSoldiers() <= 0) p.setTotalInitialSoldiers(total);
+            return;
+        }
+        Map<String, Integer> remain = new LinkedHashMap<>();
+        if (p.getOdUserId() != null && !p.getOdUserId().startsWith("NPC_")) {
+            try {
+                List<General> generals = formationService.getBattleOrder(p.getOdUserId());
+                for (General g : generals) {
+                    String key = g.getId() != null ? String.valueOf(g.getId()) : (g.getName() + "_" + remain.size());
+                    int maxSc = g.getSoldierMaxCount() != null ? g.getSoldierMaxCount() : 100;
+                    int curSc = g.getSoldierCount() != null ? Math.min(g.getSoldierCount(), maxSc) : maxSc;
+                    remain.put(key, curSc);
+                }
+            } catch (Exception e) {
+                log.warn("初始化盟战兵力失败: {}", p.getOdUserId(), e);
             }
         }
+        if (remain.isEmpty()) {
+            remain.put("core", 100);
+        }
+        int total = remain.values().stream().mapToInt(Integer::intValue).sum();
+        p.setRemainingSoldiers(remain);
+        p.setTotalInitialSoldiers(total);
+        p.setTotalRemainingSoldiers(total);
+    }
+
+    private void updateRemainingAfterBattle(WarParticipant p, List<BattleCalculator.BattleUnit> units) {
+        if (p == null || units == null) return;
+        initializeParticipantSoldierState(p);
+        List<String> keys = new ArrayList<>(p.getRemainingSoldiers().keySet());
+        for (int i = 0; i < units.size(); i++) {
+            if (i >= keys.size()) break;
+            p.getRemainingSoldiers().put(keys.get(i), Math.max(0, units.get(i).soldierCount));
+        }
+        int total = p.getRemainingSoldiers().values().stream().mapToInt(v -> Math.max(v, 0)).sum();
+        p.setTotalRemainingSoldiers(total);
     }
     
     private void endWar() {
@@ -408,9 +601,10 @@ public class AllianceWarService {
     
     private void calculateAllianceRanks() {
         Map<String, AllianceRank> allianceMap = new HashMap<>();
-        
+
+        int finalRound = todayWar.getCurrentRound() != null ? todayWar.getCurrentRound() : 1;
         for (WarParticipant p : todayWar.getParticipants()) {
-            AllianceRank rank = allianceMap.computeIfAbsent(p.getAllianceId(), id -> 
+            AllianceRank rank = allianceMap.computeIfAbsent(p.getAllianceId(), id ->
                 AllianceRank.builder()
                         .allianceId(id)
                         .allianceName(p.getAllianceName())
@@ -419,60 +613,60 @@ public class AllianceWarService {
                         .participantCount(0)
                         .wins(0)
                         .losses(0)
+                        .eliminatedRound(0)
                         .rewards(new ArrayList<>())
                         .build()
             );
-            
-            rank.setTotalFlags(rank.getTotalFlags() + p.getFlags());
+
+            rank.setTotalFlags(rank.getTotalFlags() + (p.getFlags() != null ? p.getFlags() : 0));
             rank.setParticipantCount(rank.getParticipantCount() + 1);
-            rank.setWins(rank.getWins() + p.getWins());
-            rank.setLosses(rank.getLosses() + p.getLosses());
+            rank.setWins(rank.getWins() + (p.getWins() != null ? p.getWins() : 0));
+            rank.setLosses(rank.getLosses() + (p.getLosses() != null ? p.getLosses() : 0));
+            int eliminatedRound = (p.getEliminatedRound() != null && p.getEliminatedRound() > 0)
+                    ? p.getEliminatedRound() : (finalRound + 1);
+            rank.setEliminatedRound(Math.max(rank.getEliminatedRound(), eliminatedRound));
         }
-        
+
         List<AllianceRank> sortedRanks = allianceMap.values().stream()
                 .sorted((a, b) -> {
-                    long aAlive = todayWar.getParticipants().stream()
-                            .filter(p -> p.getAllianceId().equals(a.getAllianceId()) && p.getStatus() == PlayerStatus.WAITING)
-                            .count();
-                    long bAlive = todayWar.getParticipants().stream()
-                            .filter(p -> p.getAllianceId().equals(b.getAllianceId()) && p.getStatus() == PlayerStatus.WAITING)
-                            .count();
-                    if (aAlive != bAlive) return Long.compare(bAlive, aAlive);
+                    if (!Objects.equals(a.getEliminatedRound(), b.getEliminatedRound())) {
+                        return Integer.compare(b.getEliminatedRound(), a.getEliminatedRound());
+                    }
                     return Integer.compare(b.getTotalFlags(), a.getTotalFlags());
                 })
                 .collect(Collectors.toList());
-        
+
+        int currentRank = 1;
         for (int i = 0; i < sortedRanks.size(); i++) {
             AllianceRank rank = sortedRanks.get(i);
-            rank.setRank(i + 1);
-            
-            if (i == 0) {
-                rank.setRewards(Arrays.asList("盟战宝箱x5", "黄金x5000", "高级招贤令x10", "传说装备箱x1"));
-            } else if (i == 1) {
-                rank.setRewards(Arrays.asList("盟战宝箱x3", "黄金x3000", "高级招贤令x5", "史诗装备箱x1"));
-            } else if (i == 2) {
-                rank.setRewards(Arrays.asList("盟战宝箱x2", "黄金x2000", "高级招贤令x3", "稀有装备箱x1"));
-            } else if (i <= 4) {
-                rank.setRewards(Arrays.asList("盟战宝箱x1", "黄金x1000", "高级招贤令x1"));
-            } else {
-                rank.setRewards(Arrays.asList("盟战礼盒x1", "白银x5000"));
+            if (i > 0) {
+                AllianceRank prev = sortedRanks.get(i - 1);
+                boolean tie = Objects.equals(prev.getEliminatedRound(), rank.getEliminatedRound())
+                        && Objects.equals(prev.getTotalFlags(), rank.getTotalFlags());
+                if (!tie) currentRank = i + 1;
             }
-            
-            if (rank.getTotalFlags() > 0) {
-                rank.getRewards().add("军旗资源奖励x" + rank.getTotalFlags());
-            }
+            rank.setRank(currentRank);
+            rank.setRewards(buildAllianceRewardTexts(currentRank, rank.getTotalFlags()));
         }
-        
+
         todayWar.setAllianceRanks(sortedRanks);
     }
     
     private void calculatePlayerRanks() {
         List<PlayerRank> playerRanks = todayWar.getParticipants().stream()
                 .sorted((a, b) -> {
-                    if (!a.getWins().equals(b.getWins())) {
-                        return Integer.compare(b.getWins(), a.getWins());
+                    int af = a.getFlags() != null ? a.getFlags() : 0;
+                    int bf = b.getFlags() != null ? b.getFlags() : 0;
+                    if (af != bf) return Integer.compare(bf, af);
+                    int aw = a.getWins() != null ? a.getWins() : 0;
+                    int bw = b.getWins() != null ? b.getWins() : 0;
+                    if (aw != bw) return Integer.compare(bw, aw);
+                    int am = a.getTotalMerit() != null ? a.getTotalMerit() : 0;
+                    int bm = b.getTotalMerit() != null ? b.getTotalMerit() : 0;
+                    if (am != bm) {
+                        return Integer.compare(bm, am);
                     }
-                    return Integer.compare(b.getFlags(), a.getFlags());
+                    return String.valueOf(a.getOdUserId()).compareTo(String.valueOf(b.getOdUserId()));
                 })
                 .map(p -> {
                     List<String> rewards = new ArrayList<>();
@@ -481,35 +675,40 @@ public class AllianceWarService {
                             .odUserId(p.getOdUserId())
                             .playerName(p.getPlayerName())
                             .allianceName(p.getAllianceName())
-                            .wins(p.getWins())
-                            .flags(p.getFlags())
+                            .wins(p.getWins() != null ? p.getWins() : 0)
+                            .flags(p.getFlags() != null ? p.getFlags() : 0)
+                            .merit(p.getTotalMerit() != null ? p.getTotalMerit() : 0)
+                            .extraBoundGold(0)
                             .rewards(rewards)
                             .build();
                 })
                 .collect(Collectors.toList());
-        
+
+        int[] extraBoundGold = {100, 70, 50, 20, 10};
         for (int i = 0; i < playerRanks.size(); i++) {
             PlayerRank rank = playerRanks.get(i);
             rank.setRank(i + 1);
-            
             if (i < 5) {
-                rank.getRewards().add("盟战宝箱x" + (5 - i));
-                rank.getRewards().add("黄金x" + (2000 - i * 300));
+                rank.getRewards().add("盟战宝箱x1");
+                rank.getRewards().add("绑金x" + extraBoundGold[i]);
+                rank.setExtraBoundGold(extraBoundGold[i]);
             }
         }
-        
+
         todayWar.setPlayerRanks(playerRanks);
     }
     
     private void distributeRewards() {
         log.info("发放盟战奖励...");
+        ensureRewardPools();
+        todayWar.getAllianceRewardPools().clear();
 
         for (WarParticipant p : todayWar.getParticipants()) {
             if (p.getOdUserId() == null || p.getOdUserId().startsWith("NPC_")) continue;
             try {
                 mailService.sendSystemMail(p.getOdUserId(), "盟战参战奖励",
                         "感谢参与盟战，获得盟战礼盒x1", buildRewardAttachments("盟战礼盒", 11062, 1));
-                allianceService.addWarScore(p.getOdUserId(), 10 + p.getWins() * 5);
+                allianceService.addWarScore(p.getOdUserId(), 10 + (p.getWins() != null ? p.getWins() : 0) * 5);
             } catch (Exception e) {
                 log.warn("发放参战奖励失败: {}", p.getOdUserId(), e);
             }
@@ -519,12 +718,11 @@ public class AllianceWarService {
             for (int i = 0; i < Math.min(5, todayWar.getPlayerRanks().size()); i++) {
                 PlayerRank pr = todayWar.getPlayerRanks().get(i);
                 if (pr.getOdUserId() == null || pr.getOdUserId().startsWith("NPC_")) continue;
-                int boxCount = 5 - i;
-                int goldAmount = 2000 - i * 300;
+                int[] extraBoundGold = {100, 70, 50, 20, 10};
                 try {
                     List<Map<String, Object>> atts = new ArrayList<>();
-                    atts.addAll(buildRewardAttachments("盟战宝箱", 11061, boxCount));
-                    atts.addAll(buildRewardAttachments("黄金", 1, goldAmount));
+                    atts.addAll(buildRewardAttachments("盟战宝箱", 11061, 1));
+                    atts.addAll(buildRewardAttachments("绑金", 1, extraBoundGold[i]));
                     mailService.sendSystemMail(pr.getOdUserId(), "盟战个人排名奖励",
                             "恭喜获得盟战个人排名第" + (i + 1) + "名!", atts);
                 } catch (Exception e) {
@@ -536,40 +734,119 @@ public class AllianceWarService {
         if (todayWar.getAllianceRanks() != null) {
             for (AllianceRank ar : todayWar.getAllianceRanks()) {
                 int rank = ar.getRank();
-                List<Map<String, Object>> allianceAtts = new ArrayList<>();
-                if (rank <= 3) {
-                    int boxCount = rank == 1 ? 5 : (rank == 2 ? 3 : 2);
-                    int goldAmount = rank == 1 ? 5000 : (rank == 2 ? 3000 : 2000);
-                    allianceAtts.addAll(buildRewardAttachments("盟战宝箱", 11061, boxCount));
-                    allianceAtts.addAll(buildRewardAttachments("黄金", 1, goldAmount));
-                } else if (rank <= 5) {
-                    allianceAtts.addAll(buildRewardAttachments("盟战宝箱", 11061, 1));
-                    allianceAtts.addAll(buildRewardAttachments("黄金", 1, 1000));
-                }
-
-                if (ar.getTotalFlags() > 0) {
-                    allianceAtts.addAll(buildRewardAttachments("资源礼包", 11051, ar.getTotalFlags()));
-                }
-
-                for (WarParticipant p : todayWar.getParticipants()) {
-                    if (p.getAllianceId().equals(ar.getAllianceId())
-                            && p.getOdUserId() != null && !p.getOdUserId().startsWith("NPC_")) {
-                        try {
-                            if (!allianceAtts.isEmpty()) {
-                                mailService.sendSystemMail(p.getOdUserId(), "盟战联盟排名奖励",
-                                        "您的联盟[" + ar.getAllianceName() + "]获得盟战第" + rank + "名!", allianceAtts);
-                            }
-                        } catch (Exception e) {
-                            log.warn("发放联盟排名奖励失败: {}", p.getOdUserId(), e);
-                        }
-                    }
-                }
+                List<Map<String, Object>> allianceAtts = buildAllianceRewardAttachments(rank, ar.getTotalFlags() != null ? ar.getTotalFlags() : 0);
+                AllianceRewardPool pool = AllianceRewardPool.builder()
+                        .allianceId(ar.getAllianceId())
+                        .allianceName(ar.getAllianceName())
+                        .rank(rank)
+                        .totalFlags(ar.getTotalFlags() != null ? ar.getTotalFlags() : 0)
+                        .rewards(allianceAtts)
+                        .distributed(false)
+                        .createTime(System.currentTimeMillis())
+                        .build();
+                todayWar.getAllianceRewardPools().add(pool);
             }
         }
     }
 
+    private List<String> buildAllianceRewardTexts(int rank, int flags) {
+        List<String> rewards = new ArrayList<>();
+        int extraGift = Math.max(0, flags);
+        int extraIngot = Math.max(0, flags / 5);
+        int extraStrip = Math.max(0, flags / 2);
+        if (rank == 1) {
+            rewards.add("盟战宝箱x10");
+            rewards.add("金砖x5");
+            rewards.add("金条x10");
+            rewards.add("资源礼包x" + (30 + extraGift));
+            rewards.add("银锭x" + (5 + extraIngot));
+            rewards.add("银条x" + (20 + extraStrip));
+        } else if (rank == 2) {
+            rewards.add("盟战宝箱x8");
+            rewards.add("金砖x3");
+            rewards.add("金条x6");
+            rewards.add("资源礼包x" + (18 + extraGift));
+            rewards.add("银锭x" + (3 + extraIngot));
+            rewards.add("银条x" + (12 + extraStrip));
+        } else if (rank == 3) {
+            rewards.add("盟战宝箱x5");
+            rewards.add("金砖x2");
+            rewards.add("金条x4");
+            rewards.add("资源礼包x" + (12 + extraGift));
+            rewards.add("银锭x" + (2 + extraIngot));
+            rewards.add("银条x" + (8 + extraStrip));
+        } else if (rank == 4) {
+            rewards.add("盟战宝箱x2");
+            rewards.add("金砖x1");
+            rewards.add("金条x2");
+            rewards.add("资源礼包x" + (6 + extraGift));
+            rewards.add("银锭x" + (1 + extraIngot));
+            rewards.add("银条x" + (4 + extraStrip));
+        } else if (rank == 5) {
+            rewards.add("盟战宝箱x1");
+            rewards.add("金条x1");
+            rewards.add("资源礼包x" + (3 + extraGift));
+            rewards.add("银锭x" + extraIngot);
+            rewards.add("银条x" + (2 + extraStrip));
+        } else {
+            rewards.add("资源礼包x" + (1 + extraGift));
+            rewards.add("银锭x" + extraIngot);
+            rewards.add("银条x" + (1 + extraStrip));
+        }
+        return rewards;
+    }
+
+    private List<Map<String, Object>> buildAllianceRewardAttachments(int rank, int flags) {
+        // itemId 为当前项目占位ID，前端展示以 itemName 为主
+        List<Map<String, Object>> atts = new ArrayList<>();
+        int extraGift = Math.max(0, flags);
+        int extraIngot = Math.max(0, flags / 5);
+        int extraStrip = Math.max(0, flags / 2);
+        if (rank == 1) {
+            atts.addAll(buildRewardAttachments("盟战宝箱", 11061, 10));
+            atts.addAll(buildRewardAttachments("金砖", 12001, 5));
+            atts.addAll(buildRewardAttachments("金条", 12002, 10));
+            atts.addAll(buildRewardAttachments("资源礼包", 11051, 30 + extraGift));
+            atts.addAll(buildRewardAttachments("银锭", 12003, 5 + extraIngot));
+            atts.addAll(buildRewardAttachments("银条", 12004, 20 + extraStrip));
+        } else if (rank == 2) {
+            atts.addAll(buildRewardAttachments("盟战宝箱", 11061, 8));
+            atts.addAll(buildRewardAttachments("金砖", 12001, 3));
+            atts.addAll(buildRewardAttachments("金条", 12002, 6));
+            atts.addAll(buildRewardAttachments("资源礼包", 11051, 18 + extraGift));
+            atts.addAll(buildRewardAttachments("银锭", 12003, 3 + extraIngot));
+            atts.addAll(buildRewardAttachments("银条", 12004, 12 + extraStrip));
+        } else if (rank == 3) {
+            atts.addAll(buildRewardAttachments("盟战宝箱", 11061, 5));
+            atts.addAll(buildRewardAttachments("金砖", 12001, 2));
+            atts.addAll(buildRewardAttachments("金条", 12002, 4));
+            atts.addAll(buildRewardAttachments("资源礼包", 11051, 12 + extraGift));
+            atts.addAll(buildRewardAttachments("银锭", 12003, 2 + extraIngot));
+            atts.addAll(buildRewardAttachments("银条", 12004, 8 + extraStrip));
+        } else if (rank == 4) {
+            atts.addAll(buildRewardAttachments("盟战宝箱", 11061, 2));
+            atts.addAll(buildRewardAttachments("金砖", 12001, 1));
+            atts.addAll(buildRewardAttachments("金条", 12002, 2));
+            atts.addAll(buildRewardAttachments("资源礼包", 11051, 6 + extraGift));
+            atts.addAll(buildRewardAttachments("银锭", 12003, 1 + extraIngot));
+            atts.addAll(buildRewardAttachments("银条", 12004, 4 + extraStrip));
+        } else if (rank == 5) {
+            atts.addAll(buildRewardAttachments("盟战宝箱", 11061, 1));
+            atts.addAll(buildRewardAttachments("金条", 12002, 1));
+            atts.addAll(buildRewardAttachments("资源礼包", 11051, 3 + extraGift));
+            if (extraIngot > 0) atts.addAll(buildRewardAttachments("银锭", 12003, extraIngot));
+            atts.addAll(buildRewardAttachments("银条", 12004, 2 + extraStrip));
+        } else {
+            atts.addAll(buildRewardAttachments("资源礼包", 11051, 1 + extraGift));
+            if (extraIngot > 0) atts.addAll(buildRewardAttachments("银锭", 12003, extraIngot));
+            atts.addAll(buildRewardAttachments("银条", 12004, 1 + extraStrip));
+        }
+        return atts;
+    }
+
     private List<Map<String, Object>> buildRewardAttachments(String itemName, int itemId, int count) {
         List<Map<String, Object>> list = new ArrayList<>();
+        if (count <= 0) return list;
         Map<String, Object> att = new LinkedHashMap<>();
         att.put("itemType", "item");
         att.put("itemId", itemId);
@@ -579,15 +856,47 @@ public class AllianceWarService {
         list.add(att);
         return list;
     }
+
+    private Map<String, Integer> toItemCountMap(List<Map<String, Object>> rewards) {
+        Map<String, Integer> map = new LinkedHashMap<>();
+        if (rewards == null) return map;
+        for (Map<String, Object> item : rewards) {
+            if (item == null) continue;
+            String name = item.get("itemName") != null ? String.valueOf(item.get("itemName")) : null;
+            int count = item.get("itemCount") != null ? ((Number) item.get("itemCount")).intValue() : 0;
+            if (name == null || count <= 0) continue;
+            map.put(name, map.getOrDefault(name, 0) + count);
+        }
+        return map;
+    }
+
+    private Map<String, String> toItemNameToIdMap(List<Map<String, Object>> rewards) {
+        Map<String, String> map = new LinkedHashMap<>();
+        if (rewards == null) return map;
+        for (Map<String, Object> item : rewards) {
+            if (item == null) continue;
+            String name = item.get("itemName") != null ? String.valueOf(item.get("itemName")) : null;
+            String id = item.get("itemId") != null ? String.valueOf(item.get("itemId")) : "0";
+            if (name != null && !map.containsKey(name)) map.put(name, id);
+        }
+        return map;
+    }
     
     public List<WarBattle> getBattleHistory(String odUserId) {
         return todayWar.getBattles().stream()
-                .filter(b -> b.getPlayer1Id().equals(odUserId) || b.getPlayer2Id().equals(odUserId))
+                .filter(b -> Objects.equals(b.getPlayer1Id(), odUserId) || Objects.equals(b.getPlayer2Id(), odUserId))
+                .sorted((a, b) -> Long.compare(
+                        b.getEndTime() != null ? b.getEndTime() : 0L,
+                        a.getEndTime() != null ? a.getEndTime() : 0L))
                 .collect(Collectors.toList());
     }
     
     public List<WarBattle> getAllBattles() {
-        return todayWar.getBattles();
+        return todayWar.getBattles().stream()
+                .sorted((a, b) -> Long.compare(
+                        b.getEndTime() != null ? b.getEndTime() : 0L,
+                        a.getEndTime() != null ? a.getEndTime() : 0L))
+                .collect(Collectors.toList());
     }
     
     public List<WarParticipant> getParticipants() {
@@ -640,6 +949,9 @@ public class AllianceWarService {
                     .power(power)
                     .status(PlayerStatus.WAITING)
                     .wins(0).losses(0).flags(0)
+                    .eliminatedRound(0)
+                    .totalMerit(0)
+                    .totalScore(0)
                     .registerTime(System.currentTimeMillis())
                     .build();
 
@@ -674,16 +986,18 @@ public class AllianceWarService {
                     .allianceId(allianceId).allianceName(allianceName)
                     .playerNumber(playerNumber).level(50).power(20000L)
                     .status(PlayerStatus.WAITING).wins(0).losses(0).flags(0)
+                    .eliminatedRound(0).totalMerit(0).totalScore(0)
                     .registerTime(System.currentTimeMillis()).build();
             todayWar.getParticipants().add(me);
             saveTodayWar();
         }
         List<WarParticipant> npcs = injectNpcs(npcCount, allianceCount);
-
-        todayWar.setStatus(WarStatus.IN_PROGRESS);
-        todayWar.setStartTime(System.currentTimeMillis());
-        todayWar.setCurrentRound(1);
-        startNextRound();
+        beginWar();
+        // 测试模式下直接跑完整个流程
+        int guard = 0;
+        while (todayWar.getStatus() == WarStatus.IN_PROGRESS && guard++ < 100) {
+            processCurrentRoundIfDue(true);
+        }
 
         Map<String, Object> result = new HashMap<>();
         result.put("message", "一键测试完成");
@@ -697,6 +1011,7 @@ public class AllianceWarService {
     }
 
     private List<BattleCalculator.BattleUnit> buildWarParticipantUnits(WarParticipant p) {
+        initializeParticipantSoldierState(p);
         String odUserId = p.getOdUserId();
         if (odUserId != null && !odUserId.startsWith("NPC_")) {
             try {
@@ -705,6 +1020,8 @@ public class AllianceWarService {
                     List<BattleCalculator.BattleUnit> units = new ArrayList<>();
                     for (int i = 0; i < generals.size(); i++) {
                         General g = generals.get(i);
+                        String key = g.getId() != null ? String.valueOf(g.getId()) : g.getName();
+                        int remaining = p.getRemainingSoldiers().getOrDefault(key, 0);
                         Map<String, Integer> eq = suitConfigService.calculateTotalEquipBonus(g.getId());
                         int rawTier = g.getSoldierTier() != null ? g.getSoldierTier() : 1;
                         int sRank = g.getSoldierRank() != null ? g.getSoldierRank() : 1;
@@ -712,7 +1029,7 @@ public class AllianceWarService {
                         int troopType = BattleCalculator.parseTroopType(g.getTroopType());
                         int maxSc = g.getSoldierMaxCount() != null ? g.getSoldierMaxCount() : 100;
                         int formLv = BattleCalculator.maxPeopleToFormationLevel(maxSc);
-                        int sc = g.getSoldierCount() != null ? Math.min(g.getSoldierCount(), maxSc) : maxSc;
+                        int sc = Math.max(0, Math.min(remaining, maxSc));
                         BattleCalculator.BattleUnit u = BattleCalculator.assembleBattleUnit(
                                 g.getName() != null ? g.getName() : p.getPlayerName(),
                                 g.getLevel() != null ? g.getLevel() : 1,
@@ -728,6 +1045,23 @@ public class AllianceWarService {
                                 eq.getOrDefault("dodge", 0), 0, 0, 0);
                         u.position = i;
                         generalService.applyFamousTraitsToUnit(u, g.getName(), troopType);
+
+                        if (g.getSlotId() != null && g.getSlotId() > 0) {
+                            u.tacticsTriggerBonus = generalService.getTacticsTriggerBonus(g.getSlotId());
+                        }
+                        if (g.getTacticsId() != null) {
+                            TacticsConfig.TacticsTemplate tt = tacticsConfig.getById(g.getTacticsId());
+                            if (tt != null) {
+                                Map<String, Object> owned = userTacticsMapper.findByUserIdAndTacticsId(
+                                        g.getUserId(), g.getTacticsId());
+                                int tLevel = owned != null ? ((Number) owned.get("level")).intValue() : 1;
+                                u.tacticsId = tt.getId();
+                                u.tacticsName = tt.getName();
+                                u.tacticsLevel = tLevel;
+                                u.tacticsEffectValue = TacticsConfig.calcEffect(tt, tLevel);
+                                u.tacticsTriggerRate = TacticsConfig.calcTriggerRate(tt, tLevel);
+                            }
+                        }
                         units.add(u);
                     }
                     return units;
@@ -741,10 +1075,12 @@ public class AllianceWarService {
         int tier = Math.max(1, Math.min(10, 1 + level / 20));
         int formLv = BattleCalculator.levelToFormationLevel(level);
         int maxSc = BattleCalculator.getFormationMaxPeople(formLv);
+        int remaining = p.getTotalRemainingSoldiers() != null && p.getTotalRemainingSoldiers() > 0
+                ? p.getTotalRemainingSoldiers() : maxSc;
         BattleCalculator.BattleUnit u = BattleCalculator.assembleBattleUnit(
                 p.getPlayerName(), level,
                 power / 2, power / 3, level * 2, level * 2,
-                5, 15, 1, tier, maxSc, maxSc, formLv,
+                5, 15, 1, tier, remaining, maxSc, formLv,
                 0, 0, 0, 0, 0, 0, 0, 0);
         u.position = 0;
         return Collections.singletonList(u);

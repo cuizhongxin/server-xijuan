@@ -137,6 +137,38 @@ public class AllianceWarController {
             return ApiResponse.error(e.getMessage());
         }
     }
+
+    /**
+     * 获取本盟待分配奖励池
+     */
+    @GetMapping("/alliance-reward-pool")
+    public ApiResponse<Map<String, Object>> getAllianceRewardPool(HttpServletRequest request) {
+        try {
+            String userId = getUserId(request);
+            return ApiResponse.success(allianceWarService.getMyAllianceRewardPool(userId));
+        } catch (Exception e) {
+            log.error("获取联盟奖励池异常", e);
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 盟主分配联盟奖励并发放邮件
+     */
+    @PostMapping("/distribute-alliance-reward")
+    public ApiResponse<Map<String, Object>> distributeAllianceReward(HttpServletRequest request,
+                                                                     @RequestBody Map<String, Object> body) {
+        try {
+            String userId = getUserId(request);
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> allocations = body.get("allocations") instanceof List
+                    ? (List<Map<String, Object>>) body.get("allocations") : null;
+            return ApiResponse.success(allianceWarService.distributeAllianceReward(userId, allocations));
+        } catch (Exception e) {
+            log.error("分配联盟奖励异常", e);
+            return ApiResponse.error(e.getMessage());
+        }
+    }
     
     /**
      * 手动触发报名（测试用）
