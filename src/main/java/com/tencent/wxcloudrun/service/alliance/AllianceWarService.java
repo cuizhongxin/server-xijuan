@@ -708,7 +708,6 @@ public class AllianceWarService {
             try {
                 mailService.sendSystemMail(p.getOdUserId(), "盟战参战奖励",
                         "感谢参与盟战，获得盟战礼盒x1", buildRewardAttachments("盟战礼盒", 11062, 1));
-                allianceService.addWarScore(p.getOdUserId(), 10 + (p.getWins() != null ? p.getWins() : 0) * 5);
             } catch (Exception e) {
                 log.warn("发放参战奖励失败: {}", p.getOdUserId(), e);
             }

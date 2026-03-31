@@ -52,6 +52,7 @@ public class AllianceService {
     }
 
     private static final int IMPEACH_OFFLINE_DAYS = 3;
+    private volatile boolean warScoreColumnAvailable = true;
     private static final int IMPEACH_MIN_WAR_SCORE = 100;
 
     public Alliance createAlliance(String userId, String playerName, String allianceName,
@@ -329,6 +330,7 @@ public class AllianceService {
     }
 
     public void addWarScore(String userId, int score) {
+        if (!warScoreColumnAvailable) return;
         String allianceId = allianceMapper.findAllianceIdByUserId(userId);
         if (allianceId != null) {
             Alliance alliance = loadAlliance(allianceId);
@@ -337,7 +339,17 @@ public class AllianceService {
                         .filter(mem -> mem.getUserId().equals(userId)).findFirst().orElse(null);
                 if (m != null) {
                     int newScore = (m.getWarScore() != null ? m.getWarScore() : 0) + score;
-                    allianceMapper.updateMemberWarScore(allianceId, userId, newScore);
+                    try {
+                        allianceMapper.updateMemberWarScore(allianceId, userId, newScore);
+                    } catch (Exception e) {
+                        String msg = String.valueOf(e.getMessage());
+                        if (msg.contains("Unknown column 'war_score'") || msg.contains("unknown column 'war_score'")) {
+                            warScoreColumnAvailable = false;
+                            log.warn("alliance_member 缺少 war_score 列，已自动降级跳过盟战积分写入");
+                            return;
+                        }
+                        throw e;
+                    }
                 }
             }
         }
