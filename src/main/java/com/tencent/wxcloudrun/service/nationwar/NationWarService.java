@@ -1510,7 +1510,7 @@ public class NationWarService {
         result.put("phase", activeSession.getPhase().name());
         result.put("currentRound", activeSession.getCurrentRound());
 
-        PlayerWarState ps = activeSession.getPlayerStates().get(odUserId);
+        PlayerWarState ps = resolvePlayerState(odUserId);
         if (ps != null) {
             result.put("playerState", ps);
             CityBattle battle = activeSession.getCityBattles().get(ps.getCurrentCityId());
@@ -1546,6 +1546,30 @@ public class NationWarService {
         }
         result.put("availableCities", availCities);
         return result;
+    }
+
+    private PlayerWarState resolvePlayerState(String odUserId) {
+        if (activeSession == null || activeSession.getPlayerStates() == null || odUserId == null) return null;
+        Map<String, PlayerWarState> states = activeSession.getPlayerStates();
+        PlayerWarState exact = states.get(odUserId);
+        if (exact != null) return exact;
+
+        String base = odUserId;
+        int idx = odUserId.lastIndexOf('_');
+        if (idx > 0) base = odUserId.substring(0, idx);
+
+        for (Map.Entry<String, PlayerWarState> e : states.entrySet()) {
+            String key = e.getKey();
+            if (key == null || key.startsWith("NPC_")) continue;
+            if (key.equals(base) || key.startsWith(base + "_")) {
+                return e.getValue();
+            }
+            int kIdx = key.lastIndexOf('_');
+            if (kIdx > 0 && key.substring(0, kIdx).equals(base)) {
+                return e.getValue();
+            }
+        }
+        return null;
     }
 
     public NationWar getTodayWar(String cityId) {
