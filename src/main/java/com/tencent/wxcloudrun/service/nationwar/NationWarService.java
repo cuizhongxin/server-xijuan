@@ -1534,6 +1534,65 @@ public class NationWarService {
 
     // ==================== 测试工具 ====================
 
+    public synchronized Map<String, Object> forceStartBattleForTest(String odUserId) {
+        if (activeSession == null) {
+            startRegistration();
+        }
+        if (activeSession.getPhase() == SessionPhase.REGISTRATION) {
+            finalizeRegistrationAndStartBattle();
+        }
+        if (activeSession.getPhase() != SessionPhase.BATTLE) {
+            throw new BusinessException(400, "当前会话不在战斗阶段");
+        }
+
+        if (activeSession.getCityBattles() == null || activeSession.getCityBattles().isEmpty()) {
+            String playerNation = getPlayerNation(odUserId);
+            if (playerNation == null) throw new BusinessException(400, "请先选择国家");
+
+            String targetCityId = activeSession.getNationTargets().get(playerNation);
+            if (targetCityId == null) {
+                int best = 0;
+                for (Map.Entry<String, CityRegistration> e : activeSession.getRegistrations().entrySet()) {
+                    List<WarParticipant> l = e.getValue().getNationSignups().get(playerNation);
+                    int c = l != null ? l.size() : 0;
+                    if (c > best) {
+                        best = c;
+                        targetCityId = e.getKey();
+                    }
+                }
+            }
+            if (targetCityId == null && activeSession.getRegistrations() != null && !activeSession.getRegistrations().isEmpty()) {
+                targetCityId = activeSession.getRegistrations().keySet().iterator().next();
+            }
+            if (targetCityId == null) {
+                throw new BusinessException(400, "未找到可开战城市，请先报名");
+            }
+
+            City targetCity = cities.get(targetCityId);
+            if (targetCity == null) throw new BusinessException(400, "目标城市不存在");
+
+            activeSession.getNationTargets().put(playerNation, targetCityId);
+            CityBattle battle = CityBattle.builder()
+                    .cityId(targetCityId).cityName(targetCity.getName())
+                    .sideANation(playerNation).sideBNation(targetCity.getOwner())
+                    .sideAScore(0).sideBScore(0).victoryPoint(VICTORY_POINT)
+                    .npcDefenders(generateNpcDefenders(targetCity.getOwner(), targetCityId))
+                    .rounds(new ArrayList<>()).isChibiBattle(false).build();
+            activeSession.getCityBattles().put(targetCityId, battle);
+
+            autoJoinRegisteredPlayers();
+            generateNpcAttackers();
+            saveSession(activeSession);
+            logger.info("测试强制开战兜底已创建战场: {}", targetCityId);
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("phase", activeSession.getPhase().name());
+        result.put("battleCount", activeSession.getCityBattles().size());
+        result.put("message", "已手动截止报名并开战");
+        return result;
+    }
+
     public Map<String, Object> quickTest(String odUserId, String playerName,
                                           String targetCityId, int npcAttackerCount) {
         String playerNation = getPlayerNation(odUserId);

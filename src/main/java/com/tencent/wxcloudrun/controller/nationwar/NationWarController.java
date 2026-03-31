@@ -314,12 +314,10 @@ public class NationWarController {
     }
 
     @PostMapping("/force-start-battle")
-    public ApiResponse<Map<String, Object>> forceStartBattle() {
+    public ApiResponse<Map<String, Object>> forceStartBattle(HttpServletRequest request) {
         try {
-            nationWarService.finalizeRegistrationAndStartBattle();
-            Map<String, Object> result = new HashMap<>();
-            result.put("message", "已手动截止报名并开战");
-            return ApiResponse.success(result);
+            String odUserId = String.valueOf(request.getAttribute("userId"));
+            return ApiResponse.success(nationWarService.forceStartBattleForTest(odUserId));
         } catch (Exception e) {
             log.error("手动开战异常", e);
             return ApiResponse.error(e.getMessage());
