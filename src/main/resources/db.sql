@@ -521,9 +521,11 @@ CREATE TABLE IF NOT EXISTS `alliance_war` (
 -- 14. 国战表（保留JSON存储复杂战斗数据）
 -- =============================================
 CREATE TABLE IF NOT EXISTS `nation_war` (
-  `war_date` VARCHAR(16) NOT NULL COMMENT '战争日期(yyyyMMdd)',
+  `id` VARCHAR(64) NOT NULL COMMENT '国战ID(日期_城市ID)',
+  `war_date` VARCHAR(16) NOT NULL COMMENT '战争日期(yyyy-MM-dd)',
   `data` LONGTEXT COMMENT '国战数据JSON（含nations/battles/ranks）',
-  PRIMARY KEY (`war_date`)
+  PRIMARY KEY (`id`),
+  KEY `idx_war_date` (`war_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='国战表';
 
 -- =============================================
@@ -532,8 +534,9 @@ CREATE TABLE IF NOT EXISTS `nation_war` (
 CREATE TABLE IF NOT EXISTS `nation_war_city_owner` (
   `city_id` VARCHAR(32) NOT NULL COMMENT '城市ID',
   `owner` VARCHAR(16) NOT NULL COMMENT '所属国家(WEI/SHU/WU/NEUTRAL)',
+  `server_id` INT DEFAULT 1 COMMENT '区服ID',
   `update_time` BIGINT DEFAULT 0 COMMENT '最后变更时间戳',
-  PRIMARY KEY (`city_id`)
+  PRIMARY KEY (`city_id`, `server_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='国战城市归属表';
 
 -- =============================================

@@ -254,4 +254,197 @@ public class NationWar {
         private Double exchangeRate;
         private Long exchangeTime;
     }
+
+    // ==================== 新国战会话模型 ====================
+
+    public enum SessionPhase {
+        PREPARING,
+        REGISTRATION,
+        BATTLE,
+        FINISHED
+    }
+
+    /**
+     * 国战日会话（每天一个，管理所有城市战场）
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class NationWarSession {
+        private String date;
+        private SessionPhase phase;
+        /** nationId -> 锁定的进攻目标cityId（null=未锁定） */
+        @Builder.Default
+        private Map<String, String> nationTargets = new java.util.LinkedHashMap<>();
+        /** cityId -> 各国报名信息 */
+        @Builder.Default
+        private Map<String, CityRegistration> registrations = new java.util.LinkedHashMap<>();
+        /** cityId -> 城市战场 */
+        @Builder.Default
+        private Map<String, CityBattle> cityBattles = new java.util.LinkedHashMap<>();
+        /** odUserId -> 玩家战斗状态 */
+        @Builder.Default
+        private Map<String, PlayerWarState> playerStates = new java.util.LinkedHashMap<>();
+        @Builder.Default
+        private Integer currentRound = 0;
+        private Long phaseStartTime;
+        private Long phaseEndTime;
+        private Long createTime;
+    }
+
+    /**
+     * 单个城市的报名信息
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CityRegistration {
+        /** nationId -> 该国报名玩家列表 */
+        @Builder.Default
+        private Map<String, List<WarParticipant>> nationSignups = new java.util.LinkedHashMap<>();
+    }
+
+    /**
+     * 城市战场
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CityBattle {
+        private String cityId;
+        private String cityName;
+        private String sideANation;
+        private String sideBNation;
+        @Builder.Default
+        private Integer sideAScore = 0;
+        @Builder.Default
+        private Integer sideBScore = 0;
+        @Builder.Default
+        private Integer victoryPoint = 10000;
+        @Builder.Default
+        private List<NpcDefender> npcDefenders = new java.util.ArrayList<>();
+        @Builder.Default
+        private List<RoundResult> rounds = new java.util.ArrayList<>();
+        private String winner;
+        @Builder.Default
+        private Boolean isChibiBattle = false;
+    }
+
+    /**
+     * NPC守军
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class NpcDefender {
+        private String npcId;
+        private String name;
+        private String nation;
+        private Integer level;
+        private Integer power;
+        @Builder.Default
+        private Integer remainingSoldiers = 100;
+        @Builder.Default
+        private Boolean dead = false;
+    }
+
+    /**
+     * 单轮结算结果
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class RoundResult {
+        private Integer roundNumber;
+        private String cityId;
+        private Long timestamp;
+        @Builder.Default
+        private List<RoundFight> fights = new java.util.ArrayList<>();
+        @Builder.Default
+        private List<RoundBye> byes = new java.util.ArrayList<>();
+        private Integer sideAScoreAfter;
+        private Integer sideBScoreAfter;
+    }
+
+    /**
+     * 单次对战记录
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class RoundFight {
+        private String attackerId;
+        private String attackerName;
+        private Integer attackerLevel;
+        private String defenderId;
+        private String defenderName;
+        private Integer defenderLevel;
+        private String winnerId;
+        private String winnerName;
+        private Integer meritGained;
+        private Integer scoreGained;
+        private String battleReportJson;
+    }
+
+    /**
+     * 轮空记录
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class RoundBye {
+        private String playerId;
+        private String playerName;
+        private Integer level;
+        private String side;
+        private Integer meritGained;
+        private Integer scoreGained;
+    }
+
+    /**
+     * 玩家国战实时状态
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class PlayerWarState {
+        private String odUserId;
+        private String playerName;
+        private String nation;
+        private Integer level;
+        private Integer power;
+        private String currentCityId;
+        private String side; // "ATTACK" or "DEFEND"
+        @Builder.Default
+        private Integer roundsAtCurrentCity = 0;
+        /** generalSlotId -> 剩余兵力 */
+        @Builder.Default
+        private Map<String, Integer> remainingSoldiers = new java.util.LinkedHashMap<>();
+        /** generalSlotId -> 最大兵力（用于百分比显示） */
+        @Builder.Default
+        private Map<String, Integer> maxSoldiers = new java.util.LinkedHashMap<>();
+        @Builder.Default
+        private Boolean allDead = false;
+        @Builder.Default
+        private Boolean canSwitch = false;
+        @Builder.Default
+        private Integer totalMerit = 0;
+        @Builder.Default
+        private Integer totalScore = 0;
+        @Builder.Default
+        private Integer wins = 0;
+        @Builder.Default
+        private Integer losses = 0;
+        @Builder.Default
+        private Integer byeCount = 0;
+        private Integer vipLevel;
+    }
 }
