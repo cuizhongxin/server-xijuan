@@ -2,6 +2,8 @@ package com.tencent.wxcloudrun.service.nationwar;
 
 import com.alibaba.fastjson.JSON;
 import com.tencent.wxcloudrun.dao.NationWarMapper;
+import com.tencent.wxcloudrun.dao.UserTacticsMapper;
+import com.tencent.wxcloudrun.config.TacticsConfig;
 import com.tencent.wxcloudrun.exception.BusinessException;
 import com.tencent.wxcloudrun.model.NationWar;
 import com.tencent.wxcloudrun.model.NationWar.*;
@@ -39,6 +41,8 @@ public class NationWarService {
     @Autowired private SuitConfigService suitConfigService;
     @Autowired @Lazy private com.tencent.wxcloudrun.service.general.GeneralService generalService;
     @Autowired @Lazy private ChatService chatService;
+    @Autowired private UserTacticsMapper userTacticsMapper;
+    @Autowired private TacticsConfig tacticsConfig;
 
     private final Map<String, Nation> nations = new LinkedHashMap<>();
     private final Map<String, City> cities = new LinkedHashMap<>();
@@ -1128,6 +1132,8 @@ public class NationWarService {
                 r.put("result", win ? "WIN" : "LOSE");
                 r.put("opponentName", opponentName);
                 r.put("winnerName", f.getWinnerName());
+                r.put("meritGained", f.getMeritGained() != null ? f.getMeritGained() : 0);
+                r.put("scoreGained", f.getScoreGained() != null ? f.getScoreGained() : 0);
                 r.put("hasReplay", f.getBattleReportJson() != null && !f.getBattleReportJson().isEmpty());
                 r.put("battleReportJson", f.getBattleReportJson());
                 return r;
@@ -1145,6 +1151,8 @@ public class NationWarService {
                 r.put("result", "BYE");
                 r.put("opponentName", null);
                 r.put("winnerName", null);
+                r.put("meritGained", b.getMeritGained() != null ? b.getMeritGained() : 0);
+                r.put("scoreGained", b.getScoreGained() != null ? b.getScoreGained() : 0);
                 r.put("hasReplay", false);
                 r.put("battleReportJson", null);
                 return r;
@@ -1221,6 +1229,24 @@ public class NationWarService {
                             eq.getOrDefault("dodge", 0), 0, 0, 0);
                     u.position = i;
                     generalService.applyFamousTraitsToUnit(u, g.getName(), troopType);
+
+                    // Inject equipped tactics into nation war units, same as other battle modes.
+                    if (g.getSlotId() != null && g.getSlotId() > 0) {
+                        u.tacticsTriggerBonus = generalService.getTacticsTriggerBonus(g.getSlotId());
+                    }
+                    if (g.getTacticsId() != null) {
+                        TacticsConfig.TacticsTemplate tt = tacticsConfig.getById(g.getTacticsId());
+                        if (tt != null) {
+                            Map<String, Object> owned = userTacticsMapper.findByUserIdAndTacticsId(
+                                    g.getUserId(), g.getTacticsId());
+                            int tLevel = owned != null ? ((Number) owned.get("level")).intValue() : 1;
+                            u.tacticsId = tt.getId();
+                            u.tacticsName = tt.getName();
+                            u.tacticsLevel = tLevel;
+                            u.tacticsEffectValue = TacticsConfig.calcEffect(tt, tLevel);
+                            u.tacticsTriggerRate = TacticsConfig.calcTriggerRate(tt, tLevel);
+                        }
+                    }
                     units.add(u);
                 }
                 if (!units.isEmpty()) return units;
