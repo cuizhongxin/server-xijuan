@@ -851,6 +851,9 @@ public class AllianceWarService {
         att.put("itemType", "item");
         att.put("itemId", itemId);
         att.put("itemName", itemName);
+        att.put("itemQuality", "");
+        // MailMapper uses #{count}; keep itemCount for frontend display compatibility.
+        att.put("count", count);
         att.put("itemCount", count);
         att.put("claimed", 0);
         list.add(att);
@@ -863,7 +866,9 @@ public class AllianceWarService {
         for (Map<String, Object> item : rewards) {
             if (item == null) continue;
             String name = item.get("itemName") != null ? String.valueOf(item.get("itemName")) : null;
-            int count = item.get("itemCount") != null ? ((Number) item.get("itemCount")).intValue() : 0;
+            int count = item.get("itemCount") != null
+                    ? ((Number) item.get("itemCount")).intValue()
+                    : (item.get("count") != null ? ((Number) item.get("count")).intValue() : 0);
             if (name == null || count <= 0) continue;
             map.put(name, map.getOrDefault(name, 0) + count);
         }
