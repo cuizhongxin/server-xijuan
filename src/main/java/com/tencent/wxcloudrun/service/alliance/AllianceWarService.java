@@ -690,7 +690,7 @@ public class AllianceWarService {
             rank.setRank(i + 1);
             if (i < 5) {
                 rank.getRewards().add("盟战宝箱x1");
-                rank.getRewards().add("绑金x" + extraBoundGold[i]);
+                rank.getRewards().add(extraBoundGold[i] + "绑金道具x1");
                 rank.setExtraBoundGold(extraBoundGold[i]);
             }
         }
@@ -721,7 +721,8 @@ public class AllianceWarService {
                 try {
                     List<Map<String, Object>> atts = new ArrayList<>();
                     atts.addAll(buildRewardAttachments("盟战宝箱", 11061, 1));
-                    atts.addAll(buildRewardAttachments("绑金", 1, extraBoundGold[i]));
+                    int bg = extraBoundGold[i];
+                    atts.addAll(buildRewardAttachments(bg + "绑金", boundGoldItemId(bg), 1));
                     mailService.sendSystemMail(pr.getOdUserId(), "盟战个人排名奖励",
                             "恭喜获得盟战个人排名第" + (i + 1) + "名!", atts);
                 } catch (Exception e) {
@@ -841,6 +842,18 @@ public class AllianceWarService {
             atts.addAll(buildRewardAttachments("银条", 12004, 1 + extraStrip));
         }
         return atts;
+    }
+
+    private int boundGoldItemId(int amount) {
+        switch (amount) {
+            case 10: return 11025;
+            case 20: return 11027;
+            case 30: return 11023;
+            case 50: return 11024;
+            case 70: return 11028;
+            case 100: return 11029;
+            default: return 11023;
+        }
     }
 
     private List<Map<String, Object>> buildRewardAttachments(String itemName, int itemId, int count) {

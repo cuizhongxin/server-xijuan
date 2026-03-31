@@ -442,8 +442,12 @@ public class WarehouseService {
             case 11022: addGoldEffect(resource, effect, 20L * count); break;
 
             // ═══════ 绑金 ═══════
+            case 11025: addBoundGoldEffect(userId, effect, 10L * count); break;
+            case 11027: addBoundGoldEffect(userId, effect, 20L * count); break;
             case 11023: addBoundGoldEffect(userId, effect, 30L * count); break;
             case 11024: addBoundGoldEffect(userId, effect, 50L * count); break;
+            case 11028: addBoundGoldEffect(userId, effect, 70L * count); break;
+            case 11029: addBoundGoldEffect(userId, effect, 100L * count); break;
 
             // ═══════ 将魂 ═══════
             case 11026:
@@ -624,7 +628,15 @@ public class WarehouseService {
         if (name.contains("金条"))   { addGoldEffect(resource, effect, 20L * count); return true; }
 
         // ── 绑金类 ──
-        if (name.contains("绑金"))   { addBoundGoldEffect(userId, effect, 30L * count); return true; }
+        if (name.contains("绑金")) {
+            long unit = 30L;
+            try {
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\d+)绑金").matcher(name);
+                if (m.find()) unit = Long.parseLong(m.group(1));
+            } catch (Exception ignored) {}
+            addBoundGoldEffect(userId, effect, unit * count);
+            return true;
+        }
 
         // ── 粮食类 ──
         if (name.contains("粮食包")) { addMaterialEffect(resource, effect, 11053, 2000L * count); return true; }
