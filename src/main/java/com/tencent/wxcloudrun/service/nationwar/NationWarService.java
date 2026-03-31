@@ -1071,7 +1071,9 @@ public class NationWarService {
                     .attackerId(attacker.getOdUserId()).attackerName(attacker.getPlayerName()).attackerLevel(attackerLevel)
                     .defenderId(defenderId).defenderName(defenderName).defenderLevel(defenderLevel)
                     .winnerId(attacker.getOdUserId()).winnerName(attacker.getPlayerName())
-                    .meritGained(merit).scoreGained(score).build());
+                    .meritGained(merit).scoreGained(score)
+                    .battleReportJson(JSON.toJSONString(report))
+                    .build());
         } else {
             int lossMerit = attackerLevel;
             nextKillStreak(attacker, false);
@@ -1092,16 +1094,63 @@ public class NationWarService {
                         .attackerId(attacker.getOdUserId()).attackerName(attacker.getPlayerName()).attackerLevel(attackerLevel)
                         .defenderId(defenderId).defenderName(defenderName).defenderLevel(defenderLevel)
                         .winnerId(defender.getOdUserId()).winnerName(defender.getPlayerName())
-                        .meritGained(merit).scoreGained(score).build());
+                        .meritGained(merit).scoreGained(score)
+                        .battleReportJson(JSON.toJSONString(report))
+                        .build());
             } else {
                 battle.setSideBScore(battle.getSideBScore() + attackerLevel * 10);
                 roundResult.getFights().add(RoundFight.builder()
                         .attackerId(attacker.getOdUserId()).attackerName(attacker.getPlayerName()).attackerLevel(attackerLevel)
                         .defenderId(defenderId).defenderName(defenderName).defenderLevel(defenderLevel)
                         .winnerId(defenderId).winnerName(defenderName)
-                        .meritGained(0).scoreGained(attackerLevel * 10).build());
+                        .meritGained(0).scoreGained(attackerLevel * 10)
+                        .battleReportJson(JSON.toJSONString(report))
+                        .build());
             }
         }
+    }
+
+    private Map<String, Object> buildMyLastRoundReport(String odUserId, CityBattle battle) {
+        if (battle == null || battle.getRounds() == null || battle.getRounds().isEmpty()) return null;
+        RoundResult last = battle.getRounds().get(battle.getRounds().size() - 1);
+
+        if (last.getFights() != null) {
+            for (RoundFight f : last.getFights()) {
+                boolean isMe = odUserId.equals(f.getAttackerId()) || odUserId.equals(f.getDefenderId());
+                if (!isMe) continue;
+                boolean win = odUserId.equals(f.getWinnerId());
+                String opponentName = odUserId.equals(f.getAttackerId()) ? f.getDefenderName() : f.getAttackerName();
+                Map<String, Object> r = new LinkedHashMap<>();
+                r.put("roundNumber", last.getRoundNumber());
+                r.put("cityId", battle.getCityId());
+                r.put("cityName", battle.getCityName());
+                r.put("type", "FIGHT");
+                r.put("result", win ? "WIN" : "LOSE");
+                r.put("opponentName", opponentName);
+                r.put("winnerName", f.getWinnerName());
+                r.put("hasReplay", f.getBattleReportJson() != null && !f.getBattleReportJson().isEmpty());
+                r.put("battleReportJson", f.getBattleReportJson());
+                return r;
+            }
+        }
+
+        if (last.getByes() != null) {
+            for (RoundBye b : last.getByes()) {
+                if (!odUserId.equals(b.getPlayerId())) continue;
+                Map<String, Object> r = new LinkedHashMap<>();
+                r.put("roundNumber", last.getRoundNumber());
+                r.put("cityId", battle.getCityId());
+                r.put("cityName", battle.getCityName());
+                r.put("type", "BYE");
+                r.put("result", "BYE");
+                r.put("opponentName", null);
+                r.put("winnerName", null);
+                r.put("hasReplay", false);
+                r.put("battleReportJson", null);
+                return r;
+            }
+        }
+        return null;
     }
 
     private int nextKillStreak(PlayerWarState player, boolean won) {
@@ -1466,7 +1515,13 @@ public class NationWarService {
             result.put("playerState", ps);
             CityBattle battle = activeSession.getCityBattles().get(ps.getCurrentCityId());
             if (battle != null) {
-                result.put("currentBattle", battle);
+                Map<String, Object> currentBattle = new LinkedHashMap<>();
+                currentBattle.put("cityId", battle.getCityId());
+                currentBattle.put("cityName", battle.getCityName());
+                currentBattle.put("winner", battle.getWinner());
+                currentBattle.put("mySide", ps.getSide());
+                result.put("currentBattle", currentBattle);
+                result.put("lastRoundReport", buildMyLastRoundReport(odUserId, battle));
             }
         } else {
             result.put("playerState", null);
