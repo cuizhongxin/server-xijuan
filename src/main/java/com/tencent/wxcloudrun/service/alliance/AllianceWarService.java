@@ -277,17 +277,64 @@ public class AllianceWarService {
                     "盟主已完成盟战奖励分配，请查收附件。", rd.getRewards());
         }
 
-        pool.setDistributed(true);
+        applyAllocationToPoolRewards(pool, records);
+        boolean finished = isPoolExhausted(pool);
+        pool.setDistributed(finished);
         pool.setDistributedBy(leaderUserId);
         pool.setDistributeTime(System.currentTimeMillis());
-        pool.setDistributions(records);
+        List<RewardDistribution> history = pool.getDistributions() != null ? pool.getDistributions() : new ArrayList<>();
+        history.addAll(records);
+        pool.setDistributions(history);
         saveTodayWar();
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("success", true);
         result.put("distributedCount", records.size());
+        result.put("finished", finished);
+        result.put("message", finished ? "奖励已全部分配完成" : "本次分配成功，仍有剩余奖励可继续分配");
         result.put("pool", pool);
         return result;
+    }
+
+    private void applyAllocationToPoolRewards(AllianceRewardPool pool, List<RewardDistribution> records) {
+        if (pool == null || pool.getRewards() == null || records == null || records.isEmpty()) return;
+        Map<String, Integer> used = new LinkedHashMap<>();
+        for (RewardDistribution rd : records) {
+            if (rd == null || rd.getRewards() == null) continue;
+            for (Map<String, Object> att : rd.getRewards()) {
+                if (att == null) continue;
+                String name = att.get("itemName") != null ? String.valueOf(att.get("itemName")) : null;
+                int count = att.get("itemCount") != null
+                        ? ((Number) att.get("itemCount")).intValue()
+                        : (att.get("count") != null ? ((Number) att.get("count")).intValue() : 0);
+                if (name == null || count <= 0) continue;
+                used.put(name, used.getOrDefault(name, 0) + count);
+            }
+        }
+        for (Map<String, Object> item : pool.getRewards()) {
+            if (item == null) continue;
+            String name = item.get("itemName") != null ? String.valueOf(item.get("itemName")) : null;
+            if (name == null) continue;
+            int oldCount = item.get("itemCount") != null
+                    ? ((Number) item.get("itemCount")).intValue()
+                    : (item.get("count") != null ? ((Number) item.get("count")).intValue() : 0);
+            int consume = used.getOrDefault(name, 0);
+            int left = Math.max(0, oldCount - consume);
+            item.put("itemCount", left);
+            item.put("count", left);
+        }
+    }
+
+    private boolean isPoolExhausted(AllianceRewardPool pool) {
+        if (pool == null || pool.getRewards() == null || pool.getRewards().isEmpty()) return true;
+        for (Map<String, Object> item : pool.getRewards()) {
+            if (item == null) continue;
+            int count = item.get("itemCount") != null
+                    ? ((Number) item.get("itemCount")).intValue()
+                    : (item.get("count") != null ? ((Number) item.get("count")).intValue() : 0);
+            if (count > 0) return false;
+        }
+        return true;
     }
 
     private AllianceRewardPool findRewardPoolForAlliance(Alliance alliance) {
