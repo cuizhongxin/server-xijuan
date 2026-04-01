@@ -1,6 +1,7 @@
 package com.tencent.wxcloudrun.service.cornucopia;
 
 import com.tencent.wxcloudrun.dao.CornucopiaMapper;
+import com.tencent.wxcloudrun.dao.RewardIssueLogMapper;
 import com.tencent.wxcloudrun.exception.BusinessException;
 import com.tencent.wxcloudrun.service.UserResourceService;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -49,6 +50,9 @@ public class CornucopiaService {
 
     @Autowired
     private com.tencent.wxcloudrun.dao.GameServerMapper gameServerMapper;
+
+    @Autowired
+    private RewardIssueLogMapper rewardIssueLogMapper;
 
     static int extractServerId(String compositeUserId) {
         if (compositeUserId == null) return 1;
@@ -193,7 +197,11 @@ public class CornucopiaService {
         List<Map<String, Object>> allTickets = mapper.findAllTicketsByPeriod(pid);
         if (allTickets.isEmpty()) {
             long carryover = pool;
-            mapper.finishDraw(pid, "----", "----", null, null, 0, 0);
+            int updated = mapper.finishDrawIfPending(pid, "----", "----", null, null, 0, 0);
+            if (updated <= 0) {
+                logger.info("第{}期(s{}) 无人参与且已由其他实例处理", periodNum, serverId);
+                return Collections.singletonMap("message", "开奖已执行");
+            }
             createNextPeriod(carryover, serverId);
             logger.info("第{}期(s{})无人购票，奖池 {} 全额滚入下期", periodNum, serverId, carryover);
             return Collections.singletonMap("message", "无人参与，奖池滚入下期");
@@ -218,10 +226,14 @@ public class CornucopiaService {
         long firstPrize = (long) (pool * 0.20);
         long carryover = (long) (pool * 0.10);
 
-        mapper.finishDraw(pid, grandNumber, firstNumber, grandWinnerId, firstWinnerId, grandPrize, firstPrize);
+        int updated = mapper.finishDrawIfPending(pid, grandNumber, firstNumber, grandWinnerId, firstWinnerId, grandPrize, firstPrize);
+        if (updated <= 0) {
+            logger.info("第{}期(s{}) 已被其他实例开奖，跳过重复结算", periodNum, serverId);
+            return Collections.singletonMap("message", "开奖已执行");
+        }
 
-        if (grandPrize > 0) userResourceService.addBoundGold(grandWinnerId, grandPrize);
-        if (firstPrize > 0) userResourceService.addBoundGold(firstWinnerId, firstPrize);
+        issueBoundGoldOnce("CORNUCOPIA_GRAND", String.valueOf(periodNum), grandWinnerId, grandPrize, serverId);
+        issueBoundGoldOnce("CORNUCOPIA_FIRST", String.valueOf(periodNum), firstWinnerId, firstPrize, serverId);
 
         createNextPeriod(carryover, serverId);
 
@@ -308,5 +320,27 @@ public class CornucopiaService {
         String s = String.valueOf(drawTimeObj);
         if (s.length() > 19) s = s.substring(0, 19);
         return LocalDateTime.parse(s, DT_FMT);
+    }
+
+    private boolean tryMarkIssued(String bizType, String bizId, String targetId, int serverId, String extra) {
+        try {
+            return rewardIssueLogMapper.insertIgnore(
+                    bizType,
+                    bizId,
+                    targetId != null ? targetId : "NULL_TARGET",
+                    serverId,
+                    extra,
+                    System.currentTimeMillis()
+            ) > 0;
+        } catch (Exception e) {
+            logger.warn("奖励幂等日志写入失败，降级直发 bizType={}, bizId={}, targetId={}", bizType, bizId, targetId, e);
+            return true;
+        }
+    }
+
+    private void issueBoundGoldOnce(String bizType, String bizId, String userId, long amount, int serverId) {
+        if (userId == null || amount <= 0) return;
+        if (!tryMarkIssued(bizType, bizId, userId, serverId, "amount=" + amount)) return;
+        userResourceService.addBoundGold(userId, amount);
     }
 }

@@ -5,6 +5,7 @@ import com.tencent.wxcloudrun.config.TacticsConfig.TacticsTemplate;
 import com.tencent.wxcloudrun.dao.GameServerMapper;
 import com.tencent.wxcloudrun.dao.HeroRankMapper;
 import com.tencent.wxcloudrun.dao.PeerageConfigMapper;
+import com.tencent.wxcloudrun.dao.RewardIssueLogMapper;
 import com.tencent.wxcloudrun.dao.UserTacticsMapper;
 import com.tencent.wxcloudrun.model.General;
 import com.tencent.wxcloudrun.model.UserResource;
@@ -53,6 +54,7 @@ public class HeroRankService {
     private final UserTacticsMapper userTacticsMapper;
     private final TacticsConfig tacticsConfig;
     private final NationWarService nationWarService;
+    private final RewardIssueLogMapper rewardIssueLogMapper;
 
     @org.springframework.beans.factory.annotation.Autowired @org.springframework.context.annotation.Lazy
     private com.tencent.wxcloudrun.service.dailytask.DailyTaskService dailyTaskService;
@@ -398,6 +400,10 @@ public class HeroRankService {
 
         for (Map<String, Object> server : servers) {
             int sid = ((Number) server.get("id")).intValue();
+            if (!tryMarkIssued("HERO_RANK_DAILY_SETTLE", today, "SERVER_" + sid, sid, "")) {
+                log.info("[英雄榜] serverId={} 今日已结算，跳过", sid);
+                continue;
+            }
             List<Map<String, Object>> all = heroRankMapper.findAllOrderByRanking(sid);
 
             for (int i = 0; i < all.size(); i++) {
@@ -632,5 +638,16 @@ public class HeroRankService {
     private static String str(Map<String, Object> m, String k) {
         Object v = m.get(k);
         return v != null ? v.toString() : "";
+    }
+
+    private boolean tryMarkIssued(String bizType, String bizId, String targetId, int serverId, String extra) {
+        try {
+            return rewardIssueLogMapper.insertIgnore(
+                    bizType, bizId, targetId, serverId, extra, System.currentTimeMillis()
+            ) > 0;
+        } catch (Exception e) {
+            log.warn("奖励幂等日志写入失败，降级继续执行 bizType={}, bizId={}, targetId={}", bizType, bizId, targetId, e);
+            return true;
+        }
     }
 }

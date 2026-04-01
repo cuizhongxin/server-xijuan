@@ -20,6 +20,9 @@ public interface CornucopiaMapper {
     void finishDraw(@Param("id") long id, @Param("grandNumber") String grandNumber, @Param("firstNumber") String firstNumber,
                     @Param("grandWinnerId") String grandWinnerId, @Param("firstWinnerId") String firstWinnerId,
                     @Param("grandPrize") long grandPrize, @Param("firstPrize") long firstPrize);
+    int finishDrawIfPending(@Param("id") long id, @Param("grandNumber") String grandNumber, @Param("firstNumber") String firstNumber,
+                            @Param("grandWinnerId") String grandWinnerId, @Param("firstWinnerId") String firstWinnerId,
+                            @Param("grandPrize") long grandPrize, @Param("firstPrize") long firstPrize);
 
     // ── 购票 ──
     int countUserTickets(@Param("userId") String userId, @Param("periodId") long periodId);

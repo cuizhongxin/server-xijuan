@@ -3,6 +3,7 @@ package com.tencent.wxcloudrun.service.alliance;
 import com.alibaba.fastjson.JSON;
 import com.tencent.wxcloudrun.config.TacticsConfig;
 import com.tencent.wxcloudrun.dao.AllianceWarMapper;
+import com.tencent.wxcloudrun.dao.RewardIssueLogMapper;
 import com.tencent.wxcloudrun.dao.UserTacticsMapper;
 import com.tencent.wxcloudrun.exception.BusinessException;
 import com.tencent.wxcloudrun.model.Alliance;
@@ -61,6 +62,9 @@ public class AllianceWarService {
 
     @Autowired
     private TacticsConfig tacticsConfig;
+
+    @Autowired
+    private RewardIssueLogMapper rewardIssueLogMapper;
     
     // 今日盟战（内存缓存，同时持久化到数据库）
     private AllianceWar todayWar;
@@ -725,9 +729,13 @@ public class AllianceWarService {
         log.info("发放盟战奖励...");
         ensureRewardPools();
         todayWar.getAllianceRewardPools().clear();
+        String bizId = todayWar != null && todayWar.getDate() != null
+                ? todayWar.getDate()
+                : new SimpleDateFormat("yyyy-MM-dd").format(new Date());
 
         for (WarParticipant p : todayWar.getParticipants()) {
             if (p.getOdUserId() == null || p.getOdUserId().startsWith("NPC_")) continue;
+            if (!tryMarkIssued("ALLIANCE_WAR_JOIN_REWARD", bizId, p.getOdUserId(), 1, "")) continue;
             try {
                 mailService.sendSystemMail(p.getOdUserId(), "盟战参战奖励",
                         "感谢参与盟战，获得盟战礼盒x1", buildRewardAttachments("盟战礼盒", 11062, 1));
@@ -740,6 +748,7 @@ public class AllianceWarService {
             for (int i = 0; i < Math.min(5, todayWar.getPlayerRanks().size()); i++) {
                 PlayerRank pr = todayWar.getPlayerRanks().get(i);
                 if (pr.getOdUserId() == null || pr.getOdUserId().startsWith("NPC_")) continue;
+                if (!tryMarkIssued("ALLIANCE_WAR_PERSONAL_REWARD", bizId, pr.getOdUserId(), 1, "rank=" + (i + 1))) continue;
                 int[] extraBoundGold = {100, 70, 50, 20, 10};
                 try {
                     List<Map<String, Object>> atts = new ArrayList<>();
@@ -769,6 +778,22 @@ public class AllianceWarService {
                         .build();
                 todayWar.getAllianceRewardPools().add(pool);
             }
+        }
+    }
+
+    private boolean tryMarkIssued(String bizType, String bizId, String targetId, int serverId, String extra) {
+        try {
+            return rewardIssueLogMapper.insertIgnore(
+                    bizType,
+                    bizId,
+                    targetId != null ? targetId : "NULL_TARGET",
+                    serverId,
+                    extra,
+                    System.currentTimeMillis()
+            ) > 0;
+        } catch (Exception e) {
+            log.warn("奖励幂等日志写入失败，降级直发 bizType={}, bizId={}, targetId={}", bizType, bizId, targetId, e);
+            return true;
         }
     }
 

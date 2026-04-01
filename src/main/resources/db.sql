@@ -800,6 +800,23 @@ CREATE TABLE IF NOT EXISTS `mail` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='邮件表';
 
 -- =============================================
+-- 22.1 奖励发放幂等日志
+-- =============================================
+CREATE TABLE IF NOT EXISTS `reward_issue_log` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '自增主键',
+  `biz_type` VARCHAR(64) NOT NULL COMMENT '业务类型，如ALLIANCE_WAR_JOIN/CORNUCOPIA_GRAND',
+  `biz_id` VARCHAR(128) NOT NULL COMMENT '业务ID，如日期/期号',
+  `target_id` VARCHAR(128) NOT NULL COMMENT '目标对象ID，如用户ID/SERVER_x',
+  `server_id` INT DEFAULT 1 COMMENT '区服ID',
+  `extra` VARCHAR(255) DEFAULT '' COMMENT '扩展信息',
+  `create_time` BIGINT DEFAULT 0 COMMENT '创建时间戳',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_reward_issue` (`biz_type`, `biz_id`, `target_id`),
+  KEY `idx_reward_issue_server` (`server_id`),
+  KEY `idx_reward_issue_create` (`create_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='奖励发放幂等日志表';
+
+-- =============================================
 -- 23. VIP礼包领取记录表
 -- =============================================
 CREATE TABLE IF NOT EXISTS `vip_gift_record` (

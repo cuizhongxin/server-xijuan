@@ -59,6 +59,15 @@
         WHERE id = #{id}
     </update>
 
+    <update id="finishDrawIfPending">
+        UPDATE cornucopia_period
+        SET status = 1,
+            grand_number = #{grandNumber}, first_number = #{firstNumber},
+            grand_winner_id = #{grandWinnerId}, first_winner_id = #{firstWinnerId},
+            grand_prize = #{grandPrize}, first_prize = #{firstPrize}
+        WHERE id = #{id} AND status = 0
+    </update>
+
     <!-- ══════ 购票 ══════ -->
 
     <select id="countUserTickets" resultType="int">
