@@ -2,6 +2,7 @@ package com.tencent.wxcloudrun.service.nationwar;
 
 import com.alibaba.fastjson.JSON;
 import com.tencent.wxcloudrun.dao.NationWarMapper;
+import com.tencent.wxcloudrun.dao.RewardIssueLogMapper;
 import com.tencent.wxcloudrun.dao.UserTacticsMapper;
 import com.tencent.wxcloudrun.config.TacticsConfig;
 import com.tencent.wxcloudrun.exception.BusinessException;
@@ -43,6 +44,7 @@ public class NationWarService {
     @Autowired @Lazy private ChatService chatService;
     @Autowired private UserTacticsMapper userTacticsMapper;
     @Autowired private TacticsConfig tacticsConfig;
+    @Autowired private RewardIssueLogMapper rewardIssueLogMapper;
 
     private final Map<String, Nation> nations = new LinkedHashMap<>();
     private final Map<String, City> cities = new LinkedHashMap<>();
@@ -382,24 +384,34 @@ public class NationWarService {
     @Scheduled(cron = "0 45 19 * * *")
     public void scheduledStartRegistration() {
         if (testMode) return;
+        String today = todayStr();
+        if (!tryMarkScheduled("NATION_WAR_REG_START", today, "SERVER_1")) return;
         startRegistration();
     }
 
     @Scheduled(cron = "0 0 20 * * *")
     public void scheduledFinalizeAndStartBattle() {
         if (testMode) return;
+        String today = activeSession != null && activeSession.getDate() != null ? activeSession.getDate() : todayStr();
+        if (!tryMarkScheduled("NATION_WAR_BATTLE_START", today, "SERVER_1")) return;
         finalizeRegistrationAndStartBattle();
     }
 
     @Scheduled(cron = "0 1-40 20 * * *")
     public void scheduledBattleTick() {
         if (testMode) return;
+        if (activeSession == null || activeSession.getPhase() != SessionPhase.BATTLE) return;
+        String date = activeSession.getDate() != null ? activeSession.getDate() : todayStr();
+        int nextRound = (activeSession.getCurrentRound() != null ? activeSession.getCurrentRound() : 0) + 1;
+        if (!tryMarkScheduled("NATION_WAR_ROUND_TICK", date, "ROUND_" + nextRound)) return;
         battleTick();
     }
 
     @Scheduled(cron = "0 41 20 * * *")
     public void scheduledFinishAllBattles() {
         if (testMode) return;
+        String today = activeSession != null && activeSession.getDate() != null ? activeSession.getDate() : todayStr();
+        if (!tryMarkScheduled("NATION_WAR_FORCE_FINISH", today, "SERVER_1")) return;
         finishAllBattles();
     }
 
@@ -1831,5 +1843,21 @@ public class NationWarService {
     /** 兼容旧接口 */
     public void startWarBattle(String warId) {
         logger.info("旧接口startWarBattle已废弃，请使用新会话系统");
+    }
+
+    private boolean tryMarkScheduled(String bizType, String bizId, String targetId) {
+        try {
+            return rewardIssueLogMapper.insertIgnore(
+                    bizType,
+                    bizId,
+                    targetId,
+                    1,
+                    "",
+                    System.currentTimeMillis()
+            ) > 0;
+        } catch (Exception e) {
+            logger.warn("国战定时幂等写入失败，降级继续执行 bizType={}, bizId={}, targetId={}", bizType, bizId, targetId, e);
+            return true;
+        }
     }
 }

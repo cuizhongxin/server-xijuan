@@ -119,10 +119,51 @@ public class MailService {
         }
 
         mailMapper.markAttachmentClaimed(mailId);
+        // 领取附件视为已读
+        mailMapper.markRead(mailId);
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("mailId", mailId);
         result.put("rewards", rewards);
+        return result;
+    }
+
+    /**
+     * 一键已读
+     */
+    public Map<String, Object> readAll(String userId) {
+        int updated = mailMapper.markAllRead(userId);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("updated", updated);
+        return result;
+    }
+
+    /**
+     * 一键领取附件（领取即已读）
+     */
+    public Map<String, Object> claimAll(String userId) {
+        List<Long> ids = mailMapper.findUnclaimedMailIds(userId);
+        int success = 0;
+        int skipped = 0;
+        List<Long> claimedIds = new ArrayList<>();
+        List<Long> failedIds = new ArrayList<>();
+        for (Long id : ids) {
+            if (id == null) continue;
+            try {
+                claimAttachment(userId, id);
+                success++;
+                claimedIds.add(id);
+            } catch (Exception ignore) {
+                skipped++;
+                failedIds.add(id);
+            }
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("total", ids.size());
+        result.put("claimed", success);
+        result.put("skipped", skipped);
+        result.put("claimedIds", claimedIds);
+        result.put("failedIds", failedIds);
         return result;
     }
 

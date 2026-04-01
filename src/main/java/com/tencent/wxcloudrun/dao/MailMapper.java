@@ -31,6 +31,9 @@ public interface MailMapper {
     @Update("UPDATE mail SET is_read = 1 WHERE id = #{id}")
     int markRead(@Param("id") long id);
 
+    @Update("UPDATE mail SET is_read = 1 WHERE receiver_id = #{receiverId} AND deleted = 0 AND is_read = 0")
+    int markAllRead(@Param("receiverId") String receiverId);
+
     @Update("UPDATE mail SET attachment_claimed = 1 WHERE id = #{id}")
     int markAttachmentClaimed(@Param("id") long id);
 
@@ -42,4 +45,7 @@ public interface MailMapper {
 
     @Select("SELECT COUNT(*) FROM mail WHERE receiver_id = #{receiverId} AND deleted = 0 AND has_attachment = 1 AND attachment_claimed = 0")
     int countUnclaimedAttachment(@Param("receiverId") String receiverId);
+
+    @Select("SELECT id FROM mail WHERE receiver_id = #{receiverId} AND deleted = 0 AND has_attachment = 1 AND attachment_claimed = 0 ORDER BY create_time DESC LIMIT 200")
+    List<Long> findUnclaimedMailIds(@Param("receiverId") String receiverId);
 }

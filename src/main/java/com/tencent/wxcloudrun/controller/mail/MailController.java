@@ -46,6 +46,20 @@ public class MailController {
         return ApiResponse.success(mailService.claimAttachment(userId, mailId));
     }
 
+    /** 一键领取附件 */
+    @PostMapping("/claim-all")
+    public ApiResponse<Map<String, Object>> claimAll(HttpServletRequest request) {
+        String userId = String.valueOf(request.getAttribute("userId"));
+        return ApiResponse.success(mailService.claimAll(userId));
+    }
+
+    /** 一键已读 */
+    @PostMapping("/read-all")
+    public ApiResponse<Map<String, Object>> readAll(HttpServletRequest request) {
+        String userId = String.valueOf(request.getAttribute("userId"));
+        return ApiResponse.success(mailService.readAll(userId));
+    }
+
     /** 发送玩家邮件 */
     @PostMapping("/send")
     public ApiResponse<String> send(@RequestBody Map<String, String> body, HttpServletRequest request) {

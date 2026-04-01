@@ -469,7 +469,9 @@ public class WarehouseService {
             case 11096: addMaterialEffect(resource, effect, 11052, 20000L * count); break;
             case 11097: addMaterialEffect(resource, effect, 11053, 50000L * count); break;
             case 11098: addMaterialEffect(resource, effect, 11054, 50000L * count); break;
-            case 11051: addRandomResourceEffect(resource, effect, 2000L * count); break;
+            case 11051: openResourceGiftPack(resource, effect, count); break;
+            case 11061: openAllianceWarChest(userId, effect, count); break;
+            case 11062: openAllianceWarGiftBox(userId, effect, count); break;
 
             // ═══════ 粮食包系列 ═══════
             case 15031: addMaterialEffect(resource, effect, 11053, 1000L * count); break;
@@ -580,6 +582,113 @@ public class WarehouseService {
         int[] matIds = {11052, 11053, 11054};
         int pick = matIds[new java.util.Random().nextInt(matIds.length)];
         addMaterialEffect(r, e, pick, amount);
+    }
+
+    private void openResourceGiftPack(UserResource resource, Map<String, Object> effect, int count) {
+        // 11051 资源礼包：随机 2000 金属/纸张/粮食/白银
+        Random rng = new Random();
+        Map<String, Integer> result = new LinkedHashMap<>();
+        for (int i = 0; i < count; i++) {
+            int roll = rng.nextInt(4);
+            if (roll == 0) {
+                addMaterialEffect(resource, new HashMap<>(), 11052, 2000L);
+                result.put("金属+2000", result.getOrDefault("金属+2000", 0) + 1);
+            } else if (roll == 1) {
+                addMaterialEffect(resource, new HashMap<>(), 11054, 2000L);
+                result.put("纸张+2000", result.getOrDefault("纸张+2000", 0) + 1);
+            } else if (roll == 2) {
+                addMaterialEffect(resource, new HashMap<>(), 11053, 2000L);
+                result.put("粮食+2000", result.getOrDefault("粮食+2000", 0) + 1);
+            } else {
+                addSilverEffect(resource, new HashMap<>(), 2000L);
+                result.put("白银+2000", result.getOrDefault("白银+2000", 0) + 1);
+            }
+        }
+        effect.put("type", "box");
+        effect.put("openResults", result);
+        effect.put("message", "开启资源礼包获得: " + formatOpenResults(result));
+    }
+
+    private void openAllianceWarChest(String userId, Map<String, Object> effect, int count) {
+        // 11061 盟战宝箱
+        // 5% 天地宝盒，15% 高级声望符，20% 4级强化石，10% 招财符，30% 中级招贤令，20% 4阶品质石
+        Random rng = new Random();
+        Map<String, Integer> result = new LinkedHashMap<>();
+        for (int i = 0; i < count; i++) {
+            int roll = rng.nextInt(100);
+            if (roll < 5) {
+                addItemById(userId, "11064", "天地宝盒", 1);
+                result.put("天地宝盒", result.getOrDefault("天地宝盒", 0) + 1);
+            } else if (roll < 20) {
+                addItemById(userId, "11002", "高级声望符", 1);
+                result.put("高级声望符", result.getOrDefault("高级声望符", 0) + 1);
+            } else if (roll < 40) {
+                addItemById(userId, "14004", "4级强化石", 1);
+                result.put("4级强化石", result.getOrDefault("4级强化石", 0) + 1);
+            } else if (roll < 50) {
+                addItemById(userId, "11104", "招财符", 1);
+                result.put("招财符", result.getOrDefault("招财符", 0) + 1);
+            } else if (roll < 80) {
+                addItemById(userId, "15012", "中级招贤令", 1);
+                result.put("中级招贤令", result.getOrDefault("中级招贤令", 0) + 1);
+            } else {
+                addItemById(userId, "14034", "4阶品质石", 1);
+                result.put("4阶品质石", result.getOrDefault("4阶品质石", 0) + 1);
+            }
+        }
+        effect.put("type", "box");
+        effect.put("openResults", result);
+        effect.put("message", "开启盟战宝箱获得: " + formatOpenResults(result));
+    }
+
+    private void openAllianceWarGiftBox(String userId, Map<String, Object> effect, int count) {
+        // 11062 盟战礼盒：随机一个（等概率）
+        // 资源礼包 / 10绑金 / 军需令 / 招财符 / 银锭
+        Random rng = new Random();
+        Map<String, Integer> result = new LinkedHashMap<>();
+        for (int i = 0; i < count; i++) {
+            int roll = rng.nextInt(5);
+            if (roll == 0) {
+                addItemById(userId, "11051", "资源礼包", 1);
+                result.put("资源礼包", result.getOrDefault("资源礼包", 0) + 1);
+            } else if (roll == 1) {
+                addItemById(userId, "11025", "10绑金", 1);
+                result.put("10绑金", result.getOrDefault("10绑金", 0) + 1);
+            } else if (roll == 2) {
+                addItemById(userId, "15052", "军需令", 1);
+                result.put("军需令", result.getOrDefault("军需令", 0) + 1);
+            } else if (roll == 3) {
+                addItemById(userId, "11104", "招财符", 1);
+                result.put("招财符", result.getOrDefault("招财符", 0) + 1);
+            } else {
+                addItemById(userId, "11012", "银锭", 1);
+                result.put("银锭", result.getOrDefault("银锭", 0) + 1);
+            }
+        }
+        effect.put("type", "box");
+        effect.put("openResults", result);
+        effect.put("message", "开启盟战礼盒获得: " + formatOpenResults(result));
+    }
+
+    private void addItemById(String userId, String itemId, String itemName, int count) {
+        Warehouse.WarehouseItem reward = Warehouse.WarehouseItem.builder()
+                .itemId(itemId)
+                .itemType("item")
+                .name(itemName)
+                .quality("")
+                .count(count)
+                .maxStack(9999)
+                .usable(true)
+                .build();
+        addItem(userId, reward);
+    }
+
+    private String formatOpenResults(Map<String, Integer> result) {
+        List<String> parts = new ArrayList<>();
+        for (Map.Entry<String, Integer> e : result.entrySet()) {
+            parts.add(e.getKey() + "x" + e.getValue());
+        }
+        return String.join("、", parts);
     }
 
     private static final String[][] CHEST_PARTS = {

@@ -4,6 +4,7 @@ import com.tencent.wxcloudrun.dto.ApiResponse;
 import com.tencent.wxcloudrun.model.Alliance;
 import com.tencent.wxcloudrun.service.PlayerNameResolver;
 import com.tencent.wxcloudrun.service.alliance.AllianceService;
+import com.tencent.wxcloudrun.service.alliance.AllianceWarService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
@@ -24,6 +25,7 @@ import java.util.Map;
 public class AllianceController {
     
     private final AllianceService allianceService;
+    private final AllianceWarService allianceWarService;
     private final PlayerNameResolver playerNameResolver;
     
     private String getUserId(HttpServletRequest request) {
@@ -344,6 +346,38 @@ public class AllianceController {
             return ApiResponse.success(data);
         } catch (Exception e) {
             log.error("弹劾盟主异常", e);
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 联盟奖励公共仓库（来源于盟战联盟奖励）
+     */
+    @GetMapping("/reward-pool")
+    public ApiResponse<Map<String, Object>> getAllianceRewardPool(HttpServletRequest request) {
+        try {
+            String userId = getUserId(request);
+            return ApiResponse.success(allianceWarService.getMyAllianceRewardPool(userId));
+        } catch (Exception e) {
+            log.error("获取联盟奖励仓库异常", e);
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 盟主分配联盟公共奖励仓库
+     */
+    @PostMapping("/distribute-reward")
+    public ApiResponse<Map<String, Object>> distributeAllianceReward(HttpServletRequest request,
+                                                                     @RequestBody Map<String, Object> body) {
+        try {
+            String userId = getUserId(request);
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> allocations = body.get("allocations") instanceof List
+                    ? (List<Map<String, Object>>) body.get("allocations") : null;
+            return ApiResponse.success(allianceWarService.distributeAllianceReward(userId, allocations));
+        } catch (Exception e) {
+            log.error("分配联盟奖励仓库异常", e);
             return ApiResponse.error(e.getMessage());
         }
     }
