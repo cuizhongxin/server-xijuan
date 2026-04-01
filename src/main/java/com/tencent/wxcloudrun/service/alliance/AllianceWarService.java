@@ -10,6 +10,7 @@ import com.tencent.wxcloudrun.model.Alliance;
 import com.tencent.wxcloudrun.model.AllianceWar;
 import com.tencent.wxcloudrun.model.AllianceWar.*;
 import com.tencent.wxcloudrun.model.General;
+import com.tencent.wxcloudrun.service.PlayerNameResolver;
 import com.tencent.wxcloudrun.service.SuitConfigService;
 import com.tencent.wxcloudrun.service.battle.BattleCalculator;
 import com.tencent.wxcloudrun.service.battle.BattleService;
@@ -65,6 +66,9 @@ public class AllianceWarService {
 
     @Autowired
     private RewardIssueLogMapper rewardIssueLogMapper;
+
+    @Autowired
+    private PlayerNameResolver playerNameResolver;
     
     // 今日盟战（内存缓存，同时持久化到数据库）
     private AllianceWar todayWar;
@@ -95,6 +99,24 @@ public class AllianceWarService {
         if (todayWar.getAllianceRewardPools() == null) {
             todayWar.setAllianceRewardPools(new ArrayList<>());
         }
+    }
+
+    private synchronized void refreshTodayWarFromDb() {
+        String today = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
+        String data = allianceWarMapper.findByDate(today);
+        if (data != null) {
+            try {
+                todayWar = JSON.parseObject(data, AllianceWar.class);
+            } catch (Exception e) {
+                log.warn("刷新盟战状态失败，继续使用内存态", e);
+            }
+        } else if (todayWar == null || !today.equals(todayWar.getDate())) {
+            todayWar = AllianceWar.createNew(today);
+        }
+        if (todayWar == null) {
+            todayWar = AllianceWar.createNew(today);
+        }
+        ensureRewardPools();
     }
 
     private String normalizeBaseUserId(String userId) {
@@ -132,6 +154,7 @@ public class AllianceWarService {
      * 获取盟战状态
      */
     public Map<String, Object> getWarStatus(String odUserId) {
+        refreshTodayWarFromDb();
         Map<String, Object> result = new HashMap<>();
         ensureRewardPools();
         
@@ -162,39 +185,52 @@ public class AllianceWarService {
     }
 
     public Map<String, Object> getMyAllianceRewardPool(String odUserId) {
+        refreshTodayWarFromDb();
         ensureRewardPools();
         Alliance alliance = allianceService.getUserAlliance(odUserId);
         if (alliance == null) throw new BusinessException("请先加入联盟");
         Map<String, Object> result = new LinkedHashMap<>();
-        AllianceRewardPool pool = todayWar.getAllianceRewardPools().stream()
-                .filter(p -> Objects.equals(p.getAllianceId(), alliance.getId()))
-                .findFirst().orElse(null);
+        AllianceRewardPool pool = findRewardPoolForAlliance(alliance);
+        List<Alliance.AllianceMember> members = normalizeMemberNames(alliance.getMembers());
         boolean isLeader = sameUserId(alliance.getLeaderId(), odUserId);
         result.put("allianceId", alliance.getId());
         result.put("allianceName", alliance.getName());
         result.put("isLeader", isLeader);
         result.put("pool", pool);
-        result.put("members", alliance.getMembers());
+        result.put("members", members);
         return result;
     }
 
     public Map<String, Object> distributeAllianceReward(String leaderUserId, List<Map<String, Object>> allocations) {
+        refreshTodayWarFromDb();
         ensureRewardPools();
         Alliance alliance = allianceService.getUserAlliance(leaderUserId);
         if (alliance == null) throw new BusinessException("请先加入联盟");
         if (!sameUserId(alliance.getLeaderId(), leaderUserId)) {
             throw new BusinessException("只有盟主可以分配联盟奖励");
         }
-        AllianceRewardPool pool = todayWar.getAllianceRewardPools().stream()
-                .filter(p -> Objects.equals(p.getAllianceId(), alliance.getId()))
-                .findFirst().orElse(null);
-        if (pool == null) throw new BusinessException("本盟暂无待分配奖励");
-        if (Boolean.TRUE.equals(pool.getDistributed())) throw new BusinessException("奖励已分配");
+        AllianceRewardPool pool = findRewardPoolForAlliance(alliance);
+        if (pool == null) {
+            Map<String, Object> noPool = new LinkedHashMap<>();
+            noPool.put("success", false);
+            noPool.put("noPendingReward", true);
+            noPool.put("message", "本盟暂无待分配奖励");
+            noPool.put("pool", null);
+            return noPool;
+        }
+        if (Boolean.TRUE.equals(pool.getDistributed())) {
+            Map<String, Object> already = new LinkedHashMap<>();
+            already.put("success", false);
+            already.put("noPendingReward", true);
+            already.put("message", "奖励已分配");
+            already.put("pool", pool);
+            return already;
+        }
         if (allocations == null || allocations.isEmpty()) throw new BusinessException("请先填写分配方案");
 
         Map<String, Integer> available = toItemCountMap(pool.getRewards());
         Map<String, String> nameToId = toItemNameToIdMap(pool.getRewards());
-        List<Alliance.AllianceMember> members = alliance.getMembers() != null ? alliance.getMembers() : Collections.emptyList();
+        List<Alliance.AllianceMember> members = normalizeMemberNames(alliance.getMembers());
         List<RewardDistribution> records = new ArrayList<>();
 
         for (Map<String, Object> row : allocations) {
@@ -251,6 +287,48 @@ public class AllianceWarService {
         result.put("success", true);
         result.put("distributedCount", records.size());
         result.put("pool", pool);
+        return result;
+    }
+
+    private AllianceRewardPool findRewardPoolForAlliance(Alliance alliance) {
+        if (alliance == null || todayWar == null || todayWar.getAllianceRewardPools() == null) return null;
+        AllianceRewardPool exact = todayWar.getAllianceRewardPools().stream()
+                .filter(p -> Objects.equals(p.getAllianceId(), alliance.getId()))
+                .findFirst().orElse(null);
+        if (exact != null) return exact;
+        // 兼容老数据或跨实例内存映射差异：回退按联盟名称匹配
+        return todayWar.getAllianceRewardPools().stream()
+                .filter(p -> Objects.equals(p.getAllianceName(), alliance.getName()))
+                .findFirst().orElse(null);
+    }
+
+    private List<Alliance.AllianceMember> normalizeMemberNames(List<Alliance.AllianceMember> members) {
+        if (members == null) return Collections.emptyList();
+        List<Alliance.AllianceMember> result = new ArrayList<>();
+        for (Alliance.AllianceMember m : members) {
+            if (m == null) continue;
+            String userId = m.getUserId();
+            String name = m.getName();
+            if ((name == null || name.trim().isEmpty()) && userId != null && !userId.startsWith("NPC_")) {
+                try {
+                    name = playerNameResolver.resolve(userId);
+                } catch (Exception ignore) {
+                    name = userId;
+                }
+            }
+            if (name == null || name.trim().isEmpty()) name = userId;
+            result.add(Alliance.AllianceMember.builder()
+                    .userId(userId)
+                    .name(name)
+                    .role(m.getRole())
+                    .level(m.getLevel())
+                    .contribution(m.getContribution())
+                    .warScore(m.getWarScore())
+                    .lastWarScore(m.getLastWarScore())
+                    .lastLoginTime(m.getLastLoginTime())
+                    .joinTime(m.getJoinTime())
+                    .build());
+        }
         return result;
     }
     
