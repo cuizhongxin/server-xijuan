@@ -92,6 +92,30 @@ public class AllianceWarService {
             todayWar.setAllianceRewardPools(new ArrayList<>());
         }
     }
+
+    private String normalizeBaseUserId(String userId) {
+        if (userId == null) return "";
+        int idx = userId.lastIndexOf('_');
+        if (idx > 0 && idx < userId.length() - 1) {
+            String suffix = userId.substring(idx + 1);
+            boolean allDigit = true;
+            for (int i = 0; i < suffix.length(); i++) {
+                if (!Character.isDigit(suffix.charAt(i))) {
+                    allDigit = false;
+                    break;
+                }
+            }
+            if (allDigit) {
+                return userId.substring(0, idx);
+            }
+        }
+        return userId;
+    }
+
+    private boolean sameUserId(String a, String b) {
+        if (Objects.equals(a, b)) return true;
+        return Objects.equals(normalizeBaseUserId(a), normalizeBaseUserId(b));
+    }
     
     /**
      * 获取今日盟战信息
@@ -141,7 +165,7 @@ public class AllianceWarService {
         AllianceRewardPool pool = todayWar.getAllianceRewardPools().stream()
                 .filter(p -> Objects.equals(p.getAllianceId(), alliance.getId()))
                 .findFirst().orElse(null);
-        boolean isLeader = Objects.equals(alliance.getLeaderId(), odUserId);
+        boolean isLeader = sameUserId(alliance.getLeaderId(), odUserId);
         result.put("allianceId", alliance.getId());
         result.put("allianceName", alliance.getName());
         result.put("isLeader", isLeader);
@@ -154,7 +178,7 @@ public class AllianceWarService {
         ensureRewardPools();
         Alliance alliance = allianceService.getUserAlliance(leaderUserId);
         if (alliance == null) throw new BusinessException("请先加入联盟");
-        if (!Objects.equals(alliance.getLeaderId(), leaderUserId)) {
+        if (!sameUserId(alliance.getLeaderId(), leaderUserId)) {
             throw new BusinessException("只有盟主可以分配联盟奖励");
         }
         AllianceRewardPool pool = todayWar.getAllianceRewardPools().stream()
@@ -166,14 +190,16 @@ public class AllianceWarService {
 
         Map<String, Integer> available = toItemCountMap(pool.getRewards());
         Map<String, String> nameToId = toItemNameToIdMap(pool.getRewards());
-        Set<String> memberIds = alliance.getMembers().stream()
-                .map(Alliance.AllianceMember::getUserId)
-                .collect(Collectors.toSet());
+        List<Alliance.AllianceMember> members = alliance.getMembers() != null ? alliance.getMembers() : Collections.emptyList();
         List<RewardDistribution> records = new ArrayList<>();
 
         for (Map<String, Object> row : allocations) {
             String userId = row.get("userId") != null ? String.valueOf(row.get("userId")) : null;
-            if (userId == null || !memberIds.contains(userId)) {
+            Alliance.AllianceMember targetMember = members.stream()
+                    .filter(m -> sameUserId(m.getUserId(), userId))
+                    .findFirst()
+                    .orElse(null);
+            if (userId == null || targetMember == null) {
                 throw new BusinessException("分配对象必须是本盟成员");
             }
             @SuppressWarnings("unchecked")
@@ -193,12 +219,9 @@ public class AllianceWarService {
                 userAtts.addAll(buildRewardAttachments(itemName, itemId, count));
             }
             if (!userAtts.isEmpty()) {
-                String userName = alliance.getMembers().stream()
-                        .filter(m -> Objects.equals(m.getUserId(), userId))
-                        .map(Alliance.AllianceMember::getName)
-                        .findFirst().orElse(userId);
+                String userName = targetMember.getName() != null ? targetMember.getName() : userId;
                 records.add(RewardDistribution.builder()
-                        .userId(userId)
+                        .userId(targetMember.getUserId())
                         .userName(userName)
                         .rewards(userAtts)
                         .allocateTime(System.currentTimeMillis())

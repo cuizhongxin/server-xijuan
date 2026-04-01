@@ -13,8 +13,9 @@ public interface CornucopiaMapper {
     Map<String, Object> findActivePeriod(@Param("serverId") int serverId);
     Map<String, Object> findPeriodById(@Param("id") long id);
     Map<String, Object> findLastDrawnPeriod(@Param("serverId") int serverId);
-    void insertPeriod(@Param("periodNum") int periodNum, @Param("drawTime") String drawTime,
-                      @Param("carryover") long carryover, @Param("serverId") int serverId);
+    int insertPeriod(@Param("periodNum") int periodNum, @Param("drawTime") String drawTime,
+                     @Param("carryover") long carryover, @Param("serverId") int serverId);
+    Integer findMaxPeriodNum();
     void addToPool(@Param("id") long id, @Param("amount") long amount);
     void finishDraw(@Param("id") long id, @Param("grandNumber") String grandNumber, @Param("firstNumber") String firstNumber,
                     @Param("grandWinnerId") String grandWinnerId, @Param("firstWinnerId") String firstWinnerId,

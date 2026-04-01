@@ -3,6 +3,7 @@ package com.tencent.wxcloudrun.service.cornucopia;
 import com.tencent.wxcloudrun.dao.CornucopiaMapper;
 import com.tencent.wxcloudrun.exception.BusinessException;
 import com.tencent.wxcloudrun.service.UserResourceService;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -261,13 +262,29 @@ public class CornucopiaService {
 
     private void createNextPeriod(long carryover, int serverId) {
         LocalDateTime next = nextDrawTime();
-        Map<String, Object> last = mapper.findLastDrawnPeriod(serverId);
-        int nextNum = 1;
-        if (last != null && last.get("periodNum") != null) {
-            nextNum = ((Number) last.get("periodNum")).intValue() + 1;
+        String drawTime = next.format(DT_FMT);
+
+        // Multi-node safe creation: global period_num may be unique, and scheduled jobs can race.
+        Integer maxNum = mapper.findMaxPeriodNum();
+        int baseNum = (maxNum != null ? maxNum : 0) + 1;
+        for (int i = 0; i < 8; i++) {
+            int tryNum = baseNum + i;
+            try {
+                int rows = mapper.insertPeriod(tryNum, drawTime, carryover, serverId);
+                if (rows > 0) {
+                    logger.info("创建聚宝盆第{}期(s{}), 开奖时间: {}, 结转: {}", tryNum, serverId, next, carryover);
+                    return;
+                }
+            } catch (DataIntegrityViolationException e) {
+                logger.warn("创建聚宝盆期数冲突，重试 periodNum={} serverId={}", tryNum, serverId);
+                Map<String, Object> active = mapper.findActivePeriod(serverId);
+                if (active != null && drawTime.equals(String.valueOf(active.get("drawTime")).substring(0, Math.min(19, String.valueOf(active.get("drawTime")).length())))) {
+                    logger.info("聚宝盆下一期已由其他实例创建 periodNum={} serverId={}", active.get("periodNum"), serverId);
+                    return;
+                }
+            }
         }
-        mapper.insertPeriod(nextNum, next.format(DT_FMT), carryover, serverId);
-        logger.info("创建聚宝盆第{}期(s{}), 开奖时间: {}, 结转: {}", nextNum, serverId, next, carryover);
+        throw new BusinessException(500, "创建聚宝盆下一期失败，请稍后重试");
     }
 
     private LocalDateTime nextDrawTime() {

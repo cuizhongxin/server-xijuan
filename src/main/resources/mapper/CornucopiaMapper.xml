@@ -42,6 +42,10 @@
         VALUES (#{periodNum}, #{drawTime}, #{carryover}, #{carryover}, 0, #{serverId})
     </insert>
 
+    <select id="findMaxPeriodNum" resultType="java.lang.Integer">
+        SELECT MAX(period_num) FROM cornucopia_period
+    </select>
+
     <update id="addToPool">
         UPDATE cornucopia_period SET prize_pool = prize_pool + #{amount} WHERE id = #{id}
     </update>

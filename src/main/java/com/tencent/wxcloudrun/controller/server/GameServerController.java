@@ -364,12 +364,12 @@ public class GameServerController {
                     Map<String, Object> goldAtt = new LinkedHashMap<>();
                     goldAtt.put("itemType", "boundGold");
                     goldAtt.put("itemName", "绑金");
-                    goldAtt.put("count", 3000);
+                    goldAtt.put("count", 1500);
                     atts.add(goldAtt);
                     Map<String, Object> vipAtt = new LinkedHashMap<>();
                     vipAtt.put("itemType", "vipPoints");
                     vipAtt.put("itemName", "VIP点数");
-                    vipAtt.put("count", 300);
+                    vipAtt.put("count", 150);
                     atts.add(vipAtt);
                     mailService.sendSystemMail(gameUserId, "每日俸禄",
                             "主公辛苦了！这是你今日的俸禄：3000绑金、300VIP点数。\n请及时领取！",
