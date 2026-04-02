@@ -73,6 +73,17 @@
             auto_approve = #{autoApprove}, min_level = #{minLevel}, update_time = #{updateTime}
     </insert>
 
+    <insert id="upsertAllianceWithoutFaction">
+        INSERT INTO alliance (id, name, leader_id, leader_name, level, notice,
+            max_members, auto_approve, min_level, server_id, create_time, update_time)
+        VALUES (#{id}, #{name}, #{leaderId}, #{leaderName}, #{level}, #{notice},
+            #{maxMembers}, #{autoApprove}, #{minLevel}, #{serverId}, #{createTime}, #{updateTime})
+        ON DUPLICATE KEY UPDATE
+            name = #{name}, leader_id = #{leaderId}, leader_name = #{leaderName},
+            level = #{level}, notice = #{notice}, max_members = #{maxMembers},
+            auto_approve = #{autoApprove}, min_level = #{minLevel}, update_time = #{updateTime}
+    </insert>
+
     <delete id="deleteById">
         DELETE FROM alliance WHERE id = #{id}
     </delete>

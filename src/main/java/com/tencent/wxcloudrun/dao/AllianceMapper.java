@@ -16,6 +16,8 @@ public interface AllianceMapper {
     List<Alliance> findByServerId(@Param("serverId") int serverId);
     
     void upsertAlliance(Alliance alliance);
+
+    void upsertAllianceWithoutFaction(Alliance alliance);
     
     void deleteById(@Param("id") String id);
     

@@ -28,7 +28,22 @@ public class AllianceService {
     }
     
     private void saveAlliance(Alliance alliance) {
-        allianceMapper.upsertAlliance(alliance);
+        if (!allianceFactionColumnAvailable) {
+            allianceMapper.upsertAllianceWithoutFaction(alliance);
+            return;
+        }
+        try {
+            allianceMapper.upsertAlliance(alliance);
+        } catch (Exception e) {
+            String msg = String.valueOf(e.getMessage());
+            if (msg.contains("Unknown column 'faction'") || msg.contains("unknown column 'faction'")) {
+                allianceFactionColumnAvailable = false;
+                log.warn("alliance 表缺少 faction 列，已自动降级为不写入 faction");
+                allianceMapper.upsertAllianceWithoutFaction(alliance);
+                return;
+            }
+            throw e;
+        }
     }
     
     private List<Alliance> loadAllAlliances() {
@@ -53,6 +68,7 @@ public class AllianceService {
 
     private static final int IMPEACH_OFFLINE_DAYS = 3;
     private volatile boolean warScoreColumnAvailable = true;
+    private volatile boolean allianceFactionColumnAvailable = true;
     private static final int IMPEACH_MIN_WAR_SCORE = 100;
 
     public Alliance createAlliance(String userId, String playerName, String allianceName,
