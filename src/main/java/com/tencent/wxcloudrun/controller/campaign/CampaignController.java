@@ -171,7 +171,7 @@ public class CampaignController {
         try {
             String odUserId = getUserId(request);
             String campaignId = (String) body.get("campaignId");
-            Integer targetStage = body.get("targetStage") != null ? ((Number) body.get("targetStage")).intValue() : 7;
+            Integer targetStage = body.get("targetStage") != null ? ((Number) body.get("targetStage")).intValue() : Integer.MAX_VALUE;
             CampaignProgress.SweepResult sweepResult = campaignService.sweep(odUserId, campaignId, targetStage);
             return ApiResponse.success(sweepResult);
         } catch (Exception e) {

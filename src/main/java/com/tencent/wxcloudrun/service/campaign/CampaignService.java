@@ -1419,93 +1419,162 @@ public class CampaignService {
         }
         
         CampaignProgress progress = campaignRepository.findByUserIdAndCampaignId(odUserId, campaignId);
-        if (progress == null || !progress.getFullCleared()) {
-            throw new BusinessException("需要先通关战役才能扫荡");
+        if (progress == null || !"IN_PROGRESS".equals(progress.getStatus())) {
+            throw new BusinessException("请先发动战役后再扫荡");
         }
-        
+        int stageCount = campaign.getStages() != null ? campaign.getStages().size() : 0;
+        if (stageCount <= 0) {
+            throw new BusinessException("战役关卡配置异常");
+        }
+
+        int startStage = progress.getCurrentStage() != null ? progress.getCurrentStage() : 1;
+        if (startStage < 1) startStage = 1;
+        if (startStage > stageCount) {
+            throw new BusinessException("当前关卡异常，无法扫荡");
+        }
+
+        int finalTargetStage = Math.max(startStage, Math.min(targetStage, stageCount));
+        if (targetStage <= 0 || targetStage == Integer.MAX_VALUE) {
+            finalTargetStage = stageCount;
+        }
+
         UserResource resource = userResourceService.getUserResource(odUserId);
-        
-        // 检查虎符
         int tigerTally = resource.getTigerTally() != null ? resource.getTigerTally() : 0;
-        if (tigerTally <= 0) {
+        if (tigerTally < 1) {
             throw new BusinessException("虎符不足");
         }
-        
-        // 检查今日次数
-        String today = new SimpleDateFormat("yyyyMMdd").format(new Date());
-        if (!today.equals(progress.getTodayDate())) {
-            progress.setTodayChallengeCount(0);
-            progress.setTodayDate(today);
-        }
-        if (progress.getTodayChallengeCount() >= campaign.getDailyLimit()) {
-            throw new BusinessException("今日挑战次数已用完");
-        }
-        
-        // 限制扫荡关数
-        int maxStage = Math.min(targetStage, campaign.getStages().size());
-        
-        // 执行扫荡
-        Random random = new Random();
+        resource.setTigerTally(tigerTally - 1);
+        userResourceService.saveUserResource(resource);
+
         long totalExp = 0;
         long totalSilver = 0;
         List<CampaignProgress.DropItem> allDrops = new ArrayList<>();
-        int tigerTallyUsed = 0;
+        List<CampaignProgress.SweepRoundDetail> roundDetails = new ArrayList<>();
+        List<CampaignProgress.SweepStageDetail> stageDetails = new ArrayList<>();
+        long autoReplenishSilverCost = 0L;
+        int autoReplenishTimes = 0;
         int stagesSwept = 0;
-        
-        for (int i = 1; i <= maxStage && tigerTally > tigerTallyUsed; i++) {
-            Campaign.Stage stage = campaign.getStages().get(i - 1);
-            
-            // 消耗虎符
-            tigerTallyUsed++;
-            stagesSwept++;
-            
-            // 累计奖励
-            totalExp += stage.getExpReward();
-            totalSilver += stage.getSilverReward();
-            
-            // 处理掉落
-            List<CampaignProgress.DropItem> drops = processDrops(stage.getDrops(), random);
+        int endStage = startStage - 1;
+        String stopReason = "TARGET_REACHED";
+
+        while (true) {
+            CampaignProgress latest = campaignRepository.findByUserIdAndCampaignId(odUserId, campaignId);
+            if (latest == null || !"IN_PROGRESS".equals(latest.getStatus())) {
+                stopReason = "CAMPAIGN_STOPPED";
+                break;
+            }
+            int currentStage = latest.getCurrentStage() != null ? latest.getCurrentStage() : 1;
+            if (currentStage > finalTargetStage) {
+                stopReason = "TARGET_REACHED";
+                break;
+            }
+
+            // 扫荡中自动补兵（与手动补兵同价）
+            Integer curTroops = latest.getCurrentTroops();
+            Integer maxTroops = latest.getMaxTroops();
+            if (curTroops != null && maxTroops != null && curTroops > 0 && curTroops < maxTroops) {
+                int troopsNeeded = maxTroops - curTroops;
+                long silverCost = (troopsNeeded / 100 + 1) * 10L;
+                UserResource latestResource = userResourceService.getUserResource(odUserId);
+                long silver = latestResource.getSilver() != null ? latestResource.getSilver() : 0L;
+                if (silver >= silverCost) {
+                    latestResource.setSilver(silver - silverCost);
+                    userResourceService.saveUserResource(latestResource);
+                    latest.setCurrentTroops(maxTroops);
+                    campaignRepository.save(latest);
+                    autoReplenishSilverCost += silverCost;
+                    autoReplenishTimes++;
+                }
+            }
+
+            CampaignProgress.BattleResult battleResult = attack(odUserId, campaignId);
+            int stageNum = battleResult.getStageNum() != null ? battleResult.getStageNum() : currentStage;
+            endStage = stageNum;
+            long stageExp = battleResult.getExpGained() != null ? battleResult.getExpGained() : 0L;
+            long stageSilver = battleResult.getSilverGained() != null ? battleResult.getSilverGained() : 0L;
+            List<CampaignProgress.DropItem> drops = battleResult.getDrops() != null
+                    ? battleResult.getDrops() : new ArrayList<>();
+
+            totalExp += stageExp;
+            totalSilver += stageSilver;
             allDrops.addAll(drops);
-        }
-        
-        // 扣除虎符
-        resource.setTigerTally(tigerTally - tigerTallyUsed);
-        resource.setSilver(resource.getSilver() + totalSilver);
-        userResourceService.saveUserResource(resource);
-        
-        // 阵型内所有武将获得经验
-        try {
-            List<String> fmGeneralIds = formationService.getFormationGeneralIds(odUserId);
-            for (String gid : fmGeneralIds) {
-                if (gid != null) generalService.addGeneralExp(gid, totalExp);
+            stagesSwept++;
+
+            String stageName = "第" + stageNum + "关";
+            if (stageNum >= 1 && stageNum <= stageCount) {
+                Campaign.Stage stageCfg = campaign.getStages().get(stageNum - 1);
+                if (stageCfg != null && stageCfg.getName() != null) {
+                    stageName = stageCfg.getName();
+                }
             }
-        } catch (Exception e) {
-            log.warn("扫荡: 阵型武将加经验异常, 降级为主将加经验", e);
-            General general = generalService.getGeneralById(progress.getGeneralId());
-            if (general != null) generalService.addGeneralExp(general.getId(), totalExp);
+            stageDetails.add(CampaignProgress.SweepStageDetail.builder()
+                    .stageNum(stageNum)
+                    .stageName(stageName)
+                    .expGained(stageExp)
+                    .silverGained(stageSilver)
+                    .drops(drops)
+                    .build());
+
+            if (!Boolean.TRUE.equals(battleResult.getVictory())) {
+                stopReason = "FAILED";
+                break;
+            }
+            if (Boolean.TRUE.equals(battleResult.getIsLastStage())) {
+                stopReason = "COMPLETED";
+                break;
+            }
         }
 
-        // 主公获得经验
-        levelService.addExp(odUserId, totalExp, "战役扫荡");
+        roundDetails.add(CampaignProgress.SweepRoundDetail.builder()
+                .round(1)
+                .roundExp(totalExp)
+                .roundSilver(totalSilver)
+                .stages(stageDetails)
+                .build());
 
-        // 处理装备掉落
+        Map<String, CampaignProgress.DropItem> mergedDropMap = new LinkedHashMap<>();
         for (CampaignProgress.DropItem drop : allDrops) {
-            if ("EQUIP_PRE".equals(drop.getType())) {
-                createEquipmentFromDrop(odUserId, drop);
+            if (drop == null) continue;
+            String key = (drop.getType() == null ? "" : drop.getType()) + "#"
+                    + (drop.getItemId() == null ? "" : drop.getItemId()) + "#"
+                    + (drop.getItemName() == null ? "" : drop.getItemName());
+            CampaignProgress.DropItem old = mergedDropMap.get(key);
+            if (old == null) {
+                mergedDropMap.put(key, CampaignProgress.DropItem.builder()
+                        .type(drop.getType())
+                        .itemId(drop.getItemId())
+                        .itemName(drop.getItemName())
+                        .icon(drop.getIcon())
+                        .quality(drop.getQuality())
+                        .count(drop.getCount() == null ? 0 : drop.getCount())
+                        .build());
+            } else {
+                old.setCount((old.getCount() == null ? 0 : old.getCount())
+                        + (drop.getCount() == null ? 0 : drop.getCount()));
             }
         }
-        
-        // 更新进度
-        progress.setTodayChallengeCount(progress.getTodayChallengeCount() + 1);
-        campaignRepository.save(progress);
-        
+
+        CampaignProgress latestProgress = campaignRepository.findByUserIdAndCampaignId(odUserId, campaignId);
+        int usedToday = latestProgress != null && latestProgress.getTodayChallengeCount() != null
+                ? latestProgress.getTodayChallengeCount() : 0;
+        int remainingChallenges = Math.max(0, campaign.getDailyLimit() - usedToday);
+
         return CampaignProgress.SweepResult.builder()
+                .rounds(1)
+                .startStage(startStage)
+                .targetStage(finalTargetStage)
+                .endStage(endStage)
                 .stagesSwept(stagesSwept)
                 .totalExp(totalExp)
                 .totalSilver(totalSilver)
-                .items(allDrops)
-                .tigerTallyUsed(tigerTallyUsed)
-                .stoppedByFailure(false)
+                .items(new ArrayList<>(mergedDropMap.values()))
+                .tigerTallyUsed(1)
+                .remainingChallenges(remainingChallenges)
+                .autoReplenishTimes(autoReplenishTimes)
+                .autoReplenishSilverCost(autoReplenishSilverCost)
+                .stopReason(stopReason)
+                .roundDetails(roundDetails)
+                .stoppedByFailure("FAILED".equals(stopReason))
                 .build();
     }
     

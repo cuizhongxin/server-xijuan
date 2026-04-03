@@ -119,6 +119,26 @@ public class CampaignProgress {
     @AllArgsConstructor
     public static class SweepResult {
         /**
+         * 扫荡轮数（每轮=完整通关一次）
+         */
+        private Integer rounds;
+
+        /**
+         * 扫荡起始关卡
+         */
+        private Integer startStage;
+
+        /**
+         * 扫荡目标关卡
+         */
+        private Integer targetStage;
+
+        /**
+         * 扫荡停止时所在关卡
+         */
+        private Integer endStage;
+
+        /**
          * 扫荡的关卡数
          */
         private Integer stagesSwept;
@@ -137,17 +157,65 @@ public class CampaignProgress {
          * 获得的物品列表
          */
         private List<DropItem> items;
-        
+
         /**
-         * 消耗的虎符数量
+         * 消耗的虎符数量（每轮1个）
          */
         private Integer tigerTallyUsed;
+        
+        /**
+         * 扫荡后今日剩余挑战次数
+         */
+        private Integer remainingChallenges;
+
+        /**
+         * 自动补兵次数
+         */
+        private Integer autoReplenishTimes;
+
+        /**
+         * 自动补兵消耗白银
+         */
+        private Long autoReplenishSilverCost;
+
+        /**
+         * 停止原因：TARGET_REACHED / FAILED / COMPLETED / CAMPAIGN_STOPPED
+         */
+        private String stopReason;
+
+        /**
+         * 按轮/按关的扫荡明细
+         */
+        private List<SweepRoundDetail> roundDetails;
         
         /**
          * 是否因失败而停止
          */
         @Builder.Default
         private Boolean stoppedByFailure = false;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class SweepRoundDetail {
+        private Integer round;
+        private Long roundExp;
+        private Long roundSilver;
+        private List<SweepStageDetail> stages;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class SweepStageDetail {
+        private Integer stageNum;
+        private String stageName;
+        private Long expGained;
+        private Long silverGained;
+        private List<DropItem> drops;
     }
     
     /**
