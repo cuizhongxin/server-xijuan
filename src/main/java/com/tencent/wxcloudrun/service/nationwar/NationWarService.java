@@ -12,6 +12,7 @@ import com.tencent.wxcloudrun.model.General;
 import com.tencent.wxcloudrun.model.UserResource;
 import com.tencent.wxcloudrun.service.chat.ChatService;
 import com.tencent.wxcloudrun.service.UserResourceService;
+import com.tencent.wxcloudrun.service.PlayerNameResolver;
 import com.tencent.wxcloudrun.service.SuitConfigService;
 import com.tencent.wxcloudrun.service.alliance.AllianceService;
 import com.tencent.wxcloudrun.service.battle.BattleCalculator;
@@ -42,6 +43,7 @@ public class NationWarService {
     @Autowired private SuitConfigService suitConfigService;
     @Autowired @Lazy private com.tencent.wxcloudrun.service.general.GeneralService generalService;
     @Autowired @Lazy private ChatService chatService;
+    @Autowired private PlayerNameResolver playerNameResolver;
     @Autowired private UserTacticsMapper userTacticsMapper;
     @Autowired private TacticsConfig tacticsConfig;
     @Autowired private RewardIssueLogMapper rewardIssueLogMapper;
@@ -1135,7 +1137,9 @@ public class NationWarService {
                 boolean isMe = odUserId.equals(f.getAttackerId()) || odUserId.equals(f.getDefenderId());
                 if (!isMe) continue;
                 boolean win = odUserId.equals(f.getWinnerId());
-                String opponentName = odUserId.equals(f.getAttackerId()) ? f.getDefenderName() : f.getAttackerName();
+                String opponentName = odUserId.equals(f.getAttackerId())
+                        ? resolveDisplayName(f.getDefenderId(), f.getDefenderName())
+                        : resolveDisplayName(f.getAttackerId(), f.getAttackerName());
                 Map<String, Object> r = new LinkedHashMap<>();
                 r.put("roundNumber", last.getRoundNumber());
                 r.put("cityId", battle.getCityId());
@@ -1143,7 +1147,7 @@ public class NationWarService {
                 r.put("type", "FIGHT");
                 r.put("result", win ? "WIN" : "LOSE");
                 r.put("opponentName", opponentName);
-                r.put("winnerName", f.getWinnerName());
+                r.put("winnerName", resolveDisplayName(f.getWinnerId(), f.getWinnerName()));
                 r.put("meritGained", f.getMeritGained() != null ? f.getMeritGained() : 0);
                 r.put("scoreGained", f.getScoreGained() != null ? f.getScoreGained() : 0);
                 r.put("hasReplay", f.getBattleReportJson() != null && !f.getBattleReportJson().isEmpty());
@@ -1180,6 +1184,17 @@ public class NationWarService {
         int next = won ? (killStreakMap.getOrDefault(uid, 0) + 1) : 0;
         killStreakMap.put(uid, next);
         return next;
+    }
+
+    private String resolveDisplayName(String userId, String fallback) {
+        if (userId == null || userId.isEmpty() || userId.startsWith("NPC_")) {
+            return fallback;
+        }
+        try {
+            String name = playerNameResolver.resolve(userId);
+            if (name != null && !name.isEmpty() && !"君主".equals(name)) return name;
+        } catch (Exception ignore) { }
+        return fallback;
     }
 
     private void publishKillStreak(String cityId, PlayerWarState winner, int streak) {

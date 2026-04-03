@@ -17,6 +17,7 @@ import com.tencent.wxcloudrun.service.level.LevelService;
 import com.tencent.wxcloudrun.service.battle.BattleCalculator;
 import com.tencent.wxcloudrun.service.battle.BattleService;
 import com.tencent.wxcloudrun.service.nationwar.NationWarService;
+import com.tencent.wxcloudrun.service.PlayerNameResolver;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -55,6 +56,7 @@ public class HeroRankService {
     private final TacticsConfig tacticsConfig;
     private final NationWarService nationWarService;
     private final RewardIssueLogMapper rewardIssueLogMapper;
+    private final PlayerNameResolver playerNameResolver;
 
     @org.springframework.beans.factory.annotation.Autowired @org.springframework.context.annotation.Lazy
     private com.tencent.wxcloudrun.service.dailytask.DailyTaskService dailyTaskService;
@@ -160,6 +162,9 @@ public class HeroRankService {
         resetIfNewDay(userId);
 
         Map<String, Object> me = heroRankMapper.findByUserId(userId);
+        if (me != null) {
+            me.put("userName", resolveDisplayName(str(me, "userId"), str(me, "userName")));
+        }
         int myRanking = getInt(me, "ranking");
         int total = heroRankMapper.countByServerId(serverId);
 
@@ -169,6 +174,11 @@ public class HeroRankService {
         } else {
             int minRank = Math.max(1, (int)(myRanking * 0.8));
             list = heroRankMapper.findRandomInRange(serverId, minRank, myRanking, userId, DISPLAY_COUNT);
+        }
+        if (list != null) {
+            for (Map<String, Object> row : list) {
+                row.put("userName", resolveDisplayName(str(row, "userId"), str(row, "userName")));
+            }
         }
 
         long lastTime = getLong(me, "lastChallengeTime");
@@ -197,6 +207,8 @@ public class HeroRankService {
         Map<String, Object> me = heroRankMapper.findByUserId(userId);
         Map<String, Object> target = heroRankMapper.findByUserId(targetId);
         if (target == null) throw new RuntimeException("对手不存在");
+        String meName = resolveDisplayName(userId, str(me, "userName"));
+        String targetName = resolveDisplayName(targetId, str(target, "userName"));
 
         int todayChallenge = getInt(me, "todayChallenge");
         int todayPurchased = getInt(me, "todayPurchased");
@@ -248,7 +260,7 @@ public class HeroRankService {
             long currentFame = getLong(me, "fame") + fameGain;
             String newPeerage = calcPeerage(currentFame, getInt(me, "level"));
 
-            heroRankMapper.upsert(userId, str(me, "userName"), getInt(me, "level"),
+            heroRankMapper.upsert(userId, meName, getInt(me, "level"),
                 getInt(me, "power"), currentFame, newPeerage, myNewRank, str(me, "nation"),
                 todayChallenge + 1, todayWins, todayPurchased,
                 str(me, "lastResetDate"), now,
@@ -256,7 +268,7 @@ public class HeroRankService {
                 getLong(me, "pendingExp"), getInt(me, "rewardClaimed"),
                 str(me, "settleDate"), now, extractServerId(userId));
         } else {
-            heroRankMapper.upsert(userId, str(me, "userName"), getInt(me, "level"),
+            heroRankMapper.upsert(userId, meName, getInt(me, "level"),
                 getInt(me, "power"), getLong(me, "fame"), str(me, "rankName"), myRank, str(me, "nation"),
                 todayChallenge + 1, getInt(me, "todayWins"), todayPurchased,
                 str(me, "lastResetDate"), now,
@@ -273,8 +285,8 @@ public class HeroRankService {
             log.warn("序列化战报失败: {}", e.getMessage());
         }
         heroRankMapper.insertBattle(
-            userId, str(me, "userName"), getInt(me, "level"),
-            targetId, str(target, "userName"), getInt(target, "level"),
+            userId, meName, getInt(me, "level"),
+            targetId, targetName, getInt(target, "level"),
             victory, fameGain,
             myRank, myNewRank, targetRank, targetNewRank,
             reportJson, now, today);
@@ -289,7 +301,7 @@ public class HeroRankService {
         result.put("myNewRank", myNewRank);
         result.put("targetOldRank", targetRank);
         result.put("targetNewRank", targetNewRank);
-        result.put("targetName", str(target, "userName"));
+        result.put("targetName", targetName);
         result.put("todayChallenge", todayChallenge + 1);
         result.put("maxDaily", maxDaily + todayPurchased);
         result.put("cdRemainMs", CHALLENGE_CD_MS);
@@ -307,6 +319,7 @@ public class HeroRankService {
     public Map<String, Object> speedUp(String userId) {
         Map<String, Object> me = heroRankMapper.findByUserId(userId);
         if (me == null) throw new RuntimeException("未加入英雄榜");
+        String meName = resolveDisplayName(userId, str(me, "userName"));
 
         long lastTime = getLong(me, "lastChallengeTime");
         long remain = CHALLENGE_CD_MS - (System.currentTimeMillis() - lastTime);
@@ -319,7 +332,7 @@ public class HeroRankService {
         res.setGold(gold - SPEED_UP_GOLD);
         userResourceService.saveUserResource(res);
 
-        heroRankMapper.upsert(userId, str(me, "userName"), getInt(me, "level"),
+        heroRankMapper.upsert(userId, meName, getInt(me, "level"),
             getInt(me, "power"), getLong(me, "fame"), str(me, "rankName"),
             getInt(me, "ranking"), str(me, "nation"),
             getInt(me, "todayChallenge"), getInt(me, "todayWins"),
@@ -341,6 +354,7 @@ public class HeroRankService {
         Map<String, Object> me = heroRankMapper.findByUserId(userId);
         if (me == null) throw new RuntimeException("未加入英雄榜");
         if (getInt(me, "rewardClaimed") == 1) throw new RuntimeException("奖励已领取");
+        String meName = resolveDisplayName(userId, str(me, "userName"));
 
         long fame = getLong(me, "pendingFame");
         long silver = getLong(me, "pendingSilver");
@@ -353,7 +367,7 @@ public class HeroRankService {
         long newFame = getLong(me, "fame") + fame;
         String newPeerage = calcPeerage(newFame, getInt(me, "level"));
 
-        heroRankMapper.upsert(userId, str(me, "userName"), getInt(me, "level"),
+        heroRankMapper.upsert(userId, meName, getInt(me, "level"),
             getInt(me, "power"), newFame, newPeerage, getInt(me, "ranking"), str(me, "nation"),
             getInt(me, "todayChallenge"), getInt(me, "todayWins"),
             getInt(me, "todayPurchased"), str(me, "lastResetDate"),
@@ -373,7 +387,14 @@ public class HeroRankService {
     // ==================== 战报 ====================
 
     public List<Map<String, Object>> getRecords(String userId) {
-        return heroRankMapper.findBattlesByUser(userId, 30);
+        List<Map<String, Object>> records = heroRankMapper.findBattlesByUser(userId, 30);
+        if (records != null) {
+            for (Map<String, Object> r : records) {
+                r.put("attackerName", resolveDisplayName(str(r, "attackerId"), str(r, "attackerName")));
+                r.put("defenderName", resolveDisplayName(str(r, "defenderId"), str(r, "defenderName")));
+            }
+        }
+        return records;
     }
 
     @SuppressWarnings("unchecked")
@@ -430,6 +451,7 @@ public class HeroRankService {
 
         Map<String, Object> me = heroRankMapper.findByUserId(userId);
         if (me == null) return;
+        String meName = resolveDisplayName(userId, str(me, "userName"));
 
         int totalPower = 0;
         try {
@@ -453,7 +475,7 @@ public class HeroRankService {
             totalPower = getInt(me, "level") * 500;
         }
 
-        heroRankMapper.upsert(userId, str(me, "userName"), getInt(me, "level"),
+        heroRankMapper.upsert(userId, meName, getInt(me, "level"),
             totalPower, getLong(me, "fame"), str(me, "rankName"), getInt(me, "ranking"), str(me, "nation"),
             getInt(me, "todayChallenge"), getInt(me, "todayWins"),
             getInt(me, "todayPurchased"), str(me, "lastResetDate"),
@@ -484,18 +506,18 @@ public class HeroRankService {
     }
 
     private String getPlayerName(String userId) {
-        try {
-            List<Map<String, Object>> servers = gameServerMapper.findPlayerServers(userId);
-            if (servers != null && !servers.isEmpty()) {
-                Object lordName = servers.get(0).get("lordName");
-                if (lordName != null && !lordName.toString().isEmpty()) {
-                    return lordName.toString();
-                }
-            }
-        } catch (Exception e) {
-            log.warn("获取玩家名称失败: {}", e.getMessage());
+        return resolveDisplayName(userId, "君主");
+    }
+
+    private String resolveDisplayName(String userId, String fallback) {
+        if (userId == null || userId.isEmpty() || userId.startsWith("npc_hero_")) {
+            return (fallback == null || fallback.isEmpty()) ? "君主" : fallback;
         }
-        return "君主";
+        try {
+            String resolved = playerNameResolver.resolve(userId);
+            if (resolved != null && !resolved.isEmpty() && !"君主".equals(resolved)) return resolved;
+        } catch (Exception ignore) { }
+        return (fallback == null || fallback.isEmpty()) ? "君主" : fallback;
     }
 
     private String getPlayerNation(String userId) {
@@ -511,11 +533,12 @@ public class HeroRankService {
     private void resetIfNewDay(String userId) {
         Map<String, Object> me = heroRankMapper.findByUserId(userId);
         if (me == null) return;
+        String meName = resolveDisplayName(userId, str(me, "userName"));
         String today = new SimpleDateFormat("yyyyMMdd").format(new Date());
         String lastDate = str(me, "lastResetDate");
         if (today.equals(lastDate)) return;
 
-        heroRankMapper.upsert(userId, str(me, "userName"), getInt(me, "level"),
+        heroRankMapper.upsert(userId, meName, getInt(me, "level"),
             getInt(me, "power"), getLong(me, "fame"), str(me, "rankName"),
             getInt(me, "ranking"), str(me, "nation"),
             0, 0, 0, today, 0,

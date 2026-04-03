@@ -157,22 +157,23 @@ public class AllianceWarService {
         refreshTodayWarFromDb();
         Map<String, Object> result = new HashMap<>();
         ensureRewardPools();
+        List<WarParticipant> participants = normalizeParticipants(todayWar.getParticipants());
         
         result.put("war", todayWar);
         result.put("status", todayWar.getStatus().name());
         result.put("currentRound", todayWar.getCurrentRound());
-        result.put("participantCount", todayWar.getParticipants().size());
-        result.put("participants", todayWar.getParticipants());
+        result.put("participantCount", participants.size());
+        result.put("participants", participants);
         result.put("roundDurationMinutes", todayWar.getRoundDurationMinutes());
         result.put("nextRoundTime", todayWar.getNextRoundTime());
         result.put("allianceRewardPools", todayWar.getAllianceRewardPools());
         
-        boolean registered = todayWar.getParticipants().stream()
+        boolean registered = participants.stream()
                 .anyMatch(p -> p.getOdUserId().equals(odUserId));
         result.put("registered", registered);
         
         if (registered) {
-            WarParticipant participant = todayWar.getParticipants().stream()
+            WarParticipant participant = participants.stream()
                     .filter(p -> p.getOdUserId().equals(odUserId))
                     .findFirst()
                     .orElse(null);
@@ -1078,6 +1079,7 @@ public class AllianceWarService {
                 .sorted((a, b) -> Long.compare(
                         b.getEndTime() != null ? b.getEndTime() : 0L,
                         a.getEndTime() != null ? a.getEndTime() : 0L))
+                .peek(this::normalizeBattleNames)
                 .collect(Collectors.toList());
     }
     
@@ -1086,11 +1088,34 @@ public class AllianceWarService {
                 .sorted((a, b) -> Long.compare(
                         b.getEndTime() != null ? b.getEndTime() : 0L,
                         a.getEndTime() != null ? a.getEndTime() : 0L))
+                .peek(this::normalizeBattleNames)
                 .collect(Collectors.toList());
     }
     
     public List<WarParticipant> getParticipants() {
-        return todayWar.getParticipants();
+        return normalizeParticipants(todayWar.getParticipants());
+    }
+
+    private List<WarParticipant> normalizeParticipants(List<WarParticipant> participants) {
+        if (participants == null) return Collections.emptyList();
+        List<WarParticipant> result = new ArrayList<>();
+        for (WarParticipant p : participants) {
+            if (p == null) continue;
+            String userId = p.getOdUserId();
+            if (userId != null && !userId.startsWith("NPC_")) {
+                p.setPlayerName(playerNameResolver.resolve(userId));
+            }
+            result.add(p);
+        }
+        return result;
+    }
+
+    private void normalizeBattleNames(WarBattle battle) {
+        if (battle == null) return;
+        String p1 = battle.getPlayer1Id();
+        String p2 = battle.getPlayer2Id();
+        if (p1 != null && !p1.startsWith("NPC_")) battle.setPlayer1Name(playerNameResolver.resolve(p1));
+        if (p2 != null && !p2.startsWith("NPC_")) battle.setPlayer2Name(playerNameResolver.resolve(p2));
     }
     
     public void resetWar() {

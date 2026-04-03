@@ -6,6 +6,7 @@ import com.tencent.wxcloudrun.model.Alliance;
 import com.tencent.wxcloudrun.model.Alliance.AllianceApplication;
 import com.tencent.wxcloudrun.model.Alliance.AllianceMember;
 import com.tencent.wxcloudrun.model.Alliance.Role;
+import com.tencent.wxcloudrun.service.PlayerNameResolver;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -22,6 +23,8 @@ public class AllianceService {
     
     @Autowired
     private AllianceMapper allianceMapper;
+    @Autowired
+    private PlayerNameResolver playerNameResolver;
     
     private Alliance loadAlliance(String allianceId) {
         return allianceMapper.findById(allianceId);
@@ -102,19 +105,23 @@ public class AllianceService {
                 .sorted((a, b) -> Integer.compare(
                     b.getMembers() != null ? b.getMembers().size() : 0,
                     a.getMembers() != null ? a.getMembers().size() : 0))
+                .peek(this::normalizeAllianceNames)
                 .collect(Collectors.toList());
     }
     
     public Alliance getAllianceDetail(String allianceId) {
         Alliance alliance = loadAlliance(allianceId);
         if (alliance == null) { throw new BusinessException("联盟不存在"); }
+        normalizeAllianceNames(alliance);
         return alliance;
     }
     
     public Alliance getUserAlliance(String userId) {
         String allianceId = allianceMapper.findAllianceIdByUserId(userId);
         if (allianceId == null) { return null; }
-        return loadAlliance(allianceId);
+        Alliance alliance = loadAlliance(allianceId);
+        normalizeAllianceNames(alliance);
+        return alliance;
     }
     
     public void applyToJoin(String userId, String playerName, String allianceId,
@@ -164,7 +171,7 @@ public class AllianceService {
                 throw new BusinessException("该玩家已加入其他联盟");
             }
             AllianceMember newMember = AllianceMember.builder()
-                    .userId(application.getUserId()).name(application.getUserName()).role(Role.MEMBER)
+                    .userId(application.getUserId()).name(resolveDisplayName(application.getUserId(), application.getUserName())).role(Role.MEMBER)
                     .level(application.getUserLevel()).contribution(0L)
                     .joinTime(System.currentTimeMillis()).build();
             allianceMapper.insertMember(allianceId, newMember);
@@ -228,7 +235,7 @@ public class AllianceService {
             else if (m.getUserId().equals(newLeaderId)) { m.setRole(Role.LEADER); allianceMapper.insertMember(allianceId, m); }
         }
         alliance.setLeaderId(newLeaderId);
-        alliance.setLeaderName(newLeader.getName());
+        alliance.setLeaderName(resolveDisplayName(newLeaderId, newLeader.getName()));
         alliance.setUpdateTime(System.currentTimeMillis());
         saveAlliance(alliance);
         log.info("联盟 {} 盟主从 {} 转让给 {}", alliance.getName(), currentLeaderId, newLeaderId);
@@ -278,6 +285,7 @@ public class AllianceService {
     public List<AllianceApplication> getApplicationList(String leaderId, String allianceId) {
         Alliance alliance = loadAlliance(allianceId);
         if (alliance == null) { throw new BusinessException("联盟不存在"); }
+        normalizeAllianceNames(alliance);
         AllianceMember operator = alliance.getMembers().stream()
                 .filter(m -> m.getUserId().equals(leaderId)).findFirst().orElse(null);
         if (operator == null || (!Role.LEADER.equals(operator.getRole()) && !Role.OFFICER.equals(operator.getRole()))) {
@@ -332,10 +340,38 @@ public class AllianceService {
             else if (m.getUserId().equals(userId)) { m.setRole(Role.LEADER); allianceMapper.insertMember(allianceId, m); }
         }
         alliance.setLeaderId(userId);
-        alliance.setLeaderName(impeacher.getName());
+        alliance.setLeaderName(resolveDisplayName(userId, impeacher.getName()));
         alliance.setUpdateTime(System.currentTimeMillis());
         saveAlliance(alliance);
         log.info("联盟 {} 盟主被弹劾，{} -> {}", alliance.getName(), oldLeaderId, userId);
+    }
+
+    private void normalizeAllianceNames(Alliance alliance) {
+        if (alliance == null) return;
+        alliance.setLeaderName(resolveDisplayName(alliance.getLeaderId(), alliance.getLeaderName()));
+        if (alliance.getMembers() != null) {
+            for (AllianceMember m : alliance.getMembers()) {
+                if (m == null) continue;
+                m.setName(resolveDisplayName(m.getUserId(), m.getName()));
+            }
+        }
+        if (alliance.getApplications() != null) {
+            for (AllianceApplication a : alliance.getApplications()) {
+                if (a == null) continue;
+                a.setUserName(resolveDisplayName(a.getUserId(), a.getUserName()));
+            }
+        }
+    }
+
+    private String resolveDisplayName(String userId, String fallback) {
+        if (userId == null || userId.isEmpty() || userId.startsWith("NPC_")) {
+            return fallback == null ? "" : fallback;
+        }
+        try {
+            String name = playerNameResolver.resolve(userId);
+            if (name != null && !name.isEmpty() && !"君主".equals(name)) return name;
+        } catch (Exception ignore) { }
+        return fallback == null ? "" : fallback;
     }
 
     public void updateMemberLogin(String userId) {

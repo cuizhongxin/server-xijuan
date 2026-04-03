@@ -351,7 +351,7 @@ public class PlunderService {
         long now = System.currentTimeMillis();
         plunderRecordMapper.insert(
                 userId,
-                "我",
+                playerNameResolver.resolve(userId),
                 myLevel,
                 targetId,
                 targetName,
@@ -443,6 +443,14 @@ public class PlunderService {
             item.put("victory", victoryObj != null && (
                     Boolean.TRUE.equals(victoryObj) || "1".equals(String.valueOf(victoryObj))
                     || "true".equalsIgnoreCase(String.valueOf(victoryObj))));
+            String attackerId = String.valueOf(item.get("attackerId"));
+            String defenderId = String.valueOf(item.get("defenderId"));
+            if (attackerId != null && !attackerId.startsWith("npc_")) {
+                item.put("attackerName", playerNameResolver.resolve(attackerId));
+            }
+            if (defenderId != null && !defenderId.startsWith("npc_")) {
+                item.put("defenderName", playerNameResolver.resolve(defenderId));
+            }
             formatted.add(item);
         }
         result.put("records", formatted);

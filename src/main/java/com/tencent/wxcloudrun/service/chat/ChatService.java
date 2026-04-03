@@ -2,6 +2,7 @@ package com.tencent.wxcloudrun.service.chat;
 
 import com.tencent.wxcloudrun.dao.ChatMapper;
 import com.tencent.wxcloudrun.exception.BusinessException;
+import com.tencent.wxcloudrun.service.PlayerNameResolver;
 import com.tencent.wxcloudrun.service.alliance.AllianceService;
 import com.tencent.wxcloudrun.service.nationwar.NationWarService;
 import org.slf4j.Logger;
@@ -22,6 +23,7 @@ public class ChatService {
     private final Map<String, Long> lastSendTime = new HashMap<>();
 
     @Autowired private ChatMapper chatMapper;
+    @Autowired private PlayerNameResolver playerNameResolver;
     @Autowired @Lazy private NationWarService nationWarService;
     @Autowired @Lazy private AllianceService allianceService;
 
@@ -109,6 +111,7 @@ public class ChatService {
                 msgs = chatMapper.findRecent(channel, serverId, limit);
                 break;
         }
+        normalizeSenderNames(msgs);
         Collections.reverse(msgs);
         return msgs;
     }
@@ -120,16 +123,26 @@ public class ChatService {
         switch (channel) {
             case "nation": {
                 String nationId = getPlayerNation(userId);
-                return chatMapper.pollByNation(serverId, nationId, sinceTime, 50);
+                List<Map<String, Object>> result = chatMapper.pollByNation(serverId, nationId, sinceTime, 50);
+                normalizeSenderNames(result);
+                return result;
             }
             case "alliance": {
                 String allianceId = getPlayerAlliance(userId);
-                return chatMapper.pollByAlliance(serverId, allianceId, sinceTime, 50);
+                List<Map<String, Object>> result = chatMapper.pollByAlliance(serverId, allianceId, sinceTime, 50);
+                normalizeSenderNames(result);
+                return result;
             }
-            case "private":
-                return chatMapper.pollPrivate(serverId, userId, sinceTime, 50);
-            default:
-                return chatMapper.findSince(channel, serverId, sinceTime, 50);
+            case "private": {
+                List<Map<String, Object>> result = chatMapper.pollPrivate(serverId, userId, sinceTime, 50);
+                normalizeSenderNames(result);
+                return result;
+            }
+            default: {
+                List<Map<String, Object>> result = chatMapper.findSince(channel, serverId, sinceTime, 50);
+                normalizeSenderNames(result);
+                return result;
+            }
         }
     }
 
@@ -139,6 +152,7 @@ public class ChatService {
     public List<Map<String, Object>> getPrivateChat(String userId, String targetId, int limit) {
         int serverId = extractServerId(userId);
         List<Map<String, Object>> msgs = chatMapper.findPrivateConversation(serverId, userId, targetId, limit);
+        normalizeSenderNames(msgs);
         Collections.reverse(msgs);
         return msgs;
     }
@@ -148,7 +162,14 @@ public class ChatService {
      */
     public List<Map<String, Object>> getPrivateContacts(String userId) {
         int serverId = extractServerId(userId);
-        return chatMapper.findPrivateContacts(serverId, userId, 20);
+        List<Map<String, Object>> contacts = chatMapper.findPrivateContacts(serverId, userId, 20);
+        if (contacts != null) {
+            for (Map<String, Object> c : contacts) {
+                String contactId = String.valueOf(c.get("contactId"));
+                c.put("contactName", resolveDisplayName(contactId, String.valueOf(c.get("contactName"))));
+            }
+        }
+        return contacts;
     }
 
     public void sendSystemMessage(String channel, String content) {
@@ -185,5 +206,26 @@ public class ChatService {
             }
         } catch (Exception e) { }
         return null;
+    }
+
+    private void normalizeSenderNames(List<Map<String, Object>> msgs) {
+        if (msgs == null) return;
+        for (Map<String, Object> msg : msgs) {
+            if (msg == null) continue;
+            String senderId = String.valueOf(msg.get("senderId"));
+            String senderName = String.valueOf(msg.get("senderName"));
+            msg.put("senderName", resolveDisplayName(senderId, senderName));
+        }
+    }
+
+    private String resolveDisplayName(String userId, String fallback) {
+        if (userId == null || userId.isEmpty() || "SYSTEM".equals(userId) || userId.startsWith("NPC_")) {
+            return fallback;
+        }
+        try {
+            String name = playerNameResolver.resolve(userId);
+            if (name != null && !name.isEmpty() && !"君主".equals(name)) return name;
+        } catch (Exception ignore) { }
+        return fallback;
     }
 }

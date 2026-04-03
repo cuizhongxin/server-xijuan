@@ -424,7 +424,7 @@ public class SupplyService {
                 todayStr(), System.currentTimeMillis());
 
         String defName = playerNameResolver.resolve(defenderId);
-        robberyMapper.insert(userId, "我", defenderId, defName,
+        robberyMapper.insert(userId, playerNameResolver.resolve(userId), defenderId, defName,
                 transportId, String.valueOf(transport.get("gradeName")),
                 victory, silverStolen, paperStolen, foodStolen, metalStolen,
                 System.currentTimeMillis(), todayStr());
@@ -484,6 +484,14 @@ public class SupplyService {
             Object v = r.get("victory");
             r.put("victory", v != null && ("1".equals(String.valueOf(v))
                     || Boolean.TRUE.equals(v) || "true".equalsIgnoreCase(String.valueOf(v))));
+            String attackerId = String.valueOf(r.get("attackerId"));
+            String defenderId = String.valueOf(r.get("defenderId"));
+            if (attackerId != null && !attackerId.startsWith("NPC_")) {
+                r.put("attackerName", playerNameResolver.resolve(attackerId));
+            }
+            if (defenderId != null && !defenderId.startsWith("NPC_")) {
+                r.put("defenderName", playerNameResolver.resolve(defenderId));
+            }
         }
 
         Map<String, Object> result = new HashMap<>();
