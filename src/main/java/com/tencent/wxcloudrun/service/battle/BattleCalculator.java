@@ -249,7 +249,12 @@ public class BattleCalculator {
     // ==================== 核心伤害计算 ====================
 
     public static DamageResult calcDamage(BattleUnit attacker, BattleUnit target) {
-        if (isDodge(attacker.hit, target.dodge)) {
+        int targetDodge = target.dodge;
+        // 长蛇阵：提升闪避
+        if ("t_infantry_2".equals(target.tacticsId)) {
+            targetDodge += (int) target.tacticsEffectValue;
+        }
+        if (isDodge(attacker.hit, targetDodge)) {
             DamageResult dodge = new DamageResult(0, false, true, 0);
             dodge.targetUnit = target;
             return dodge;
@@ -271,6 +276,12 @@ public class BattleCalculator {
                 * (1.0 - commandReduction)
                 * randomFactor;
 
+        // 雁行阵：增强对弓兵伤害
+        if ("t_infantry_3".equals(attacker.tacticsId) && attacker.tacticsLevel > 0 && target.troopType == 3) {
+            double archerBonus = 1.0 + calcYanhangArcherBonus(attacker.tacticsLevel) / 100.0;
+            finalDamage *= archerBonus;
+        }
+
         // 名将特性：攻击方士兵伤害直加（不经攻防公式）
         finalDamage += attacker.traitDmgBonus;
 
@@ -290,15 +301,13 @@ public class BattleCalculator {
                 case "t_infantry_1": // 方圆阵 - 全减伤
                     finalDamage *= Math.max(0.3, 1.0 - target.tacticsEffectValue / 100.0);
                     break;
-                case "t_infantry_2": // 偃月阵 - 减骑兵伤害
+                case "t_infantry_3": // 雁行阵 - 减骑兵伤害
                     if (attacker.troopType == 2) {
                         finalDamage *= Math.max(0.2, 1.0 - target.tacticsEffectValue / 100.0);
                     }
                     break;
-                case "t_infantry_3": // 长蛇阵 - 减弓兵伤害
-                    if (attacker.troopType == 3) {
-                        finalDamage *= Math.max(0.2, 1.0 - target.tacticsEffectValue / 100.0);
-                    }
+                case "t_infantry_4": // 偃月阵 - 提防并进一步减伤
+                    finalDamage *= Math.max(0.2, 1.0 - target.tacticsEffectValue / 100.0);
                     break;
             }
         }
@@ -317,6 +326,19 @@ public class BattleCalculator {
 
         DamageResult dr = new DamageResult(soldierLoss, false, false, soldierLoss);
         dr.targetUnit = target;
+        // 却月阵/雁行阵：受击反伤
+        if (soldierLoss > 0 && attacker.soldierCount > 0) {
+            double reflectRate = 0;
+            if ("t_infantry_5".equals(target.tacticsId)) {
+                reflectRate = target.tacticsEffectValue / 100.0;
+            } else if ("t_infantry_3".equals(target.tacticsId) && target.tacticsLevel > 0) {
+                reflectRate = calcYanhangReflect(target.tacticsLevel) / 100.0;
+            }
+            if (reflectRate > 0) {
+                dr.reflectLoss = Math.max(1, (int) Math.round(soldierLoss * reflectRate));
+                dr.reflectLoss = Math.min(dr.reflectLoss, Math.max(0, attacker.soldierCount));
+            }
+        }
         return dr;
     }
 
@@ -330,6 +352,16 @@ public class BattleCalculator {
             case "弓": case "弓兵": return 3;
             default: return 1;
         }
+    }
+
+    private static double calcYanhangReflect(int level) {
+        int lv = Math.max(1, Math.min(10, level));
+        return 3.0 + (30.0 - 3.0) * (lv - 1) / 9.0;
+    }
+
+    private static double calcYanhangArcherBonus(int level) {
+        int lv = Math.max(1, Math.min(10, level));
+        return 5.0 + (50.0 - 5.0) * (lv - 1) / 9.0;
     }
 
     // ==================== 组装军队总属性 ====================
@@ -421,7 +453,8 @@ public class BattleCalculator {
         String tid = attacker.tacticsId;
 
         // ===== 步兵被动兵法（纯受击减伤，攻击时无主动效果） =====
-        if ("t_infantry_1".equals(tid) || "t_infantry_2".equals(tid) || "t_infantry_3".equals(tid)) {
+        if ("t_infantry_1".equals(tid) || "t_infantry_2".equals(tid) || "t_infantry_3".equals(tid)
+                || "t_infantry_4".equals(tid) || "t_infantry_5".equals(tid)) {
             result.damages.add(calcDamage(attacker, target));
             return result;
         }
@@ -512,9 +545,9 @@ public class BattleCalculator {
                 double pierceRatio = attacker.tacticsEffectValue / 100.0;
                 result.effectDesc = "战神突击！贯穿攻击";
                 if (allEnemies != null) {
-                    int atkRow = attacker.position % 2;
+                    int atkRow = target.position / 2;
                     for (BattleUnit e : allEnemies) {
-                        if (e.soldierCount > 0 && e.position % 2 == atkRow) {
+                        if (e.soldierCount > 0 && e.position / 2 == atkRow) {
                             DamageResult dr = calcDamage(attacker, e);
                             dr.soldierLoss = Math.max(1, (int)(dr.soldierLoss * pierceRatio));
                             dr.soldierLoss = Math.max(1, Math.min(dr.soldierLoss, e.soldierCount));
@@ -538,9 +571,9 @@ public class BattleCalculator {
                 double aoeRatio = attacker.tacticsEffectValue / 100.0;
                 result.effectDesc = "t_special_lvbu".equals(tid) ? "战神突击！" : "长虹贯日！";
                 if (allEnemies != null) {
-                    int atkRow = attacker.position % 2;
+                    int atkRow = target.position / 2;
                     for (BattleUnit e : allEnemies) {
-                        if (e.soldierCount > 0 && e.position % 2 == atkRow) {
+                        if (e.soldierCount > 0 && e.position / 2 == atkRow) {
                             DamageResult dr = calcDamage(attacker, e);
                             dr.soldierLoss = Math.max(1, (int)(dr.soldierLoss * aoeRatio));
                             dr.soldierLoss = Math.max(1, Math.min(dr.soldierLoss, e.soldierCount));
@@ -634,12 +667,14 @@ public class BattleCalculator {
         public int soldierLoss;     // 士兵损失数（核心指标）
         public boolean isCounter;
         public BattleUnit targetUnit; // 实际受伤目标（兵法可能改变攻击目标，如声东击西）
+        public int reflectLoss;       // 反伤给攻击方的兵损
 
         public DamageResult(int damage, boolean isCrit, boolean isDodge, int soldierLoss) {
             this.damage = damage;
             this.isCrit = isCrit;
             this.isDodge = isDodge;
             this.soldierLoss = soldierLoss;
+            this.reflectLoss = 0;
         }
     }
 

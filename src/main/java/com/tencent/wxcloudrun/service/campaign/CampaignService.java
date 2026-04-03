@@ -708,7 +708,8 @@ public class CampaignService {
                         String iName = ITEM_NAME_MAP.getOrDefault(itemId, "道具");
                         drops.add(Campaign.StageDrop.builder()
                                 .type("ITEM").itemId(String.valueOf(itemId)).itemName(iName)
-                                .dropRate(isBoss ? 25 : 10)
+                                // 道具掉率调整：普通关5%，BOSS关10%
+                                .dropRate(isBoss ? 10 : 5)
                                 .minCount(1).maxCount(isBoss ? 3 : 2).build());
                     }
                 }

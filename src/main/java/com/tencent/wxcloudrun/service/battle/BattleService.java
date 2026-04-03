@@ -87,6 +87,7 @@ public class BattleService {
                     action.tacticsName = tr.tacticsName;
                     action.effectDesc = tr.effectDesc;
                     action.specialTarget = tr.specialTarget;
+                    List<ActionLog> reflectActions = new ArrayList<>();
                     for (BattleCalculator.DamageResult dr : tr.damages) {
                         BattleCalculator.BattleUnit actualTarget = dr.targetUnit != null ? dr.targetUnit : target;
                         HitDetail hit = new HitDetail();
@@ -100,6 +101,32 @@ public class BattleService {
                         hit.targetIdx = attackerIsA ? sideB.indexOf(actualTarget) : sideA.indexOf(actualTarget);
                         hit.targetName = actualTarget.name;
                         action.hits.add(hit);
+
+                        // 防守方反伤（却月阵/雁行阵）
+                        if (dr.reflectLoss > 0 && attacker.soldierCount > 0) {
+                            int reflectLoss = Math.min(dr.reflectLoss, attacker.soldierCount);
+                            attacker.soldierCount = Math.max(0, attacker.soldierCount - reflectLoss);
+                            ActionLog reflectAction = new ActionLog();
+                            reflectAction.attackerName = actualTarget.name;
+                            reflectAction.targetName = attacker.name;
+                            reflectAction.attackerIsA = !attackerIsA;
+                            reflectAction.attackerIdx = attackerIsA ? sideB.indexOf(actualTarget) : sideA.indexOf(actualTarget);
+                            reflectAction.targetIdx = attackerIsA ? sideA.indexOf(attacker) : sideB.indexOf(attacker);
+                            reflectAction.isCounter = true;
+                            reflectAction.effectDesc = "反伤";
+                            reflectAction.hits = new ArrayList<>();
+                            HitDetail reflectHit = new HitDetail();
+                            reflectHit.soldierLoss = reflectLoss;
+                            reflectHit.targetRemaining = attacker.soldierCount;
+                            reflectHit.targetIdx = reflectAction.targetIdx;
+                            reflectHit.targetName = attacker.name;
+                            reflectHit.isCounter = true;
+                            reflectAction.hits.add(reflectHit);
+                            reflectActions.add(reflectAction);
+                        }
+                    }
+                    if (!reflectActions.isEmpty()) {
+                        roundLog.actions.addAll(reflectActions);
                     }
                 }
 
@@ -165,9 +192,9 @@ public class BattleService {
 
     private BattleCalculator.BattleUnit pickTarget(BattleCalculator.BattleUnit attacker,
                                                     List<BattleCalculator.BattleUnit> aliveEnemies) {
-        int atkRow = attacker.position % 2;
+        int atkRow = attacker.position / 2;
         List<BattleCalculator.BattleUnit> sameRow = aliveEnemies.stream()
-                .filter(e -> e.position % 2 == atkRow).collect(Collectors.toList());
+                .filter(e -> e.position / 2 == atkRow).collect(Collectors.toList());
         List<BattleCalculator.BattleUnit> pool = sameRow.isEmpty() ? aliveEnemies : sameRow;
         return pool.stream().min(Comparator.comparingInt(e -> e.position)).orElse(aliveEnemies.get(0));
     }
@@ -199,12 +226,13 @@ public class BattleService {
                     }
                     String actionPrefix = a.isCounter ? "以逸待劳！反击" : "攻击";
                     for (HitDetail h : a.hits) {
+                        String hitTarget = (h.targetName != null && !h.targetName.isEmpty()) ? h.targetName : a.targetName;
                         if (h.isDodge) {
                             log.add(String.format("第%d回合: %s%s，%s闪避！",
-                                    r.roundNum, atkLabel, actionPrefix, a.targetName));
+                                    r.roundNum, atkLabel, actionPrefix, hitTarget));
                         } else {
                             log.add(String.format("第%d回合: %s%s%s，减员%d，剩余兵力%d",
-                                    r.roundNum, atkLabel, actionPrefix, a.targetName, h.soldierLoss, h.targetRemaining));
+                                    r.roundNum, atkLabel, actionPrefix, hitTarget, h.soldierLoss, h.targetRemaining));
                         }
                     }
                 }
