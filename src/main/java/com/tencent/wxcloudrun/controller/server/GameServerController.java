@@ -11,6 +11,7 @@ import com.tencent.wxcloudrun.service.alliance.AllianceBossService;
 import com.tencent.wxcloudrun.service.herorank.HeroRankService;
 import com.tencent.wxcloudrun.service.server.ServerMergeService;
 import com.tencent.wxcloudrun.service.mail.MailService;
+import com.tencent.wxcloudrun.service.simulation.PlayerSimulationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,6 +53,9 @@ public class GameServerController {
 
     @Autowired
     private MailService mailService;
+
+    @Autowired
+    private PlayerSimulationService playerSimulationService;
 
     /**
      * 获取区服列表 + 公告 + 玩家已有角色信息
@@ -338,8 +342,60 @@ public class GameServerController {
         return ApiResponse.success(serverMapper.findAllServers());
     }
 
+    /**
+     * 手动触发玩家行为模拟（仅管理员 userId=1）
+     */
+    @PostMapping("/admin/simulate-players")
+    public ApiResponse<Map<String, Object>> adminSimulatePlayers(HttpServletRequest request,
+                                                                 @RequestBody(required = false) Map<String, Object> body) {
+        String rawUserId = getUserId(request);
+        if (!"1".equals(rawUserId)) {
+            return ApiResponse.error(403, "无权操作");
+        }
+
+        int maxPlayers = 30;
+        boolean includeWarModules = true;
+        String activityProfile = "medium";
+        Map<Integer, Double> serverWeights = Collections.emptyMap();
+        if (body != null) {
+            if (body.get("maxPlayers") instanceof Number) {
+                maxPlayers = ((Number) body.get("maxPlayers")).intValue();
+            }
+            if (body.get("includeWarModules") instanceof Boolean) {
+                includeWarModules = (Boolean) body.get("includeWarModules");
+            }
+            if (body.get("activityProfile") != null) {
+                activityProfile = String.valueOf(body.get("activityProfile"));
+            }
+            if (body.get("serverWeights") instanceof Map) {
+                serverWeights = parseServerWeights((Map<?, ?>) body.get("serverWeights"));
+            }
+        }
+
+        Map<String, Object> result = playerSimulationService.runSimulationOnce(
+                maxPlayers, includeWarModules, activityProfile, serverWeights
+        );
+        return ApiResponse.success(result);
+    }
+
     private String getUserId(HttpServletRequest request) {
         return String.valueOf(request.getAttribute("rawUserId"));
+    }
+
+    private Map<Integer, Double> parseServerWeights(Map<?, ?> rawMap) {
+        if (rawMap == null || rawMap.isEmpty()) return Collections.emptyMap();
+        Map<Integer, Double> result = new LinkedHashMap<>();
+        for (Map.Entry<?, ?> entry : rawMap.entrySet()) {
+            if (entry.getKey() == null || entry.getValue() == null) continue;
+            try {
+                int serverId = Integer.parseInt(String.valueOf(entry.getKey()));
+                double weight = Double.parseDouble(String.valueOf(entry.getValue()));
+                if (weight > 0) result.put(serverId, weight);
+            } catch (Exception ignore) {
+                // ignore malformed values
+            }
+        }
+        return result;
     }
 
     /**

@@ -44,4 +44,15 @@ logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
 
+# 玩家行为模拟（默认关闭，避免影响线上）
+simulation:
+  players:
+    enabled: false
+    cron: "0 */10 * * * ?"
+    max-players-per-tick: 30
+    include-war-modules: true
+    activity-profile: medium
+    # 区服权重格式: "1:1.5,2:0.8,3:2.0"
+    server-weights: ""
+
 
