@@ -11,10 +11,12 @@ import com.tencent.wxcloudrun.service.alliance.AllianceBossService;
 import com.tencent.wxcloudrun.service.herorank.HeroRankService;
 import com.tencent.wxcloudrun.service.server.ServerMergeService;
 import com.tencent.wxcloudrun.service.mail.MailService;
+import com.tencent.wxcloudrun.service.simulation.SimulationConfigService;
 import com.tencent.wxcloudrun.service.simulation.PlayerSimulationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.bind.annotation.*;
 
@@ -56,6 +58,15 @@ public class GameServerController {
 
     @Autowired
     private PlayerSimulationService playerSimulationService;
+
+    @Autowired
+    private SimulationConfigService simulationConfigService;
+
+    @Value("${simulation.players.admin-key:}")
+    private String simulationAdminKey;
+
+    @Value("${admin.open-api-key:}")
+    private String openApiAdminKey;
 
     /**
      * 获取区服列表 + 公告 + 玩家已有角色信息
@@ -348,8 +359,7 @@ public class GameServerController {
     @PostMapping("/admin/simulate-players")
     public ApiResponse<Map<String, Object>> adminSimulatePlayers(HttpServletRequest request,
                                                                  @RequestBody(required = false) Map<String, Object> body) {
-        String rawUserId = getUserId(request);
-        if (!"1".equals(rawUserId)) {
+        if (!hasSimulationAdminAccess(request)) {
             return ApiResponse.error(403, "无权操作");
         }
 
@@ -378,6 +388,132 @@ public class GameServerController {
         return ApiResponse.success(result);
     }
 
+    /**
+     * 获取指定区服模拟配置（仅管理员 userId=1）
+     */
+    @GetMapping("/admin/simulation-config")
+    public ApiResponse<Map<String, Object>> adminGetSimulationConfig(HttpServletRequest request,
+                                                                     @RequestParam int serverId) {
+        if (!hasSimulationAdminAccess(request)) {
+            return ApiResponse.error(403, "无权操作");
+        }
+        return ApiResponse.success(simulationConfigService.getServerConfig(serverId));
+    }
+
+    /**
+     * 更新指定区服模拟配置（仅管理员 userId=1）
+     */
+    @PostMapping("/admin/simulation-config")
+    public ApiResponse<Map<String, Object>> adminUpsertSimulationConfig(HttpServletRequest request,
+                                                                        @RequestBody Map<String, Object> body) {
+        if (!hasSimulationAdminAccess(request)) {
+            return ApiResponse.error(403, "无权操作");
+        }
+        int serverId = body.get("serverId") instanceof Number ? ((Number) body.get("serverId")).intValue() : 0;
+        if (serverId <= 0) {
+            return ApiResponse.error(400, "serverId 非法");
+        }
+        Map<String, Object> profile = castMap(body.get("profile"));
+        if (profile == null) profile = Collections.emptyMap();
+        List<Map<String, Object>> chatTemplates = castMapList(body.get("chatTemplates"));
+        Map<String, Object> result = simulationConfigService.upsertServerConfig(serverId, profile, chatTemplates);
+        return ApiResponse.success(result);
+    }
+
+    /**
+     * 一键发放全服补偿邮件（免登录，需管理密钥）
+     * 请求头: X-Admin-Key 或 X-Sim-Key
+     */
+    @PostMapping("/admin/compensate-mail-all")
+    public ApiResponse<Map<String, Object>> adminCompensateMailAll(HttpServletRequest request,
+                                                                    @RequestBody(required = false) Map<String, Object> body) {
+        if (!hasSimulationAdminAccess(request)) {
+            return ApiResponse.error(403, "无权操作");
+        }
+
+        int boundGold = 3000;
+        String title = "异常补偿邮件";
+        String content = "尊敬的主公：\n因近期系统异常给您带来不便，我们深表歉意。\n现奉上补偿：绑金3000，请查收。感谢您的理解与支持！";
+        if (body != null) {
+            if (body.get("boundGold") instanceof Number) {
+                boundGold = ((Number) body.get("boundGold")).intValue();
+            }
+            if (body.get("title") != null && !String.valueOf(body.get("title")).trim().isEmpty()) {
+                title = String.valueOf(body.get("title")).trim();
+            }
+            if (body.get("content") != null && !String.valueOf(body.get("content")).trim().isEmpty()) {
+                content = String.valueOf(body.get("content")).trim();
+            }
+        }
+        if (boundGold <= 0) {
+            return ApiResponse.error(400, "boundGold 必须大于0");
+        }
+        if (boundGold > 100000000) {
+            return ApiResponse.error(400, "boundGold 超出安全上限");
+        }
+
+        List<Map<String, Object>> allPlayers = serverMapper.findAllPlayerServers();
+        if (allPlayers == null || allPlayers.isEmpty()) {
+            Map<String, Object> empty = new LinkedHashMap<>();
+            empty.put("totalPlayers", 0);
+            empty.put("sent", 0);
+            empty.put("failed", 0);
+            empty.put("boundGold", boundGold);
+            empty.put("title", title);
+            return ApiResponse.success(empty);
+        }
+
+        int sent = 0;
+        int failed = 0;
+        List<String> failSamples = new ArrayList<>();
+        for (Map<String, Object> ps : allPlayers) {
+            String rawUserId = String.valueOf(ps.get("userId"));
+            int serverId = ((Number) ps.get("serverId")).intValue();
+            String gameUserId = rawUserId + "_" + serverId;
+            try {
+                List<Map<String, Object>> atts = new ArrayList<>();
+                Map<String, Object> goldAtt = new LinkedHashMap<>();
+                goldAtt.put("itemType", "boundGold");
+                goldAtt.put("itemName", "绑金");
+                goldAtt.put("count", boundGold);
+                atts.add(goldAtt);
+                mailService.sendSystemMail(gameUserId, title, content, atts);
+                sent++;
+            } catch (Exception e) {
+                failed++;
+                if (failSamples.size() < 20) {
+                    failSamples.add(gameUserId + ":" + e.getMessage());
+                }
+                logger.warn("[补偿邮件] 发送失败 user={} err={}", gameUserId, e.getMessage());
+            }
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("totalPlayers", allPlayers.size());
+        result.put("sent", sent);
+        result.put("failed", failed);
+        result.put("boundGold", boundGold);
+        result.put("title", title);
+        result.put("failSamples", failSamples);
+        logger.info("[补偿邮件] 发放完成 total={} sent={} failed={} gold={}",
+                allPlayers.size(), sent, failed, boundGold);
+        return ApiResponse.success(result);
+    }
+
+    private boolean hasSimulationAdminAccess(HttpServletRequest request) {
+        String rawUserId = getUserId(request);
+        if ("1".equals(rawUserId)) return true;
+        String key = request.getHeader("X-Sim-Key");
+        if (key != null && !key.trim().isEmpty()) {
+            String configured = simulationAdminKey == null ? "" : simulationAdminKey.trim();
+            if (!configured.isEmpty() && configured.equals(key.trim())) return true;
+        }
+        String openKey = request.getHeader("X-Admin-Key");
+        if (openKey == null || openKey.trim().isEmpty()) return false;
+        String configuredOpenKey = openApiAdminKey == null ? "" : openApiAdminKey.trim();
+        return !configuredOpenKey.isEmpty() && configuredOpenKey.equals(openKey.trim());
+    }
+
     private String getUserId(HttpServletRequest request) {
         return String.valueOf(request.getAttribute("rawUserId"));
     }
@@ -396,6 +532,18 @@ public class GameServerController {
             }
         }
         return result;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> castMap(Object obj) {
+        if (obj instanceof Map) return (Map<String, Object>) obj;
+        return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> castMapList(Object obj) {
+        if (obj instanceof List) return (List<Map<String, Object>>) obj;
+        return null;
     }
 
     /**

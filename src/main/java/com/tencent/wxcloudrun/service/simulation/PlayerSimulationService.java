@@ -52,7 +52,12 @@ public class PlayerSimulationService {
             "有没有市场低价材料出手？",
             "国战今晚见，冲城！",
             "BOSS快开了，兄弟们集合！",
-            "刚掠夺了一波，收益不错。"
+            "刚掠夺了一波，收益不错。",
+            "缺金属的来掠夺区，今晚资源很多。",
+            "制造台开工了，谁有多余材料可以挂市场。",
+            "刚打完战役，掉了件紫装，运气不错。",
+            "联盟频道报坐标，准备一起压过去。",
+            "今天走发育流，先把生产和训练拉满。"
     };
 
     private final GameServerMapper gameServerMapper;
@@ -76,6 +81,7 @@ public class PlayerSimulationService {
     private final GeneralService generalService;
     private final WarehouseService warehouseService;
     private final PlayerNameResolver playerNameResolver;
+    private final SimulationConfigService simulationConfigService;
 
     private final Random random = new Random();
 
@@ -99,7 +105,8 @@ public class PlayerSimulationService {
                                    FormationService formationService,
                                    GeneralService generalService,
                                    WarehouseService warehouseService,
-                                   PlayerNameResolver playerNameResolver) {
+                                   PlayerNameResolver playerNameResolver,
+                                   SimulationConfigService simulationConfigService) {
         this.gameServerMapper = gameServerMapper;
         this.chatService = chatService;
         this.heroRankService = heroRankService;
@@ -121,6 +128,7 @@ public class PlayerSimulationService {
         this.generalService = generalService;
         this.warehouseService = warehouseService;
         this.playerNameResolver = playerNameResolver;
+        this.simulationConfigService = simulationConfigService;
     }
 
     public Map<String, Object> runSimulationOnce(int maxPlayers, boolean includeWarModules) {
@@ -145,6 +153,7 @@ public class PlayerSimulationService {
 
         String profile = normalizeProfile(activityProfile);
         List<Map<String, Object>> weighted = applyServerWeight(players, serverWeights);
+        Map<Integer, Map<String, Object>> serverProfileMap = simulationConfigService.loadProfileMap();
         int sampled = Math.min(Math.max(1, maxPlayers), weighted.size());
         LocalTime now = LocalTime.now();
         boolean isDaytime = now.getHour() >= 9 && now.getHour() < 18;
@@ -163,93 +172,94 @@ public class PlayerSimulationService {
             int level = intVal(p.get("roleLevel"), 30);
             long power = Math.max(8000L, level * 350L);
             String sid = String.valueOf(serverId);
+            Map<String, Object> serverProfile = serverProfileMap.get(serverId);
 
-            if (shouldDo(0.65, profile, isDaytime, isNightPvpTime, "social")) {
-                if (safeAction(actionStats, "chat", () -> doChat(userId, playerName))) successActions++;
+            if (shouldDo(0.65, profile, serverProfile, isDaytime, isNightPvpTime, "chat")) {
+                if (safeAction(actionStats, "chat", () -> doChat(userId, playerName, serverId))) successActions++;
                 else failedActions++;
             }
 
-            if (shouldDo(0.55, profile, isDaytime, isNightPvpTime, "pvp")) {
+            if (shouldDo(0.55, profile, serverProfile, isDaytime, isNightPvpTime, "pvp")) {
                 if (safeAction(actionStats, "heroRank", () -> doHeroRank(userId))) successActions++;
                 else failedActions++;
             }
 
-            if (shouldDo(0.55, profile, isDaytime, isNightPvpTime, "pve")) {
+            if (shouldDo(0.55, profile, serverProfile, isDaytime, isNightPvpTime, "pve")) {
                 if (safeAction(actionStats, "supply", () -> doSupply(userId))) successActions++;
                 else failedActions++;
             }
 
-            if (shouldDo(0.50, profile, isDaytime, isNightPvpTime, "pvp")) {
+            if (shouldDo(0.50, profile, serverProfile, isDaytime, isNightPvpTime, "pvp")) {
                 if (safeAction(actionStats, "plunder", () -> doPlunder(userId))) successActions++;
                 else failedActions++;
             }
 
-            if (shouldDo(0.40, profile, isDaytime, isNightPvpTime, "economy")) {
+            if (shouldDo(0.40, profile, serverProfile, isDaytime, isNightPvpTime, "economy")) {
                 if (safeAction(actionStats, "market", () -> doMarket(userId))) successActions++;
                 else failedActions++;
             }
 
-            if (shouldDo(0.35, profile, isDaytime, isNightPvpTime, "pve")) {
+            if (shouldDo(0.35, profile, serverProfile, isDaytime, isNightPvpTime, "pve")) {
                 if (safeAction(actionStats, "boss", () -> doBoss(userId))) successActions++;
                 else failedActions++;
             }
 
-            if (shouldDo(0.55, profile, isDaytime, isNightPvpTime, "pve")) {
+            if (shouldDo(0.55, profile, serverProfile, isDaytime, isNightPvpTime, "pve")) {
                 if (safeAction(actionStats, "campaign", () -> doCampaign(userId))) successActions++;
                 else failedActions++;
             }
 
-            if (shouldDo(0.50, profile, isDaytime, isNightPvpTime, "growth")) {
+            if (shouldDo(0.50, profile, serverProfile, isDaytime, isNightPvpTime, "growth")) {
                 if (safeAction(actionStats, "recruit", () -> doRecruit(userId, sid))) successActions++;
                 else failedActions++;
             }
 
-            if (shouldDo(0.45, profile, isDaytime, isNightPvpTime, "growth")) {
+            if (shouldDo(0.45, profile, serverProfile, isDaytime, isNightPvpTime, "growth")) {
                 if (safeAction(actionStats, "training", () -> doTraining(userId))) successActions++;
                 else failedActions++;
             }
 
-            if (shouldDo(0.45, profile, isDaytime, isNightPvpTime, "production")) {
+            if (shouldDo(0.45, profile, serverProfile, isDaytime, isNightPvpTime, "production")) {
                 if (safeAction(actionStats, "production", () -> doProduction(userId))) successActions++;
                 else failedActions++;
             }
 
-            if (shouldDo(0.28, profile, isDaytime, isNightPvpTime, "pve")) {
+            if (shouldDo(0.28, profile, serverProfile, isDaytime, isNightPvpTime, "pve")) {
                 if (safeAction(actionStats, "secretRealm", () -> doSecretRealm(userId, level))) successActions++;
                 else failedActions++;
             }
 
-            if (shouldDo(0.40, profile, isDaytime, isNightPvpTime, "social")) {
+            if (shouldDo(0.40, profile, serverProfile, isDaytime, isNightPvpTime, "social")) {
                 if (safeAction(actionStats, "mail", () -> doMail(userId))) successActions++;
                 else failedActions++;
             }
 
-            if (shouldDo(0.48, profile, isDaytime, isNightPvpTime, "economy")) {
+            if (shouldDo(0.48, profile, serverProfile, isDaytime, isNightPvpTime, "economy")) {
                 if (safeAction(actionStats, "shopAndUse", () -> doShopAndUse(userId))) successActions++;
                 else failedActions++;
             }
 
-            if (shouldDo(0.50, profile, isDaytime, isNightPvpTime, "growth")) {
+            if (shouldDo(0.50, profile, serverProfile, isDaytime, isNightPvpTime, "growth")) {
                 if (safeAction(actionStats, "equipmentAndFormation", () -> doEquipmentAndFormation(userId))) successActions++;
                 else failedActions++;
             }
 
-            if (shouldDo(0.42, profile, isDaytime, isNightPvpTime, "economy")) {
+            if (shouldDo(0.42, profile, serverProfile, isDaytime, isNightPvpTime, "economy")) {
                 if (safeAction(actionStats, "sellUnusedEquipment", () -> doSellUnusedEquipment(userId))) successActions++;
                 else failedActions++;
             }
 
-            if (shouldDo(0.45, profile, isDaytime, isNightPvpTime, "growth")) {
+            if (shouldDo(0.45, profile, serverProfile, isDaytime, isNightPvpTime, "growth")) {
                 if (safeAction(actionStats, "refine", () -> doRefine(userId))) successActions++;
                 else failedActions++;
             }
 
             if (includeWarModules) {
-                if (shouldDo(0.30, profile, isDaytime, isNightPvpTime, "pvp")) {
+                if (shouldDo(0.30, profile, serverProfile, isDaytime, isNightPvpTime, "pvp")) {
                     if (safeAction(actionStats, "nationWar", () -> doNationWar(userId, playerName, level, power))) successActions++;
                     else failedActions++;
                 }
-                if (shouldDo(0.25, profile, isDaytime, isNightPvpTime, "pvp")) {
+                if (shouldDo(0.25, profile, serverProfile, isDaytime, isNightPvpTime, "pvp")) {
                     if (safeAction(actionStats, "allianceWar", () -> doAllianceWar(userId, playerName, level, power))) successActions++;
                     else failedActions++;
                 }
@@ -269,8 +279,13 @@ public class PlayerSimulationService {
         return result;
     }
 
-    private void doChat(String userId, String playerName) {
-        String msg = WORLD_CHAT_TEMPLATES[random.nextInt(WORLD_CHAT_TEMPLATES.length)];
+    private void doChat(String userId, String playerName, int serverId) {
+        simulationConfigService.seedDefaultChatTemplatesIfMissing(serverId, WORLD_CHAT_TEMPLATES);
+        List<String> templates = simulationConfigService.loadEnabledWorldTemplates(serverId);
+        if (templates == null || templates.isEmpty()) {
+            templates = Collections.singletonList(WORLD_CHAT_TEMPLATES[random.nextInt(WORLD_CHAT_TEMPLATES.length)]);
+        }
+        String msg = templates.get(random.nextInt(templates.size()));
         chatService.sendMessage(userId, playerName, "world", msg);
     }
 
@@ -641,12 +656,16 @@ public class PlayerSimulationService {
 
     private boolean shouldDo(double baseChance,
                              String profile,
+                             Map<String, Object> serverProfile,
                              boolean isDaytime,
                              boolean isNightPvpTime,
                              String actionType) {
-        double profileMul = profileMultiplier(profile);
-        double timeMul = timeMultiplier(actionType, isDaytime, isNightPvpTime);
-        double p = Math.min(0.95D, Math.max(0.02D, baseChance * profileMul * timeMul));
+        String resolvedProfile = normalizeProfile(serverProfile == null ? profile : str(serverProfile.get("activityProfile")));
+        double profileMul = profileMultiplier(resolvedProfile);
+        double timeMul = timeMultiplier(actionType, serverProfile, isDaytime, isNightPvpTime);
+        double serverActionMul = actionMultiplier(actionType, serverProfile);
+        if (serverProfile != null && !boolVal(serverProfile.get("enabled"))) return false;
+        double p = Math.min(0.95D, Math.max(0.02D, baseChance * profileMul * timeMul * serverActionMul));
         return chance(p);
     }
 
@@ -656,17 +675,31 @@ public class PlayerSimulationService {
         return 1.0D;
     }
 
-    private double timeMultiplier(String actionType, boolean isDaytime, boolean isNightPvpTime) {
+    private double timeMultiplier(String actionType, Map<String, Object> serverProfile, boolean isDaytime, boolean isNightPvpTime) {
+        double dayProdMul = serverProfile == null ? 1.35D : doubleVal(serverProfile.get("daytimeProductionMultiplier"), 1.35D);
+        double nightPvpMul = serverProfile == null ? 1.45D : doubleVal(serverProfile.get("nightPvpMultiplier"), 1.45D);
         if ("production".equals(actionType) || "economy".equals(actionType)) {
-            if (isDaytime) return 1.35D;
+            if (isDaytime) return dayProdMul;
             if (isNightPvpTime) return 0.82D;
             return 1.0D;
         }
         if ("pvp".equals(actionType)) {
-            if (isNightPvpTime) return 1.45D;
+            if (isNightPvpTime) return nightPvpMul;
             if (isDaytime) return 0.85D;
             return 1.0D;
         }
+        return 1.0D;
+    }
+
+    private double actionMultiplier(String actionType, Map<String, Object> serverProfile) {
+        if (serverProfile == null || serverProfile.isEmpty()) return 1.0D;
+        if ("pve".equals(actionType)) return doubleVal(serverProfile.get("pveMultiplier"), 1.0D);
+        if ("pvp".equals(actionType)) return doubleVal(serverProfile.get("pvpMultiplier"), 1.0D);
+        if ("economy".equals(actionType)) return doubleVal(serverProfile.get("economyMultiplier"), 1.0D);
+        if ("production".equals(actionType)) return doubleVal(serverProfile.get("productionMultiplier"), 1.0D);
+        if ("social".equals(actionType)) return doubleVal(serverProfile.get("socialMultiplier"), 1.0D);
+        if ("growth".equals(actionType)) return doubleVal(serverProfile.get("growthMultiplier"), 1.0D);
+        if ("chat".equals(actionType)) return doubleVal(serverProfile.get("chatMultiplier"), 1.0D);
         return 1.0D;
     }
 

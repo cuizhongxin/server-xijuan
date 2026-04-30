@@ -52,7 +52,10 @@ public class WebConfig implements WebMvcConfigurer {
                         "/auth/login",
                         "/health",
                         "/recharge/callback/**",
-                        "/static/**"
+                        "/static/**",
+                        "/server/admin/simulate-players",
+                        "/server/admin/simulation-config",
+                        "/server/admin/compensate-mail-all"
                 );
     }
 }

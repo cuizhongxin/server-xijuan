@@ -933,3 +933,35 @@ INSERT INTO `item` (`item_id`,`item_name`,`quality`) VALUES (103,'凤鸣宝箱',
 INSERT INTO `item` (`item_id`,`item_name`,`quality`) VALUES (104,'鹰扬自选券',5) ON DUPLICATE KEY UPDATE `item_name`=VALUES(`item_name`);
 INSERT INTO `item` (`item_id`,`item_name`,`quality`) VALUES (105,'虎啸自选券',5) ON DUPLICATE KEY UPDATE `item_name`=VALUES(`item_name`);
 INSERT INTO `item` (`item_id`,`item_name`,`quality`) VALUES (106,'凤鸣自选券',5) ON DUPLICATE KEY UPDATE `item_name`=VALUES(`item_name`);
+
+-- =============================================
+-- 区服化玩家模拟配置
+-- =============================================
+CREATE TABLE IF NOT EXISTS `simulation_server_profile` (
+  `server_id` INT NOT NULL COMMENT '区服ID',
+  `activity_profile` VARCHAR(16) DEFAULT 'medium' COMMENT '活跃模板: light/medium/heavy',
+  `pve_multiplier` DOUBLE DEFAULT 1.0,
+  `pvp_multiplier` DOUBLE DEFAULT 1.0,
+  `economy_multiplier` DOUBLE DEFAULT 1.0,
+  `production_multiplier` DOUBLE DEFAULT 1.0,
+  `social_multiplier` DOUBLE DEFAULT 1.0,
+  `growth_multiplier` DOUBLE DEFAULT 1.0,
+  `chat_multiplier` DOUBLE DEFAULT 1.0,
+  `daytime_production_multiplier` DOUBLE DEFAULT 1.35 COMMENT '白天生产/经济加成',
+  `night_pvp_multiplier` DOUBLE DEFAULT 1.45 COMMENT '夜间PVP加成',
+  `enabled` TINYINT(1) DEFAULT 1 COMMENT '该区服是否启用模拟',
+  `update_time` BIGINT,
+  PRIMARY KEY (`server_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='区服玩家模拟画像配置';
+
+CREATE TABLE IF NOT EXISTS `simulation_chat_template` (
+  `id` BIGINT AUTO_INCREMENT COMMENT '自增主键',
+  `server_id` INT NOT NULL COMMENT '区服ID',
+  `channel` VARCHAR(16) DEFAULT 'world' COMMENT '频道: world/alliance等',
+  `content` VARCHAR(255) NOT NULL COMMENT '聊天文案',
+  `weight` DOUBLE DEFAULT 1.0 COMMENT '权重(预留)',
+  `enabled` TINYINT(1) DEFAULT 1 COMMENT '是否启用',
+  `update_time` BIGINT,
+  PRIMARY KEY (`id`),
+  KEY `idx_sct_server_channel` (`server_id`, `channel`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='区服模拟聊天文案池';

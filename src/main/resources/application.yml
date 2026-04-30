@@ -54,5 +54,11 @@ simulation:
     activity-profile: medium
     # 区服权重格式: "1:1.5,2:0.8,3:2.0"
     server-weights: ""
+    # 模拟配置接口免登录密钥（请求头 X-Sim-Key）；为空则必须登录管理员
+    admin-key: ""
+
+# 通用免登录管理接口密钥（请求头 X-Admin-Key）
+admin:
+  open-api-key: ""
 
 
