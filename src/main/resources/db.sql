@@ -590,6 +590,7 @@ CREATE TABLE IF NOT EXISTS `plunder_record` (
   `result` VARCHAR(8) COMMENT '结果：win/lose',
   `silver_gained` BIGINT DEFAULT 0 COMMENT '获得白银',
   `wood_gained` BIGINT DEFAULT 0 COMMENT '获得木材',
+  `metal_gained` BIGINT DEFAULT 0 COMMENT '获得金属',
   `paper_gained` BIGINT DEFAULT 0 COMMENT '获得纸张',
   `food_gained` BIGINT DEFAULT 0 COMMENT '获得粮食',
   `create_time` BIGINT COMMENT '记录时间戳',

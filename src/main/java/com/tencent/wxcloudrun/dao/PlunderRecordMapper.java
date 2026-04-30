@@ -20,6 +20,7 @@ public interface PlunderRecordMapper {
                 @Param("victory") Boolean victory,
                 @Param("silverGain") Long silverGain,
                 @Param("woodGain") Long woodGain,
+                @Param("metalGain") Long metalGain,
                 @Param("paperGain") Long paperGain,
                 @Param("foodGain") Long foodGain,
                 @Param("createTime") Long createTime);

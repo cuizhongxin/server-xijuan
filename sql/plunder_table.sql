@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS plunder_record (
     victory TINYINT(1) DEFAULT 0 COMMENT '攻击者是否胜利',
     silver_gain BIGINT DEFAULT 0,
     wood_gain BIGINT DEFAULT 0,
+    metal_gain BIGINT DEFAULT 0,
     paper_gain BIGINT DEFAULT 0,
     food_gain BIGINT DEFAULT 0,
     create_time BIGINT NOT NULL COMMENT '记录时间戳(ms)',

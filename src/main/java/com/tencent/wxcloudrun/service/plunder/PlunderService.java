@@ -141,6 +141,7 @@ public class PlunderService {
             target.put("isNpc", false);
             target.put("silver", parseLongSafe(u.get("silver"), 0));
             target.put("wood", parseLongSafe(u.get("wood"), 0));
+            target.put("metal", parseLongSafe(u.get("metal"), 0));
             target.put("paper", parseLongSafe(u.get("paper"), 0));
             target.put("food", parseLongSafe(u.get("food"), 0));
             target.put("rank", stripQuotes(String.valueOf(u.get("rank"))));
@@ -162,6 +163,7 @@ public class PlunderService {
             target.put("faction", npc.getFaction());
             target.put("silver", npc.getSilver());
             target.put("wood", npc.getWood());
+            target.put("metal", npc.getMetal());
             target.put("paper", npc.getPaper());
             target.put("food", npc.getFood());
             target.put("power", npc.getPower());
@@ -219,7 +221,7 @@ public class PlunderService {
         // 获取目标数据
         String targetName;
         int targetLevel;
-        long tSilver, tWood, tPaper, tFood;
+        long tSilver, tWood, tMetal, tPaper, tFood;
         String faction = null;
 
         // 构建敌方武将列表
@@ -234,6 +236,7 @@ public class PlunderService {
             targetLevel = npc.getLevel();
             tSilver = npc.getSilver();
             tWood = npc.getWood();
+            tMetal = npc.getMetal();
             tPaper = npc.getPaper();
             tFood = npc.getFood();
             faction = npc.getFaction();
@@ -255,6 +258,7 @@ public class PlunderService {
             targetLevel = levelService.getUserLevel(targetId).getLevel();
             tSilver = targetResource.getSilver() != null ? targetResource.getSilver() : 0;
             tWood = targetResource.getWood() != null ? targetResource.getWood() : 0;
+            tMetal = targetResource.getMetal() != null ? targetResource.getMetal() : 0;
             tPaper = targetResource.getPaper() != null ? targetResource.getPaper() : 0;
             tFood = targetResource.getFood() != null ? targetResource.getFood() : 0;
 
@@ -311,16 +315,18 @@ public class PlunderService {
         battleLog.addAll(report.toBattleLog("我方", "敌方"));
 
         // ========== 奖励计算（不变） ==========
-        long silverGain = 0, woodGain = 0, paperGain = 0, foodGain = 0;
+        long silverGain = 0, woodGain = 0, metalGain = 0, paperGain = 0, foodGain = 0;
 
         if (victory) {
             silverGain = (long) (myLevel * PlunderConfig.REWARD_BASE_MULTIPLIER + tSilver * PlunderConfig.REWARD_RESOURCE_RATIO);
             woodGain = (long) (myLevel * PlunderConfig.REWARD_BASE_MULTIPLIER + tWood * PlunderConfig.REWARD_RESOURCE_RATIO);
+            metalGain = (long) (myLevel * PlunderConfig.REWARD_BASE_MULTIPLIER + tMetal * PlunderConfig.REWARD_RESOURCE_RATIO);
             paperGain = (long) (myLevel * PlunderConfig.REWARD_BASE_MULTIPLIER + tPaper * PlunderConfig.REWARD_RESOURCE_RATIO);
             foodGain = (long) (myLevel * PlunderConfig.REWARD_BASE_MULTIPLIER + tFood * PlunderConfig.REWARD_RESOURCE_RATIO);
 
             myResource.setSilver((myResource.getSilver() != null ? myResource.getSilver() : 0) + silverGain);
             myResource.setWood((myResource.getWood() != null ? myResource.getWood() : 0) + woodGain);
+            myResource.setMetal((myResource.getMetal() != null ? myResource.getMetal() : 0) + metalGain);
             myResource.setPaper((myResource.getPaper() != null ? myResource.getPaper() : 0) + paperGain);
             myResource.setFood((myResource.getFood() != null ? myResource.getFood() : 0) + foodGain);
             userResourceRepository.save(myResource);
@@ -330,11 +336,13 @@ public class PlunderService {
                 if (targetResource != null) {
                     long sLoss = (long) (tSilver * PlunderConfig.VICTIM_LOSS_RATIO);
                     long wLoss = (long) (tWood * PlunderConfig.VICTIM_LOSS_RATIO);
+                    long mLoss = (long) (tMetal * PlunderConfig.VICTIM_LOSS_RATIO);
                     long pLoss = (long) (tPaper * PlunderConfig.VICTIM_LOSS_RATIO);
                     long fLoss = (long) (tFood * PlunderConfig.VICTIM_LOSS_RATIO);
 
                     targetResource.setSilver(Math.max(0, (targetResource.getSilver() != null ? targetResource.getSilver() : 0) - sLoss));
                     targetResource.setWood(Math.max(0, (targetResource.getWood() != null ? targetResource.getWood() : 0) - wLoss));
+                    targetResource.setMetal(Math.max(0, (targetResource.getMetal() != null ? targetResource.getMetal() : 0) - mLoss));
                     targetResource.setPaper(Math.max(0, (targetResource.getPaper() != null ? targetResource.getPaper() : 0) - pLoss));
                     targetResource.setFood(Math.max(0, (targetResource.getFood() != null ? targetResource.getFood() : 0) - fLoss));
                     userResourceRepository.save(targetResource);
@@ -359,7 +367,7 @@ public class PlunderService {
                 faction,
                 isNpcTarget,
                 victory,
-                silverGain, woodGain, paperGain, foodGain,
+                silverGain, woodGain, metalGain, paperGain, foodGain,
                 now
         );
 
@@ -370,6 +378,7 @@ public class PlunderService {
         result.put("targetLevel", targetLevel);
         result.put("silverGain", silverGain);
         result.put("woodGain", woodGain);
+        result.put("metalGain", metalGain);
         result.put("paperGain", paperGain);
         result.put("foodGain", foodGain);
         result.put("availableCount", pd.getAvailableCount());

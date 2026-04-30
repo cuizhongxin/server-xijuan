@@ -6,18 +6,18 @@
         INSERT INTO plunder_record
             (attacker_id, attacker_name, attacker_level,
              defender_id, defender_name, defender_level, defender_faction,
-             is_npc, victory, silver_gain, wood_gain, paper_gain, food_gain, create_time)
+             is_npc, victory, silver_gain, wood_gain, metal_gain, paper_gain, food_gain, create_time)
         VALUES
             (#{attackerId}, #{attackerName}, #{attackerLevel},
              #{defenderId}, #{defenderName}, #{defenderLevel}, #{defenderFaction},
-             #{isNpc}, #{victory}, #{silverGain}, #{woodGain}, #{paperGain}, #{foodGain}, #{createTime})
+             #{isNpc}, #{victory}, #{silverGain}, #{woodGain}, #{metalGain}, #{paperGain}, #{foodGain}, #{createTime})
     </insert>
 
     <select id="findByAttacker" resultType="java.util.HashMap">
         SELECT id, attacker_id AS attackerId, attacker_name AS attackerName, attacker_level AS attackerLevel,
                defender_id AS defenderId, defender_name AS defenderName, defender_level AS defenderLevel,
                defender_faction AS defenderFaction, is_npc AS isNpc, victory,
-               silver_gain AS silverGain, wood_gain AS woodGain,
+               silver_gain AS silverGain, wood_gain AS woodGain, metal_gain AS metalGain,
                paper_gain AS paperGain, food_gain AS foodGain,
                create_time AS timestamp
         FROM plunder_record
@@ -30,7 +30,7 @@
         SELECT id, attacker_id AS attackerId, attacker_name AS attackerName, attacker_level AS attackerLevel,
                defender_id AS defenderId, defender_name AS defenderName, defender_level AS defenderLevel,
                defender_faction AS defenderFaction, is_npc AS isNpc, victory,
-               silver_gain AS silverGain, wood_gain AS woodGain,
+               silver_gain AS silverGain, wood_gain AS woodGain, metal_gain AS metalGain,
                paper_gain AS paperGain, food_gain AS foodGain,
                create_time AS timestamp
         FROM plunder_record

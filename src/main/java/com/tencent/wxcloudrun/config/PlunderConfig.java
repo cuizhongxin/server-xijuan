@@ -89,6 +89,7 @@ public class PlunderConfig {
             Map<String, Long> resources = generateNpcResources(npcLevel, tpl.getBonusResource());
             npc.setSilver(resources.get("silver"));
             npc.setWood(resources.get("wood"));
+            npc.setMetal(resources.get("metal"));
             npc.setPaper(resources.get("paper"));
             npc.setFood(resources.get("food"));
 
@@ -100,7 +101,7 @@ public class PlunderConfig {
     private Map<String, Long> generateNpcResources(int level, String bonusResource) {
         ThreadLocalRandom rng = ThreadLocalRandom.current();
         Map<String, Long> res = new HashMap<>();
-        for (String type : new String[]{"silver", "wood", "paper", "food"}) {
+        for (String type : new String[]{"silver", "wood", "metal", "paper", "food"}) {
             long base;
             if (type.equals(bonusResource)) {
                 base = (long) level * 40000 + rng.nextLong(1000, 100001);
@@ -157,6 +158,7 @@ public class PlunderConfig {
         private int power;
         private long silver;
         private long wood;
+        private long metal;
         private long paper;
         private long food;
 
@@ -176,6 +178,8 @@ public class PlunderConfig {
         public void setSilver(long silver) { this.silver = silver; }
         public long getWood() { return wood; }
         public void setWood(long wood) { this.wood = wood; }
+        public long getMetal() { return metal; }
+        public void setMetal(long metal) { this.metal = metal; }
         public long getPaper() { return paper; }
         public void setPaper(long paper) { this.paper = paper; }
         public long getFood() { return food; }
