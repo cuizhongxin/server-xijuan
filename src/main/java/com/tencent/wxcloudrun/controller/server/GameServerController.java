@@ -11,6 +11,7 @@ import com.tencent.wxcloudrun.service.alliance.AllianceBossService;
 import com.tencent.wxcloudrun.service.herorank.HeroRankService;
 import com.tencent.wxcloudrun.service.server.ServerMergeService;
 import com.tencent.wxcloudrun.service.mail.MailService;
+import com.tencent.wxcloudrun.service.UgcModerationService;
 import com.tencent.wxcloudrun.service.simulation.SimulationConfigService;
 import com.tencent.wxcloudrun.service.simulation.PlayerSimulationService;
 import org.slf4j.Logger;
@@ -61,6 +62,9 @@ public class GameServerController {
 
     @Autowired
     private SimulationConfigService simulationConfigService;
+
+    @Autowired
+    private UgcModerationService ugcModerationService;
 
     @Value("${simulation.players.admin-key:}")
     private String simulationAdminKey;
@@ -261,6 +265,7 @@ public class GameServerController {
         String trimmed = name.trim();
         if (trimmed.length() < 2 || trimmed.length() > 8) return null;
         if (!trimmed.matches("^[\\u4e00-\\u9fa5a-zA-Z0-9_]+$")) return null;
+        if (ugcModerationService.containsBlockedKeyword(trimmed)) return null;
         return trimmed;
     }
 
@@ -497,6 +502,68 @@ public class GameServerController {
         result.put("failSamples", failSamples);
         logger.info("[补偿邮件] 发放完成 total={} sent={} failed={} gold={}",
                 allPlayers.size(), sent, failed, boundGold);
+        return ApiResponse.success(result);
+    }
+
+    /**
+     * UGC违规整改：批量清洗昵称和聊天内容（免登录，需管理密钥）
+     * 请求体可传:
+     * {
+     *   "keywords": ["关键词1", "关键词2"],
+     *   "maskName": "合规玩家",
+     *   "maskContent": "[内容已屏蔽]"
+     * }
+     */
+    @PostMapping("/admin/ugc-remediate")
+    public ApiResponse<Map<String, Object>> adminUgcRemediate(HttpServletRequest request,
+                                                               @RequestBody(required = false) Map<String, Object> body) {
+        if (!hasSimulationAdminAccess(request)) {
+            return ApiResponse.error(403, "无权操作");
+        }
+
+        List<String> keywords = new ArrayList<>();
+        if (body != null && body.get("keywords") instanceof List) {
+            List<?> raw = (List<?>) body.get("keywords");
+            for (Object item : raw) {
+                if (item == null) continue;
+                String k = String.valueOf(item).trim();
+                if (!k.isEmpty()) keywords.add(k);
+            }
+        }
+        if (keywords.isEmpty()) {
+            keywords = ugcModerationService.getBlockedKeywords();
+        }
+        if (keywords.isEmpty()) {
+            return ApiResponse.error(400, "未提供 keywords，且系统未配置默认敏感词");
+        }
+
+        String maskName = ugcModerationService.getNameMask();
+        String maskContent = ugcModerationService.getContentMask();
+        if (body != null) {
+            if (body.get("maskName") != null && !String.valueOf(body.get("maskName")).trim().isEmpty()) {
+                maskName = String.valueOf(body.get("maskName")).trim();
+            }
+            if (body.get("maskContent") != null && !String.valueOf(body.get("maskContent")).trim().isEmpty()) {
+                maskContent = String.valueOf(body.get("maskContent")).trim();
+            }
+        }
+
+        int maskedLordNames = 0;
+        int maskedSenderNames = 0;
+        int maskedChatContents = 0;
+        for (String keyword : keywords) {
+            maskedLordNames += serverMapper.maskLordNameByKeyword(keyword, maskName);
+            maskedSenderNames += chatMapper.maskSenderNameByKeyword(keyword, maskName);
+            maskedChatContents += chatMapper.maskMessageContentByKeyword(keyword, maskContent);
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("keywords", keywords);
+        result.put("nameMask", maskName);
+        result.put("contentMask", maskContent);
+        result.put("maskedLordNames", maskedLordNames);
+        result.put("maskedChatSenderNames", maskedSenderNames);
+        result.put("maskedChatContents", maskedChatContents);
         return ApiResponse.success(result);
     }
 

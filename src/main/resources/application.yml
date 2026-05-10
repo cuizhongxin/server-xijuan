@@ -29,6 +29,8 @@ wechat:
     # 微信API地址
     api:
       code2session: https://api.weixin.qq.com/sns/jscode2session
+      token: https://api.weixin.qq.com/cgi-bin/token
+      msgSecCheck: https://api.weixin.qq.com/wxa/msg_sec_check
 
 # JWT配置
 jwt:
@@ -60,5 +62,17 @@ simulation:
 # 通用免登录管理接口密钥（请求头 X-Admin-Key）
 admin:
   open-api-key: ""
+
+ugc:
+  moderation:
+    enabled: true
+    # 是否启用微信官方内容安全接口二次校验（建议线上开启）
+    wechat-enabled: false
+    # 微信接口失败时是否放行。true=放行（推荐防止误杀）；false=拦截（更严格）
+    wechat-fail-open: true
+    # 用英文逗号分隔。建议在云托管环境变量里覆盖配置。
+    blocked-keywords: "习进平,习尽贫,xi尽贫"
+    name-mask: "合规玩家"
+    content-mask: "[内容已屏蔽]"
 
 

@@ -134,4 +134,16 @@
         FROM announcement WHERE id = #{id}
     </select>
 
+    <update id="maskMessageContentByKeyword">
+        UPDATE chat_message
+        SET content = #{maskContent}
+        WHERE content LIKE CONCAT('%', #{keyword}, '%')
+    </update>
+
+    <update id="maskSenderNameByKeyword">
+        UPDATE chat_message
+        SET sender_name = #{maskName}
+        WHERE sender_name LIKE CONCAT('%', #{keyword}, '%')
+    </update>
+
 </mapper>

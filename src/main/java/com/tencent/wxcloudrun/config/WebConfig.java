@@ -55,7 +55,8 @@ public class WebConfig implements WebMvcConfigurer {
                         "/static/**",
                         "/server/admin/simulate-players",
                         "/server/admin/simulation-config",
-                        "/server/admin/compensate-mail-all"
+                        "/server/admin/compensate-mail-all",
+                        "/server/admin/ugc-remediate"
                 );
     }
 }

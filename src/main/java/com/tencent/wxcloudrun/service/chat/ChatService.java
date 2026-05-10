@@ -3,6 +3,7 @@ package com.tencent.wxcloudrun.service.chat;
 import com.tencent.wxcloudrun.dao.ChatMapper;
 import com.tencent.wxcloudrun.exception.BusinessException;
 import com.tencent.wxcloudrun.service.PlayerNameResolver;
+import com.tencent.wxcloudrun.service.UgcModerationService;
 import com.tencent.wxcloudrun.service.alliance.AllianceService;
 import com.tencent.wxcloudrun.service.nationwar.NationWarService;
 import org.slf4j.Logger;
@@ -24,6 +25,7 @@ public class ChatService {
 
     @Autowired private ChatMapper chatMapper;
     @Autowired private PlayerNameResolver playerNameResolver;
+    @Autowired private UgcModerationService ugcModerationService;
     @Autowired @Lazy private NationWarService nationWarService;
     @Autowired @Lazy private AllianceService allianceService;
 
@@ -48,6 +50,9 @@ public class ChatService {
         }
         if (content.length() > MAX_MSG_LENGTH) {
             throw new BusinessException(400, "消息不能超过" + MAX_MSG_LENGTH + "字");
+        }
+        if (ugcModerationService.containsBlockedKeyword(content)) {
+            throw new BusinessException(400, "消息包含敏感内容，请修改后再发送");
         }
 
         long now = System.currentTimeMillis();
@@ -77,7 +82,8 @@ public class ChatService {
                 break;
         }
 
-        chatMapper.insertMessageFull(userId, userName, channel, content.trim(),
+        String senderName = ugcModerationService.maskIfBlockedName(userName);
+        chatMapper.insertMessageFull(userId, senderName, channel, content.trim(),
                 serverId, now, targetId, nationId, allianceId);
 
         Map<String, Object> result = new HashMap<>();

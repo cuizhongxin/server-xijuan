@@ -44,4 +44,7 @@ public interface GameServerMapper {
 
     void migratePlayerServer(@Param("sourceServerId") int sourceServerId,
                              @Param("targetServerId") int targetServerId);
+
+    int maskLordNameByKeyword(@Param("keyword") String keyword,
+                              @Param("maskName") String maskName);
 }

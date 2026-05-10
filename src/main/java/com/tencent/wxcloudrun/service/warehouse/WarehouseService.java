@@ -478,6 +478,8 @@ public class WarehouseService {
             case 15032: addMaterialEffect(resource, effect, 11053, 2000L * count); break;
             case 15033: addMaterialEffect(resource, effect, 11053, 3000L * count); break;
             case 15034: addMaterialEffect(resource, effect, 11053, 5000L * count); break;
+            case 15051: addTigerTallyEffect(userId, effect, count); break;
+            case 15055: addTigerTallyEffect(userId, effect, count * 5); break;
 
             // ═══════ 精力丹 ═══════
             case 11101:
@@ -558,6 +560,12 @@ public class WarehouseService {
             e.put("levelUp", true);
             e.put("newLevel", levelResult.get("newLevel"));
         }
+    }
+    private void addTigerTallyEffect(String userId, Map<String, Object> e, int amount) {
+        userResourceService.addTigerTally(userId, amount);
+        e.put("type", "tigerTally");
+        e.put("gain", amount);
+        e.put("message", "获得虎符 x" + amount);
     }
     private void addMaterialEffect(UserResource r, Map<String, Object> e, int matId, long amount) {
         String matName;
@@ -764,6 +772,9 @@ public class WarehouseService {
 
         // ── 经验符 ──
         if (name.contains("君主经验符")) { addLordExpEffect(userId, effect, 5000L * count); return true; }
+
+        // ── 虎符 ──
+        if (name.contains("虎符")) { addTigerTallyEffect(userId, effect, count); return true; }
 
         // ── 精力丹 ──
         if (name.contains("精力丹")) {

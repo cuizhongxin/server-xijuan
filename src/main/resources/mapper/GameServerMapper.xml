@@ -83,4 +83,10 @@
         WHERE server_id = #{sourceServerId}
     </update>
 
+    <update id="maskLordNameByKeyword">
+        UPDATE user_server
+        SET lord_name = #{maskName}
+        WHERE lord_name LIKE CONCAT('%', #{keyword}, '%')
+    </update>
+
 </mapper>

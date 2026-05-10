@@ -7,6 +7,7 @@ import com.tencent.wxcloudrun.model.Alliance.AllianceApplication;
 import com.tencent.wxcloudrun.model.Alliance.AllianceMember;
 import com.tencent.wxcloudrun.model.Alliance.Role;
 import com.tencent.wxcloudrun.service.PlayerNameResolver;
+import com.tencent.wxcloudrun.service.UgcModerationService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -25,6 +26,8 @@ public class AllianceService {
     private AllianceMapper allianceMapper;
     @Autowired
     private PlayerNameResolver playerNameResolver;
+    @Autowired
+    private UgcModerationService ugcModerationService;
     
     private Alliance loadAlliance(String allianceId) {
         return allianceMapper.findById(allianceId);
@@ -76,11 +79,22 @@ public class AllianceService {
 
     public Alliance createAlliance(String userId, String playerName, String allianceName,
                                    String faction, Integer playerLevel, Long playerPower) {
+        if (allianceName == null || allianceName.trim().isEmpty()) {
+            throw new BusinessException("联盟名称不能为空");
+        }
+        allianceName = allianceName.trim();
+        if (allianceName.length() < 2 || allianceName.length() > 12) {
+            throw new BusinessException("联盟名称需为2-12个字符");
+        }
+        if (ugcModerationService.containsBlockedKeyword(allianceName)) {
+            throw new BusinessException("联盟名称包含敏感内容，请修改后重试");
+        }
         if (allianceMapper.userAllianceExists(userId) > 0) {
             throw new BusinessException("您已加入联盟，请先退出当前联盟");
         }
         int serverId = extractServerId(userId);
-        boolean nameExists = loadServerAlliances(serverId).stream().anyMatch(a -> a.getName().equals(allianceName));
+        final String finalAllianceName = allianceName;
+        boolean nameExists = loadServerAlliances(serverId).stream().anyMatch(a -> a.getName().equals(finalAllianceName));
         if (nameExists) {
             throw new BusinessException("联盟名称已存在");
         }

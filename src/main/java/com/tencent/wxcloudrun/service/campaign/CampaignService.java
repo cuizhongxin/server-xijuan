@@ -876,13 +876,13 @@ public class CampaignService {
             throw new BusinessException("精力不足");
         }
         
-        // 检查今日挑战次数（仅发动战役消耗，进攻关卡不消耗；引导期间豁免）
+        // 检查今日挑战次数（严格按配置限制）
         String today = new SimpleDateFormat("yyyyMMdd").format(new Date());
         if (!today.equals(progress.getTodayDate())) {
             progress.setTodayChallengeCount(0);
             progress.setTodayDate(today);
         }
-        if (progress.getTodayChallengeCount() >= campaign.getDailyLimit() && !isInGuide(odUserId)) {
+        if (progress.getTodayChallengeCount() >= campaign.getDailyLimit()) {
             throw new BusinessException("今日挑战次数已用完");
         }
         

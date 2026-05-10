@@ -32,6 +32,16 @@ public class WechatConfig {
          * code2session接口地址
          */
         private String code2session;
+
+        /**
+         * 获取access_token接口地址
+         */
+        private String token;
+
+        /**
+         * 文本内容安全校验接口地址
+         */
+        private String msgSecCheck;
     }
 }
 

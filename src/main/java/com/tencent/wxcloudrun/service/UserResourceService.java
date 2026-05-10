@@ -195,6 +195,17 @@ public class UserResourceService {
         resourceRepository.save(resource);
     }
 
+    /**
+     * 增加虎符（扫荡消耗）
+     */
+    public void addTigerTally(String odUserId, int amount) {
+        if (amount <= 0) return;
+        UserResource resource = getUserResource(odUserId);
+        int current = resource.getTigerTally() != null ? resource.getTigerTally() : 0;
+        resource.setTigerTally(current + amount);
+        resourceRepository.save(resource);
+    }
+
     public boolean consumeMetal(String odUserId, long amount) {
         UserResource resource = getUserResource(odUserId);
         long current = resource.getMetal() != null ? resource.getMetal() : 0L;

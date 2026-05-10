@@ -73,4 +73,10 @@ public interface ChatMapper {
     List<Map<String, Object>> findActiveAnnouncements(@Param("now") long now);
 
     Map<String, Object> findAnnouncementById(@Param("id") int id);
+
+    int maskMessageContentByKeyword(@Param("keyword") String keyword,
+                                    @Param("maskContent") String maskContent);
+
+    int maskSenderNameByKeyword(@Param("keyword") String keyword,
+                                @Param("maskName") String maskName);
 }
