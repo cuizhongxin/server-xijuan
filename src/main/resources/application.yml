@@ -67,7 +67,7 @@ ugc:
   moderation:
     enabled: true
     # 是否启用微信官方内容安全接口二次校验（建议线上开启）
-    wechat-enabled: false
+    wechat-enabled: true
     # 微信接口失败时是否放行。true=放行（推荐防止误杀）；false=拦截（更严格）
     wechat-fail-open: true
     # 用英文逗号分隔。建议在云托管环境变量里覆盖配置。
