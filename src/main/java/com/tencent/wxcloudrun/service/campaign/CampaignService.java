@@ -1427,6 +1427,11 @@ public class CampaignService {
         if (stageCount <= 0) {
             throw new BusinessException("战役关卡配置异常");
         }
+        int maxClearedStage = progress.getMaxClearedStage() != null ? progress.getMaxClearedStage() : 0;
+        boolean fullCleared = Boolean.TRUE.equals(progress.getFullCleared()) || maxClearedStage >= stageCount;
+        if (!fullCleared) {
+            throw new BusinessException("请先手动通关当前战役全部关卡后再开启扫荡");
+        }
 
         int startStage = progress.getCurrentStage() != null ? progress.getCurrentStage() : 1;
         if (startStage < 1) startStage = 1;
