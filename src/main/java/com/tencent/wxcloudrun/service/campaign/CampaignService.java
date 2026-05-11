@@ -687,14 +687,17 @@ public class CampaignService {
                 int dropRate = apkDropProbToRate(dropProb);
                 String boxName = EQUIP_BOX_NAME_MAP.getOrDefault(dropBoxId, "装备");
 
-                // 从装备箱对应的equipment_pre中随机选一个
+                // 记录装备箱ID，在实际掉落时再随机部件，避免每关永远固定同一个部件
                 int[] boxPreIds = EQUIP_BOX_MAP.get(dropBoxId);
                 if (boxPreIds != null && boxPreIds.length > 0) {
-                    int equipId = boxPreIds[rng.nextInt(boxPreIds.length)];
                     drops.add(Campaign.StageDrop.builder()
-                            .type("EQUIP_PRE").equipPreId(equipId)
-                            .itemId(String.valueOf(equipId)).itemName(boxName)
-                            .dropRate(dropRate).minCount(1).maxCount(1).build());
+                            .type("EQUIP_BOX")
+                            .itemId(String.valueOf(dropBoxId))
+                            .itemName(boxName)
+                            .dropRate(dropRate)
+                            .minCount(1)
+                            .maxCount(1)
+                            .build());
                 }
             }
             // 非APK配置的关卡（包括BOSS关）不掉落装备
@@ -1622,14 +1625,38 @@ public class CampaignService {
         for (Campaign.StageDrop stageDrop : stageDrops) {
             if (random.nextInt(100) < stageDrop.getDropRate()) {
                 int count = stageDrop.getMinCount() + random.nextInt(stageDrop.getMaxCount() - stageDrop.getMinCount() + 1);
-                drops.add(CampaignProgress.DropItem.builder()
-                        .type(stageDrop.getType())
-                        .itemId(stageDrop.getItemId())
-                        .itemName(stageDrop.getItemName())
-                        .icon(stageDrop.getIcon())
-                        .quality(stageDrop.getQuality())
-                        .count(count)
-                        .build());
+                if ("EQUIP_BOX".equals(stageDrop.getType())) {
+                    int boxId;
+                    try {
+                        boxId = Integer.parseInt(stageDrop.getItemId());
+                    } catch (Exception e) {
+                        continue;
+                    }
+                    int[] preIds = EQUIP_BOX_MAP.get(boxId);
+                    if (preIds == null || preIds.length == 0) {
+                        continue;
+                    }
+                    for (int i = 0; i < count; i++) {
+                        int equipPreId = preIds[random.nextInt(preIds.length)];
+                        drops.add(CampaignProgress.DropItem.builder()
+                                .type("EQUIP_PRE")
+                                .itemId(String.valueOf(equipPreId))
+                                .itemName(getEquipBoxNameByPreId(equipPreId))
+                                .icon(stageDrop.getIcon())
+                                .quality(stageDrop.getQuality())
+                                .count(1)
+                                .build());
+                    }
+                } else {
+                    drops.add(CampaignProgress.DropItem.builder()
+                            .type(stageDrop.getType())
+                            .itemId(stageDrop.getItemId())
+                            .itemName(stageDrop.getItemName())
+                            .icon(stageDrop.getIcon())
+                            .quality(stageDrop.getQuality())
+                            .count(count)
+                            .build());
+                }
             }
         }
         return drops;

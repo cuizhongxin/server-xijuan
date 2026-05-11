@@ -142,7 +142,7 @@ public class TacticsService {
         if (existing == null) throw new BusinessException(400, "未拥有此兵法");
 
         if (t.isVipExclusive() && t.getExclusiveGeneralName() != null
-                && !t.getExclusiveGeneralName().equals(general.getName())) {
+                && !isExclusiveGeneralMatch(general.getName(), t.getExclusiveGeneralName())) {
             throw new BusinessException(400, "此兵法仅限" + t.getExclusiveGeneralName() + "装备");
         }
 
@@ -296,6 +296,14 @@ public class TacticsService {
      */
     public Map<String, Object> learnTactic(String userId, String generalId, String tacticsId) {
         return equipTactics(userId, generalId, tacticsId);
+    }
+
+    private boolean isExclusiveGeneralMatch(String generalName, String exclusiveName) {
+        if (generalName == null || exclusiveName == null) return false;
+        String normalizedGeneral = generalName.replace("(狂)", "").replace("（狂）", "").trim();
+        String normalizedExclusive = exclusiveName.trim();
+        return normalizedGeneral.equals(normalizedExclusive)
+                || normalizedGeneral.contains(normalizedExclusive);
     }
 
     private void checkAndDeductResources(UserResource resource, Map<String, Integer> cost, String userId) {

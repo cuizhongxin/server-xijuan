@@ -535,10 +535,15 @@ public class GeneralService {
             case 28: expPer = 200; break;
             case 29: expPer = 1000; break;
             case 30: expPer = 5000; break;
+            case 11046: expPer = 1_000_000; break;
             case 15031: expPer = 5000; break;
             case 15032: expPer = 15000; break;
             case 15033: expPer = 35000; break;
             case 15034: expPer = 60000; break;
+            case 15061: expPer = 5000; break;
+            case 15062: expPer = 20000; break;
+            case 15063: expPer = 100000; break;
+            case 15064: expPer = 500000; break;
             default: throw new RuntimeException("无效的经验药道具");
         }
 

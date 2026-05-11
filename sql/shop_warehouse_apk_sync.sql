@@ -239,6 +239,9 @@ INSERT INTO `shop` (`name`, `price`, `desc`, `currency`, `icon`, `classify`, `qu
 ('太公六韬', 400, '可提升5、6级兵法', 'gold', '15023.jpg', 'common_props', 4, 15023),
 ('免战牌', 100, '获得2小时免战时间', 'gold', '11102.jpg', 'common_props', 3, 11102),
 ('初级合成符', 30, '合成绿色道具时需要', 'gold', '15001.jpg', 'common_props', 2, 15001),
+('中级合成符', 80, '合成蓝色道具时需要', 'gold', '15002.jpg', 'common_props', 3, 15002),
+('高级合成符', 120, '合成紫色道具时需要', 'gold', '15003.jpg', 'common_props', 4, 15003),
+('特级合成符', 300, '合成橙色道具时需要', 'gold', '15004.jpg', 'common_props', 5, 15004),
 ('装备分解符', 50, '分解装备获得品质石', 'gold', '15041.jpg', 'common_props', 3, 15041),
 ('初级传承符', 200, '80%经验值传承', 'gold', '15044.jpg', 'common_props', 3, 15044),
 ('虎符', 100, '可对战役进行扫荡', 'gold', '15051.jpg', 'common_props', 3, 15051);

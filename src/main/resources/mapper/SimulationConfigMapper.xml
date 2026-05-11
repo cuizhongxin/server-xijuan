@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.dao.SimulationConfigMapper">
+
+    <select id="findAllServerProfiles" resultType="java.util.HashMap">
+        SELECT server_id AS serverId,
+               activity_profile AS activityProfile,
+               pve_multiplier AS pveMultiplier,
+               pvp_multiplier AS pvpMultiplier,
+               economy_multiplier AS economyMultiplier,
+               production_multiplier AS productionMultiplier,
+               social_multiplier AS socialMultiplier,
+               growth_multiplier AS growthMultiplier,
+               chat_multiplier AS chatMultiplier,
+               daytime_production_multiplier AS daytimeProductionMultiplier,
+               night_pvp_multiplier AS nightPvpMultiplier,
+               enabled,
+               update_time AS updateTime
+        FROM simulation_server_profile
+    </select>
+
+    <select id="findServerProfile" resultType="java.util.HashMap">
+        SELECT server_id AS serverId,
+               activity_profile AS activityProfile,
+               pve_multiplier AS pveMultiplier,
+               pvp_multiplier AS pvpMultiplier,
+               economy_multiplier AS economyMultiplier,
+               production_multiplier AS productionMultiplier,
+               social_multiplier AS socialMultiplier,
+               growth_multiplier AS growthMultiplier,
+               chat_multiplier AS chatMultiplier,
+               daytime_production_multiplier AS daytimeProductionMultiplier,
+               night_pvp_multiplier AS nightPvpMultiplier,
+               enabled,
+               update_time AS updateTime
+        FROM simulation_server_profile
+        WHERE server_id = #{serverId}
+        LIMIT 1
+    </select>
+
+    <insert id="upsertServerProfile">
+        INSERT INTO simulation_server_profile (
+            server_id, activity_profile,
+            pve_multiplier, pvp_multiplier, economy_multiplier, production_multiplier, social_multiplier, growth_multiplier, chat_multiplier,
+            daytime_production_multiplier, night_pvp_multiplier,
+            enabled, update_time
+        ) VALUES (
+            #{serverId}, #{activityProfile},
+            #{pveMultiplier}, #{pvpMultiplier}, #{economyMultiplier}, #{productionMultiplier}, #{socialMultiplier}, #{growthMultiplier}, #{chatMultiplier},
+            #{daytimeProductionMultiplier}, #{nightPvpMultiplier},
+            #{enabled}, #{updatedTime}
+        )
+        ON DUPLICATE KEY UPDATE
+            activity_profile = VALUES(activity_profile),
+            pve_multiplier = VALUES(pve_multiplier),
+            pvp_multiplier = VALUES(pvp_multiplier),
+            economy_multiplier = VALUES(economy_multiplier),
+            production_multiplier = VALUES(production_multiplier),
+            social_multiplier = VALUES(social_multiplier),
+            growth_multiplier = VALUES(growth_multiplier),
+            chat_multiplier = VALUES(chat_multiplier),
+            daytime_production_multiplier = VALUES(daytime_production_multiplier),
+            night_pvp_multiplier = VALUES(night_pvp_multiplier),
+            enabled = VALUES(enabled),
+            update_time = VALUES(update_time)
+    </insert>
+
+    <select id="findChatTemplatesByServer" resultType="java.util.HashMap">
+        SELECT id,
+               server_id AS serverId,
+               channel,
+               content,
+               weight,
+               enabled,
+               update_time AS updateTime
+        FROM simulation_chat_template
+        WHERE server_id = #{serverId}
+        ORDER BY id ASC
+    </select>
+
+    <delete id="deleteChatTemplatesByServer">
+        DELETE FROM simulation_chat_template
+        WHERE server_id = #{serverId}
+    </delete>
+
+    <insert id="insertChatTemplate">
+        INSERT INTO simulation_chat_template (
+            server_id, channel, content, weight, enabled, update_time
+        ) VALUES (
+            #{serverId}, #{channel}, #{content}, #{weight}, #{enabled}, #{updatedTime}
+        )
+    </insert>
+
+</mapper>
