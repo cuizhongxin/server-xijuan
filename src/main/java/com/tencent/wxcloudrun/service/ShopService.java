@@ -163,6 +163,22 @@ public class ShopService {
      * @return 发放描述（用于前端展示）
      */
     private String deliverToWarehouse(String userId, Shop goods, Item item, int count, boolean bound) {
+        // 虎符购买后直接生效到扫荡资源，不再要求玩家去仓库手动使用
+        Integer rawItemId = item.getItemId();
+        if (rawItemId != null) {
+            if (rawItemId == 15051) {
+                userResourceService.addTigerTally(userId, count);
+                logger.info("用户 {} 购买虎符后自动生效，增加虎符资源 {}", userId, count);
+                return "虎符资源 x" + count + "（已自动生效）";
+            }
+            if (rawItemId == 15055) {
+                int gain = count * 5;
+                userResourceService.addTigerTally(userId, gain);
+                logger.info("用户 {} 购买高级虎符后自动生效，增加虎符资源 {}", userId, gain);
+                return "虎符资源 x" + gain + "（已自动生效）";
+            }
+        }
+
         // 用 item_id 作为仓库物品的唯一标识，保证同一道具可以堆叠
         String warehouseItemId = String.valueOf(item.getItemId());
         
