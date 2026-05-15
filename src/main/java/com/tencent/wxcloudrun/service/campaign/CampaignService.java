@@ -745,6 +745,7 @@ public class CampaignService {
         Map<String, CampaignProgress> progressMap = campaignRepository.findAllByUserId(odUserId);
         UserResource resource = userResourceService.getUserResource(odUserId);
         int userLevel = levelService.getUserLevel(odUserId).getLevel();
+        boolean unlimitedUser = isCampaignUnlimitedUser(odUserId);
         
         String today = new SimpleDateFormat("yyyyMMdd").format(new Date());
         
@@ -761,7 +762,7 @@ public class CampaignService {
                     campaignInfo.put("enemyLevelMax", campaign.getEnemyLevelMax());
                     campaignInfo.put("expRewardMin", campaign.getExpRewardMin());
                     campaignInfo.put("expRewardMax", campaign.getExpRewardMax());
-                    campaignInfo.put("dailyLimit", campaign.getDailyLimit());
+                    campaignInfo.put("dailyLimit", unlimitedUser ? 999999 : campaign.getDailyLimit());
                     campaignInfo.put("staminaCost", campaign.getStaminaCost());
                     campaignInfo.put("requiredLevel", campaign.getRequiredLevel());
                     campaignInfo.put("dropPreviews", campaign.getDropPreviews());
@@ -783,7 +784,7 @@ public class CampaignService {
                         Map<String, Object> progressInfo = new HashMap<>();
                         progressInfo.put("currentStage", progress.getCurrentStage());
                         progressInfo.put("maxClearedStage", progress.getMaxClearedStage());
-                        progressInfo.put("todayCount", progress.getTodayChallengeCount());
+                        progressInfo.put("todayCount", unlimitedUser ? 0 : progress.getTodayChallengeCount());
                         progressInfo.put("status", progress.getStatus());
                         progressInfo.put("fullCleared", progress.getFullCleared());
                         progressInfo.put("currentTroops", progress.getCurrentTroops());
@@ -885,7 +886,7 @@ public class CampaignService {
             progress.setTodayChallengeCount(0);
             progress.setTodayDate(today);
         }
-        if (progress.getTodayChallengeCount() >= campaign.getDailyLimit()) {
+        if (!isCampaignUnlimitedUser(odUserId) && progress.getTodayChallengeCount() >= campaign.getDailyLimit()) {
             throw new BusinessException("今日挑战次数已用完");
         }
         
@@ -1597,6 +1598,16 @@ public class CampaignService {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    /**
+     * userId=1 账号不受战役每日次数限制（支持带区服后缀的 odUserId，如 1_1）
+     */
+    private boolean isCampaignUnlimitedUser(String odUserId) {
+        if (odUserId == null || odUserId.isEmpty()) return false;
+        int idx = odUserId.lastIndexOf('_');
+        String rawUserId = idx > 0 ? odUserId.substring(0, idx) : odUserId;
+        return "1".equals(rawUserId);
     }
 
     private CampaignProgress getOrCreateProgress(String odUserId, String campaignId) {
