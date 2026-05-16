@@ -15,6 +15,7 @@ import com.tencent.wxcloudrun.service.UserResourceService;
 import com.tencent.wxcloudrun.service.PlayerNameResolver;
 import com.tencent.wxcloudrun.service.SuitConfigService;
 import com.tencent.wxcloudrun.service.alliance.AllianceService;
+import com.tencent.wxcloudrun.service.vip.VipService;
 import com.tencent.wxcloudrun.service.battle.BattleCalculator;
 import com.tencent.wxcloudrun.service.battle.BattleService;
 import com.tencent.wxcloudrun.service.formation.FormationService;
@@ -46,6 +47,7 @@ public class NationWarService {
     @Autowired private PlayerNameResolver playerNameResolver;
     @Autowired private UserTacticsMapper userTacticsMapper;
     @Autowired private TacticsConfig tacticsConfig;
+    @Autowired private VipService vipService;
     @Autowired private RewardIssueLogMapper rewardIssueLogMapper;
 
     private final Map<String, Nation> nations = new LinkedHashMap<>();
@@ -877,11 +879,12 @@ public class NationWarService {
     // ==================== VIP轮数减免 ====================
 
     public int getRequiredRoundsForSwitch(Integer vipLevel) {
-        if (vipLevel == null) return DEFAULT_SWITCH_ROUNDS;
-        if (vipLevel >= 10) return 0;
-        if (vipLevel >= 8) return 1;
-        if (vipLevel >= 3) return 2;
-        return DEFAULT_SWITCH_ROUNDS;
+        try {
+            return vipService.getNationWarSwitchRounds(vipLevel);
+        } catch (Exception e) {
+            logger.warn("读取VIP国战切换轮数失败，使用默认配置: vipLevel={}", vipLevel, e);
+            return DEFAULT_SWITCH_ROUNDS;
+        }
     }
 
     // ==================== 首都距离加成 ====================
@@ -1252,7 +1255,7 @@ public class NationWarService {
                             g.getAttrDodge() != null ? (int) Math.round(g.getAttrDodge()) : 5,
                             mob, troopType, tier, remaining, maxSc, formLv,
                             eq.getOrDefault("attack", 0), eq.getOrDefault("defense", 0),
-                            eq.getOrDefault("speed", 0), eq.getOrDefault("hit", 0),
+                            eq.getOrDefault("mobility", eq.getOrDefault("speed", 0)), eq.getOrDefault("hit", 0),
                             eq.getOrDefault("dodge", 0), 0, 0, 0);
                     u.position = i;
                     generalService.applyFamousTraitsToUnit(u, g.getName(), troopType);
@@ -1566,6 +1569,10 @@ public class NationWarService {
         PlayerWarState ps = resolvePlayerState(odUserId);
         if (ps != null) {
             result.put("playerState", ps);
+            int requiredRounds = getRequiredRoundsForSwitch(ps.getVipLevel());
+            int leftRounds = Math.max(0, requiredRounds - (ps.getRoundsAtCurrentCity() != null ? ps.getRoundsAtCurrentCity() : 0));
+            result.put("switchRoundsRequired", requiredRounds);
+            result.put("switchRoundsLeft", leftRounds);
             CityBattle battle = activeSession.getCityBattles().get(ps.getCurrentCityId());
             if (battle != null) {
                 Map<String, Object> currentBattle = new LinkedHashMap<>();

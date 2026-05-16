@@ -395,7 +395,7 @@ public class FormationService {
                     g.getAttrMobility() != null ? g.getAttrMobility() : 15,
                     troopType, tier, adjustedSc, adjustedMaxSoldiers, adjustedFormLv,
                     eq.getOrDefault("attack", 0), eq.getOrDefault("defense", 0),
-                    eq.getOrDefault("speed", 0), eq.getOrDefault("hit", 0),
+                    eq.getOrDefault("mobility", eq.getOrDefault("speed", 0)), eq.getOrDefault("hit", 0),
                     eq.getOrDefault("dodge", 0),
                     traitAtkBonus, traitDefBonus, traitDmgBonus);
             u.position = slot.getIndex();

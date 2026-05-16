@@ -34,6 +34,17 @@ public class VipService {
     // VIP等级阈值（元）
     private static final int[] VIP_THRESHOLDS = {0, 6, 30, 98, 198, 328, 648, 998, 1998, 6000, 20000};
 
+    /**
+     * 国战切换战场所需冷却轮数（与VIP特权文案保持一致）
+     */
+    public int getNationWarSwitchRounds(Integer vipLevel) {
+        int lv = vipLevel != null ? vipLevel : 0;
+        if (lv >= 10) return 0;
+        if (lv >= 8) return 1;
+        if (lv >= 3) return 2;
+        return 4;
+    }
+
     // ── 套装部件 ──
     private static final String[] XUANWU_PARTS  = {"宣武武器", "宣武戒指", "宣武铠甲", "宣武项链", "宣武头盔", "宣武鞋子"};
     private static final String[] YINGYANG_PARTS = {"鹰扬武器", "鹰扬戒指", "鹰扬铠甲", "鹰扬项链", "鹰扬头盔", "鹰扬鞋子"};

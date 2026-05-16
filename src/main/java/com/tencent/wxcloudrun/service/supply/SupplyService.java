@@ -625,7 +625,7 @@ public class SupplyService {
                     g.getAttrMobility() != null ? g.getAttrMobility() : 15,
                     troopType, tier, sc, maxSc, formLv,
                     eq.getOrDefault("attack", 0), eq.getOrDefault("defense", 0),
-                    eq.getOrDefault("speed", 0), eq.getOrDefault("hit", 0),
+                    eq.getOrDefault("mobility", eq.getOrDefault("speed", 0)), eq.getOrDefault("hit", 0),
                     eq.getOrDefault("dodge", 0), 0, 0, 0);
             u.position = i;
             generalService.applyFamousTraitsToUnit(u, g.getName(), troopType);

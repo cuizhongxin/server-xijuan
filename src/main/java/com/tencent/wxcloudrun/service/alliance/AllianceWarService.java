@@ -547,6 +547,7 @@ public class AllianceWarService {
     private void settleCurrentRound() {
         List<String> aliveAlliances = getAliveAllianceIds();
         if (aliveAlliances.size() <= 1) {
+            log.info("盟战自动结束：当前仅剩{}个联盟存活", aliveAlliances.size());
             endWar();
             return;
         }
@@ -562,6 +563,11 @@ public class AllianceWarService {
             }
             String a1 = aliveAlliances.get(i);
             String a2 = aliveAlliances.get(i + 1);
+            if (Objects.equals(a1, a2)) {
+                // 保护逻辑：防止同联盟在异常数据下互相对战
+                log.warn("检测到同联盟配对，已跳过: {}", a1);
+                continue;
+            }
             runAllianceDuel(a1, a2, round);
         }
 
@@ -676,7 +682,7 @@ public class AllianceWarService {
         return todayWar.getParticipants().stream()
                 .filter(this::isParticipantAlive)
                 .map(WarParticipant::getAllianceId)
-                .filter(Objects::nonNull)
+                .filter(id -> id != null && !id.trim().isEmpty())
                 .distinct()
                 .collect(Collectors.toList());
     }
@@ -1256,7 +1262,7 @@ public class AllianceWarService {
                                 g.getAttrMobility() != null ? g.getAttrMobility() : 15,
                                 troopType, tier, sc, maxSc, formLv,
                                 eq.getOrDefault("attack", 0), eq.getOrDefault("defense", 0),
-                                eq.getOrDefault("speed", 0), eq.getOrDefault("hit", 0),
+                                eq.getOrDefault("mobility", eq.getOrDefault("speed", 0)), eq.getOrDefault("hit", 0),
                                 eq.getOrDefault("dodge", 0), 0, 0, 0);
                         u.position = i;
                         generalService.applyFamousTraitsToUnit(u, g.getName(), troopType);

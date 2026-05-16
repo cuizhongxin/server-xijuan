@@ -545,9 +545,10 @@ public class BattleCalculator {
                 double pierceRatio = attacker.tacticsEffectValue / 100.0;
                 result.effectDesc = "战神突击！贯穿攻击";
                 if (allEnemies != null) {
-                    int atkRow = target.position / 2;
+                    // 同排贯穿：0,2,4 为上排；1,3,5 为下排
+                    int atkRow = Math.floorMod(target.position, 2);
                     for (BattleUnit e : allEnemies) {
-                        if (e.soldierCount > 0 && e.position / 2 == atkRow) {
+                        if (e.soldierCount > 0 && Math.floorMod(e.position, 2) == atkRow) {
                             DamageResult dr = calcDamage(attacker, e);
                             dr.soldierLoss = Math.max(1, (int)(dr.soldierLoss * pierceRatio));
                             dr.soldierLoss = Math.max(1, Math.min(dr.soldierLoss, e.soldierCount));
@@ -571,9 +572,10 @@ public class BattleCalculator {
                 double aoeRatio = attacker.tacticsEffectValue / 100.0;
                 result.effectDesc = "t_special_lvbu".equals(tid) ? "战神突击！" : "长虹贯日！";
                 if (allEnemies != null) {
-                    int atkRow = target.position / 2;
+                    // 同排AOE：0,2,4 为上排；1,3,5 为下排
+                    int atkRow = Math.floorMod(target.position, 2);
                     for (BattleUnit e : allEnemies) {
-                        if (e.soldierCount > 0 && e.position / 2 == atkRow) {
+                        if (e.soldierCount > 0 && Math.floorMod(e.position, 2) == atkRow) {
                             DamageResult dr = calcDamage(attacker, e);
                             dr.soldierLoss = Math.max(1, (int)(dr.soldierLoss * aoeRatio));
                             dr.soldierLoss = Math.max(1, Math.min(dr.soldierLoss, e.soldierCount));

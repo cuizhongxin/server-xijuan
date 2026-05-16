@@ -224,8 +224,9 @@ public class PlunderService {
         long tSilver, tWood, tMetal, tPaper, tFood;
         String faction = null;
 
-        // 构建敌方武将列表
-        List<int[]> enemyUnits; // 每个元素: [attack, defense, troops]
+        // 构建敌方武将列表（玩家目标优先使用真实阵型）
+        List<int[]> enemyUnits; // 仅NPC或兜底使用: [attack, defense, troops]
+        List<BattleCalculator.BattleUnit> enemyBattleUnits = new ArrayList<>();
 
         if (isNpcTarget) {
             List<PlunderNpc> npcs = plunderConfig.generateNpcsForLevel(myLevel);
@@ -269,42 +270,50 @@ public class PlunderService {
                 targetGenerals = generalRepository.findByUserId(targetId);
             }
             enemyUnits = new ArrayList<>();
-            for (General tg : targetGenerals) {
-                int eAttack = (tg.getAttrAttack() != null ? tg.getAttrAttack() : 50) + (tg.getAttrValor() != null ? tg.getAttrValor() / 2 : 0);
-                int eDefense = (tg.getAttrDefense() != null ? tg.getAttrDefense() : 30) + (tg.getAttrCommand() != null ? tg.getAttrCommand() / 2 : 0);
-                int eTroops = tg.getSoldierCount() != null ? tg.getSoldierCount() : 500;
-                enemyUnits.add(new int[]{eAttack, eDefense, eTroops});
+            // 直接拉取真实玩家阵型战斗单元（含装备/强化/兵法/名将特性）
+            enemyBattleUnits = formationService.buildPlayerBattleUnits(targetId);
+            if (enemyBattleUnits == null) {
+                enemyBattleUnits = new ArrayList<>();
             }
-            if (enemyUnits.isEmpty()) {
-                enemyUnits.add(new int[]{targetLevel * 10, targetLevel * 6, 500});
+            if (enemyBattleUnits.isEmpty()) {
+                // 兜底：目标未配置阵型时，使用其武将数据近似构造，避免掠夺不可战斗
+                for (General tg : targetGenerals) {
+                    int eAttack = (tg.getAttrAttack() != null ? tg.getAttrAttack() : 50) + (tg.getAttrValor() != null ? tg.getAttrValor() / 2 : 0);
+                    int eDefense = (tg.getAttrDefense() != null ? tg.getAttrDefense() : 30) + (tg.getAttrCommand() != null ? tg.getAttrCommand() / 2 : 0);
+                    int eTroops = tg.getSoldierCount() != null ? tg.getSoldierCount() : 500;
+                    enemyUnits.add(new int[]{eAttack, eDefense, eTroops});
+                }
+                if (enemyUnits.isEmpty()) {
+                    enemyUnits.add(new int[]{targetLevel * 10, targetLevel * 6, 500});
+                }
             }
         }
 
         // ========== 使用统一战斗系统 ==========
+        if (enemyBattleUnits.isEmpty()) {
+            for (int i = 0; i < enemyUnits.size(); i++) {
+                int[] eu = enemyUnits.get(i);
+                int eTroopType = 1 + (i % 3);
+                int eSoldiers = eu.length > 2 ? eu[2] : 500;
 
-        List<BattleCalculator.BattleUnit> enemyBattleUnits = new ArrayList<>();
-        for (int i = 0; i < enemyUnits.size(); i++) {
-            int[] eu = enemyUnits.get(i);
-            int eTroopType = 1 + (i % 3);
-            int eSoldiers = eu.length > 2 ? eu[2] : 500;
-
-            BattleCalculator.BattleUnit u = new BattleCalculator.BattleUnit();
-            u.name = isNpcTarget ? (faction != null ? faction : "敌将") + (i + 1) : "敌将" + (i + 1);
-            u.level = targetLevel;
-            u.troopType = eTroopType;
-            u.soldierTier = Math.max(1, Math.min(10, 1 + targetLevel / 20));
-            u.soldierCount = eSoldiers;
-            u.maxSoldierCount = eSoldiers;
-            u.totalAttack = eu[0];
-            u.totalDefense = eu.length > 1 ? eu[1] : eu[0];
-            u.soldierLife = isNpcTarget ? 100 : BattleCalculator.getSoldierLife(eTroopType, u.soldierTier);
-            u.valor = isNpcTarget ? 0 : targetLevel * 2;
-            u.command = isNpcTarget ? 0 : targetLevel * 2;
-            u.dodge = 5;
-            u.hit = 15;
-            u.mobility = 10;
-            u.position = i;
-            enemyBattleUnits.add(u);
+                BattleCalculator.BattleUnit u = new BattleCalculator.BattleUnit();
+                u.name = isNpcTarget ? (faction != null ? faction : "敌将") + (i + 1) : "敌将" + (i + 1);
+                u.level = targetLevel;
+                u.troopType = eTroopType;
+                u.soldierTier = Math.max(1, Math.min(10, 1 + targetLevel / 20));
+                u.soldierCount = eSoldiers;
+                u.maxSoldierCount = eSoldiers;
+                u.totalAttack = eu[0];
+                u.totalDefense = eu.length > 1 ? eu[1] : eu[0];
+                u.soldierLife = isNpcTarget ? 100 : BattleCalculator.getSoldierLife(eTroopType, u.soldierTier);
+                u.valor = isNpcTarget ? 0 : targetLevel * 2;
+                u.command = isNpcTarget ? 0 : targetLevel * 2;
+                u.dodge = 5;
+                u.hit = 15;
+                u.mobility = 10;
+                u.position = i;
+                enemyBattleUnits.add(u);
+            }
         }
 
         BattleService.BattleReport report = battleService.fight(playerBattleUnits, enemyBattleUnits, 20);

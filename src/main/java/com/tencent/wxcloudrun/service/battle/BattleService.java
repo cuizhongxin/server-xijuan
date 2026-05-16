@@ -192,9 +192,11 @@ public class BattleService {
 
     private BattleCalculator.BattleUnit pickTarget(BattleCalculator.BattleUnit attacker,
                                                     List<BattleCalculator.BattleUnit> aliveEnemies) {
-        int atkRow = attacker.position / 2;
+        // 阵位规则: 0~5 按列存储(0,2,4为上排；1,3,5为下排)
+        // 行判定必须按 position % 2，保证“同行优先攻击”是同一横排
+        int atkRow = Math.floorMod(attacker.position, 2);
         List<BattleCalculator.BattleUnit> sameRow = aliveEnemies.stream()
-                .filter(e -> e.position / 2 == atkRow).collect(Collectors.toList());
+                .filter(e -> Math.floorMod(e.position, 2) == atkRow).collect(Collectors.toList());
         List<BattleCalculator.BattleUnit> pool = sameRow.isEmpty() ? aliveEnemies : sameRow;
         return pool.stream().min(Comparator.comparingInt(e -> e.position)).orElse(aliveEnemies.get(0));
     }

@@ -57,7 +57,7 @@ public class SuitConfigService {
 
     /**
      * 计算同套装装备的品质缩放比例（平均 attrRate / 10000）
-     * 粗糙=0.80, 普通=0.85, 优良=0.90, 无暇=0.95, 完美=1.00
+     * 业务修正：套装效果最低按85%结算，避免粗糙品质套装效果偏低。
      */
     private Map<String, Double> calcSetQualityRate(List<Equipment> equips) {
         Map<String, List<Double>> ratesBySet = new HashMap<>();
@@ -66,6 +66,7 @@ public class SuitConfigService {
             if (si == null || si.getSetId() == null || si.getSetId().isEmpty()) continue;
             int qv = eq.getQualityValue() != null && eq.getQualityValue() > 0 ? eq.getQualityValue() : 1;
             double rate = EquipmentConfig.getEquipQualityLevel(qv).attrRate / 10000.0;
+            rate = Math.max(0.85, rate);
             ratesBySet.computeIfAbsent(si.getSetId(), k -> new ArrayList<>()).add(rate);
         }
         Map<String, Double> result = new HashMap<>();
@@ -170,6 +171,16 @@ public class SuitConfigService {
             }
             if (eq.getBonusAttributes() != null) {
                 Equipment.Attributes a = eq.getBonusAttributes();
+                bonus.merge("attack", safe(a.getAttack()), Integer::sum);
+                bonus.merge("defense", safe(a.getDefense()), Integer::sum);
+                bonus.merge("valor", safe(a.getValor()), Integer::sum);
+                bonus.merge("command", safe(a.getCommand()), Integer::sum);
+                bonus.merge("hp", safe(a.getHp()), Integer::sum);
+                bonus.merge("mobility", safe(a.getMobility()), Integer::sum);
+                if (a.getDodge() != null) bonus.merge("dodge", a.getDodge().intValue(), Integer::sum);
+            }
+            if (eq.getEnhanceAttributes() != null) {
+                Equipment.Attributes a = eq.getEnhanceAttributes();
                 bonus.merge("attack", safe(a.getAttack()), Integer::sum);
                 bonus.merge("defense", safe(a.getDefense()), Integer::sum);
                 bonus.merge("valor", safe(a.getValor()), Integer::sum);

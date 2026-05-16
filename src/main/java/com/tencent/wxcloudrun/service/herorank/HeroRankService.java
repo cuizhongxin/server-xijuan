@@ -587,7 +587,7 @@ public class HeroRankService {
                     g.getAttrMobility() != null ? g.getAttrMobility() : 15,
                     troopType, tier, maxSoldiers, maxSoldiers, formLv,
                     eq.getOrDefault("attack", 0), eq.getOrDefault("defense", 0),
-                    eq.getOrDefault("speed", 0), eq.getOrDefault("hit", 0),
+                    eq.getOrDefault("mobility", eq.getOrDefault("speed", 0)), eq.getOrDefault("hit", 0),
                     eq.getOrDefault("dodge", 0), 0, 0, 0);
 
                 u.position = units.size();
