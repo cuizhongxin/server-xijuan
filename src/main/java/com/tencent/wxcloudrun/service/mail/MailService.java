@@ -108,8 +108,10 @@ public class MailService {
                     // item / equipment -> 放入仓库
                     String itemId = String.valueOf(att.get("item_id"));
                     String quality = String.valueOf(att.get("item_quality"));
+                    String itemIcon = "images/item/" + itemId + ".jpg";
                     Warehouse.WarehouseItem item = Warehouse.WarehouseItem.builder()
                             .itemId(itemId).itemType(itemType).name(itemName)
+                            .icon(itemIcon)
                             .quality(quality).count(count).maxStack(9999)
                             .usable(!"equipment".equals(itemType)).build();
                     warehouseService.addItem(userId, item);

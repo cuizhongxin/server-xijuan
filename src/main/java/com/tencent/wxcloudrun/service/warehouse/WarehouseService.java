@@ -735,7 +735,7 @@ public class WarehouseService {
         logger.info("【applyEffectByName】按名称匹配: name={}, count={}", name, count);
 
         // ── 白银类 ──
-        if (name.contains("银锭"))   { addSilverEffect(resource, effect, 2000L * count); return true; }
+        if (name.contains("银锭"))   { addSilverEffect(resource, effect, 10000L * count); return true; }
         if (name.contains("银条"))   { addSilverEffect(resource, effect, 2000L * count); return true; }
         if (name.contains("白银袋")) { addSilverEffect(resource, effect, 10000L * count); return true; }
         if (name.contains("白银箱")) { addSilverEffect(resource, effect, 50000L * count); return true; }

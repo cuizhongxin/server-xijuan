@@ -984,42 +984,42 @@ public class AllianceWarService {
         int extraStrip = Math.max(0, flags / 2);
         if (rank == 1) {
             atts.addAll(buildRewardAttachments("盟战宝箱", 11061, 10));
-            atts.addAll(buildRewardAttachments("金砖", 12001, 5));
-            atts.addAll(buildRewardAttachments("金条", 12002, 10));
+            atts.addAll(buildRewardAttachments("金砖", 11022, 5));
+            atts.addAll(buildRewardAttachments("金条", 11021, 10));
             atts.addAll(buildRewardAttachments("资源礼包", 11051, 30 + extraGift));
-            atts.addAll(buildRewardAttachments("银锭", 12003, 5 + extraIngot));
-            atts.addAll(buildRewardAttachments("银条", 12004, 20 + extraStrip));
+            atts.addAll(buildRewardAttachments("银锭", 11012, 5 + extraIngot));
+            atts.addAll(buildRewardAttachments("银条", 11011, 20 + extraStrip));
         } else if (rank == 2) {
             atts.addAll(buildRewardAttachments("盟战宝箱", 11061, 8));
-            atts.addAll(buildRewardAttachments("金砖", 12001, 3));
-            atts.addAll(buildRewardAttachments("金条", 12002, 6));
+            atts.addAll(buildRewardAttachments("金砖", 11022, 3));
+            atts.addAll(buildRewardAttachments("金条", 11021, 6));
             atts.addAll(buildRewardAttachments("资源礼包", 11051, 18 + extraGift));
-            atts.addAll(buildRewardAttachments("银锭", 12003, 3 + extraIngot));
-            atts.addAll(buildRewardAttachments("银条", 12004, 12 + extraStrip));
+            atts.addAll(buildRewardAttachments("银锭", 11012, 3 + extraIngot));
+            atts.addAll(buildRewardAttachments("银条", 11011, 12 + extraStrip));
         } else if (rank == 3) {
             atts.addAll(buildRewardAttachments("盟战宝箱", 11061, 5));
-            atts.addAll(buildRewardAttachments("金砖", 12001, 2));
-            atts.addAll(buildRewardAttachments("金条", 12002, 4));
+            atts.addAll(buildRewardAttachments("金砖", 11022, 2));
+            atts.addAll(buildRewardAttachments("金条", 11021, 4));
             atts.addAll(buildRewardAttachments("资源礼包", 11051, 12 + extraGift));
-            atts.addAll(buildRewardAttachments("银锭", 12003, 2 + extraIngot));
-            atts.addAll(buildRewardAttachments("银条", 12004, 8 + extraStrip));
+            atts.addAll(buildRewardAttachments("银锭", 11012, 2 + extraIngot));
+            atts.addAll(buildRewardAttachments("银条", 11011, 8 + extraStrip));
         } else if (rank == 4) {
             atts.addAll(buildRewardAttachments("盟战宝箱", 11061, 2));
-            atts.addAll(buildRewardAttachments("金砖", 12001, 1));
-            atts.addAll(buildRewardAttachments("金条", 12002, 2));
+            atts.addAll(buildRewardAttachments("金砖", 11022, 1));
+            atts.addAll(buildRewardAttachments("金条", 11021, 2));
             atts.addAll(buildRewardAttachments("资源礼包", 11051, 6 + extraGift));
-            atts.addAll(buildRewardAttachments("银锭", 12003, 1 + extraIngot));
-            atts.addAll(buildRewardAttachments("银条", 12004, 4 + extraStrip));
+            atts.addAll(buildRewardAttachments("银锭", 11012, 1 + extraIngot));
+            atts.addAll(buildRewardAttachments("银条", 11011, 4 + extraStrip));
         } else if (rank == 5) {
             atts.addAll(buildRewardAttachments("盟战宝箱", 11061, 1));
-            atts.addAll(buildRewardAttachments("金条", 12002, 1));
+            atts.addAll(buildRewardAttachments("金条", 11021, 1));
             atts.addAll(buildRewardAttachments("资源礼包", 11051, 3 + extraGift));
-            if (extraIngot > 0) atts.addAll(buildRewardAttachments("银锭", 12003, extraIngot));
-            atts.addAll(buildRewardAttachments("银条", 12004, 2 + extraStrip));
+            if (extraIngot > 0) atts.addAll(buildRewardAttachments("银锭", 11012, extraIngot));
+            atts.addAll(buildRewardAttachments("银条", 11011, 2 + extraStrip));
         } else {
             atts.addAll(buildRewardAttachments("资源礼包", 11051, 1 + extraGift));
-            if (extraIngot > 0) atts.addAll(buildRewardAttachments("银锭", 12003, extraIngot));
-            atts.addAll(buildRewardAttachments("银条", 12004, 1 + extraStrip));
+            if (extraIngot > 0) atts.addAll(buildRewardAttachments("银锭", 11012, extraIngot));
+            atts.addAll(buildRewardAttachments("银条", 11011, 1 + extraStrip));
         }
         return atts;
     }
