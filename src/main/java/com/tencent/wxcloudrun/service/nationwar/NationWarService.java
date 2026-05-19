@@ -550,6 +550,7 @@ public class NationWarService {
         }
 
         createCityBattles();
+        ensureBattleCreatedFromTopSignupCity();
         autoJoinRegisteredPlayers();
         generateNpcAttackers();
 
@@ -562,6 +563,71 @@ public class NationWarService {
 
         saveSession(activeSession);
         logger.info("国战开始，活跃战场数: {}", activeSession.getCityBattles().size());
+    }
+
+    /**
+     * 兜底规则：
+     * 20:00 到点后如果常规匹配未生成任何战场，但有报名数据，
+     * 则按“总报名人数最多”的城池强制开启一场国战。
+     */
+    private void ensureBattleCreatedFromTopSignupCity() {
+        if (activeSession == null) return;
+        if (activeSession.getCityBattles() != null && !activeSession.getCityBattles().isEmpty()) return;
+        if (activeSession.getRegistrations() == null || activeSession.getRegistrations().isEmpty()) return;
+
+        String bestCityId = null;
+        int bestTotalSignups = 0;
+
+        for (Map.Entry<String, CityRegistration> entry : activeSession.getRegistrations().entrySet()) {
+            CityRegistration reg = entry.getValue();
+            if (reg == null || reg.getNationSignups() == null || reg.getNationSignups().isEmpty()) continue;
+            int total = 0;
+            for (List<WarParticipant> list : reg.getNationSignups().values()) {
+                if (list != null) total += list.size();
+            }
+            if (total <= 0) continue;
+            if (total > bestTotalSignups ||
+                    (total == bestTotalSignups && (bestCityId == null || entry.getKey().compareTo(bestCityId) < 0))) {
+                bestTotalSignups = total;
+                bestCityId = entry.getKey();
+            }
+        }
+
+        if (bestCityId == null) return;
+        City city = cities.get(bestCityId);
+        if (city == null) return;
+
+        CityRegistration bestReg = activeSession.getRegistrations().get(bestCityId);
+        String bestAttackNation = null;
+        int bestNationCount = 0;
+        if (bestReg != null && bestReg.getNationSignups() != null) {
+            for (Map.Entry<String, List<WarParticipant>> e : bestReg.getNationSignups().entrySet()) {
+                int c = e.getValue() != null ? e.getValue().size() : 0;
+                if (c > bestNationCount ||
+                        (c == bestNationCount && bestAttackNation != null && e.getKey().compareTo(bestAttackNation) < 0)) {
+                    bestNationCount = c;
+                    bestAttackNation = e.getKey();
+                } else if (c == bestNationCount && bestAttackNation == null) {
+                    bestAttackNation = e.getKey();
+                }
+            }
+        }
+
+        if (bestAttackNation == null) return;
+
+        activeSession.getNationTargets().put(bestAttackNation, bestCityId);
+        removeNationFromOtherCities(bestAttackNation, bestCityId);
+
+        CityBattle fallbackBattle = CityBattle.builder()
+                .cityId(bestCityId).cityName(city.getName())
+                .sideANation(bestAttackNation).sideBNation(city.getOwner())
+                .sideAScore(0).sideBScore(0).victoryPoint(VICTORY_POINT)
+                .npcDefenders(generateNpcDefenders(city.getOwner(), bestCityId))
+                .rounds(new ArrayList<>()).isChibiBattle(false).build();
+        activeSession.getCityBattles().put(bestCityId, fallbackBattle);
+
+        logger.info("国战兜底开战：报名人数未达阈值，按最多报名城池开启。city={}, totalSignups={}, attackNation={}, attackCount={}",
+                bestCityId, bestTotalSignups, bestAttackNation, bestNationCount);
     }
 
     private String findAny(Map<String, String> map, String value) {

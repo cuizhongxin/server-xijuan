@@ -35,7 +35,7 @@ INSERT INTO `item` (`item_id`, `item_name`, `quality`, `icon`, `description`) VA
 (15052, '军需令',     3, '15052.jpg', '用于刷新护送的军资等级');
 
 -- 4. 插入商城商品（对齐 APK 道具 ID + 用户指定价格）
--- 新品热卖: 6 条 | 常用道具: 10 条 | 活动专区: 0 条
+-- 新品热卖: 8 条 | 常用道具: 10 条 | 活动专区: 0 条
 INSERT INTO `shop` (`name`, `price`, `desc`, `currency`, `icon`, `classify`, `quality`, `item_id`) VALUES
 ('招财符',     10,  '可在聚宝盆中购买幸运号码',           'gold', '11104.jpg', 'new_products', 3, 11104),
 ('特训符',      5,  '让正在训练的将领直接增长经验',         'gold', '15042.jpg', 'new_products', 3, 15042),
@@ -43,6 +43,8 @@ INSERT INTO `shop` (`name`, `price`, `desc`, `currency`, `icon`, `classify`, `qu
 ('将魂符',    500,  '使用后直接获得50武魂',               'gold', '11026.jpg', 'new_products', 5, 11026),
 ('精力丹',     20,  '使用后补充5点精力',                  'gold', '11101.jpg', 'new_products', 3, 11101),
 ('虎符',        5,  '使用虎符可对战役进行扫荡',            'gold', '15051.jpg', 'new_products', 3, 15051),
+('中级强化转移符', 60, '将装备的1-4级强化等级转移到另一件装备上', 'gold', '15046.jpg', 'new_products', 3, 15046),
+('高级强化转移符', 180, '将装备的5级以上强化等级转移到另一件装备上', 'gold', '15043.jpg', 'new_products', 4, 15043),
 ('初级声望符', 10,  '使用后直接获得100点声望',             'gold', '11001.jpg', 'common_props', 3, 11001),
 ('银锭',       10,  '使用后获得10000白银',                'gold', '11012.jpg', 'common_props', 3, 11012),
 ('银票',       50,  '使用后获得50000白银',                'gold', '11013.jpg', 'common_props', 4, 11013),
@@ -63,4 +65,4 @@ SELECT classify, COUNT(*) AS cnt FROM `shop` GROUP BY classify ORDER BY classify
 SELECT '=== 验证 item 表 ===' AS info;
 SELECT COUNT(*) AS total_items FROM `item`;
 SELECT '=== 期望结果 ===' AS info;
-SELECT 'new_products=6, common_props=10, active=0, item总数=16' AS expected;
+SELECT 'new_products=8, common_props=10, active=0, item总数=16' AS expected;
