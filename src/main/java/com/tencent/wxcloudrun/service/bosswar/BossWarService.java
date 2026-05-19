@@ -39,26 +39,32 @@ public class BossWarService {
     private static final double EQUIP_DROP_RATE = 0.10;
     private static final double STRONG_SQUAD_CHANCE = 0.3;
 
-    // APK ArmyService.json — Weak (流寇/军团) stats: {life, att, def, sp}
-    private static final int[] HJ_INF = {340, 160, 250, 12};
-    private static final int[] HJ_CAV = {315, 200, 210, 18};
-    private static final int[] HJ_ARC = {315, 280, 150, 10};
-    private static final int[] DZ_INF = {380, 220, 400, 12};
-    private static final int[] DZ_CAV = {330, 300, 290, 20};
-    private static final int[] DZ_ARC = {330, 400, 200, 10};
-    private static final int[] YZ_INF = {530, 360, 660, 12};
-    private static final int[] YZ_CAV = {430, 660, 420, 20};
-    private static final int[] YZ_ARC = {430, 900, 360, 10};
-    // APK ArmyService.json — Strong (卫队/首领卫队) stats
-    private static final int[] HJ_E_INF = {430, 240, 600, 12};
-    private static final int[] HJ_E_CAV = {360, 400, 320, 24};
-    private static final int[] HJ_E_ARC = {350, 550, 250, 10};
-    private static final int[] DZ_E_INF = {540, 360, 900, 12};
-    private static final int[] DZ_E_CAV = {430, 600, 480, 27};
-    private static final int[] DZ_E_ARC = {420, 860, 350, 10};
-    private static final int[] YZ_E_INF = {840, 720, 1500, 12};
-    private static final int[] YZ_E_CAV = {730, 1600, 800, 27};
-    private static final int[] YZ_E_ARC = {730, 2400, 700, 10};
+    // 世界Boss难度重平衡（按目标秒杀阈值）：
+    // 600秒黄巾普通，900秒黄巾强力，1200秒董卓普通，1600秒董卓强力，2000秒异族普通，2500秒异族强力
+    // stats: {life, att, def, sp}
+    private static final int[] HJ_INF = {100, 360, 240, 12};
+    private static final int[] HJ_CAV = {100, 400, 240, 16};
+    private static final int[] HJ_ARC = {100, 380, 240, 10};
+    private static final int[] DZ_INF = {100, 820, 640, 12};
+    private static final int[] DZ_CAV = {100, 920, 640, 16};
+    private static final int[] DZ_ARC = {100, 860, 640, 10};
+    private static final int[] YZ_INF = {100, 1550, 1200, 12};
+    private static final int[] YZ_CAV = {100, 1720, 1200, 16};
+    private static final int[] YZ_ARC = {100, 1620, 1200, 10};
+    // 强力小队
+    private static final int[] HJ_E_INF = {100, 620, 480, 12};
+    private static final int[] HJ_E_CAV = {100, 700, 480, 18};
+    private static final int[] HJ_E_ARC = {100, 660, 480, 10};
+    private static final int[] DZ_E_INF = {100, 1250, 960, 12};
+    private static final int[] DZ_E_CAV = {100, 1380, 960, 18};
+    private static final int[] DZ_E_ARC = {100, 1300, 960, 10};
+    private static final int[] YZ_E_INF = {100, 2050, 1600, 12};
+    private static final int[] YZ_E_CAV = {100, 2280, 1600, 18};
+    private static final int[] YZ_E_ARC = {100, 2150, 1600, 10};
+
+    // 小队软梯度：弱队±8%，强队±10%
+    private static final double WEAK_STAT_VARIANCE = 0.08;
+    private static final double STRONG_STAT_VARIANCE = 0.10;
 
     // squad troop layout: [步,步,弓,骑,弓,步]
     private static final int[] TROOP_LAYOUT = {1, 1, 3, 2, 3, 1};
@@ -71,7 +77,7 @@ public class BossWarService {
         BOSS_TEMPLATES.put(BOSS_HJLK, new BossTemplate(BOSS_HJLK, "黄巾流寇", 25,
                 "boss_hangjzk.png", 20,
                 new int[]{0, 3, 6, 9, 15, 22},
-                3_000_000L, 500,
+                30_000L, 300,
                 new String[]{"黄巾刀盾手","黄巾长枪兵","黄巾弓箭手","黄巾骑兵","黄巾法师","黄巾渠帅"},
                 new String[]{"黄巾卫队刀盾","黄巾卫队长枪","黄巾卫队弓手","黄巾卫队骑兵","黄巾卫队法师","黄巾卫队统领"},
                 new int[][]{HJ_INF, HJ_INF, HJ_ARC, HJ_CAV, HJ_ARC, HJ_INF},
@@ -79,7 +85,7 @@ public class BossWarService {
                 2500, 6000));
         BOSS_TEMPLATES.put(BOSS_DZJT, new BossTemplate(BOSS_DZJT, "董卓军团", 35,
                 "boss_dongz.png", 30, new int[]{12},
-                5_000_000L, 600,
+                50_000L, 400,
                 new String[]{"西凉刀盾手","西凉长枪兵","西凉弓箭手","西凉铁骑","西凉军师","西凉猛将"},
                 new String[]{"西凉卫队刀盾","西凉卫队长枪","西凉卫队弓手","西凉卫队铁骑","西凉卫队军师","西凉卫队猛将"},
                 new int[][]{DZ_INF, DZ_INF, DZ_ARC, DZ_CAV, DZ_ARC, DZ_INF},
@@ -87,7 +93,7 @@ public class BossWarService {
                 4000, 8500));
         BOSS_TEMPLATES.put(BOSS_YZJT, new BossTemplate(BOSS_YZJT, "异族军团", 40,
                 "boss_yizu.png", 40, new int[]{18},
-                8_000_000L, 700,
+                80_000L, 500,
                 new String[]{"异族刀盾手","异族长枪兵","异族弓箭手","异族骑兵","异族萨满","异族首领"},
                 new String[]{"首领卫队刀盾","首领卫队长枪","首领卫队弓手","首领卫队骑兵","首领卫队萨满","异族大首领"},
                 new int[][]{YZ_INF, YZ_INF, YZ_ARC, YZ_CAV, YZ_ARC, YZ_INF},
@@ -216,6 +222,9 @@ public class BossWarService {
             try { hp = Long.parseLong(raw.contains(";") ? raw.split(";")[0] : raw.trim()); }
             catch (Exception ignored) {}
         }
+        // 兼容旧版本血量：总血量下调后，历史窗口内仍可能存有100倍旧数值
+        // 这里自动按100倍缩放，保证改动可立即生效且尽量保留当前进度比例。
+        hp = normalizeLegacyHp(hp, t.totalHp);
         return new BossState(
                 (String) row.get("status"), hp,
                 (String) row.get("lastKiller"),
@@ -467,8 +476,8 @@ public class BossWarService {
             bu.name = unitNames[i];
             bu.level = t.level;
             int[] stats = unitStats[i];
-            bu.totalAttack = stats[1];
-            bu.totalDefense = stats[2];
+            bu.totalAttack = scaleBossStat(stats[1], isStrongSquad);
+            bu.totalDefense = scaleBossStat(stats[2], isStrongSquad);
             bu.valor = t.level * 2;
             bu.command = t.level * 2;
             bu.dodge = 0; bu.hit = 0;
@@ -477,7 +486,7 @@ public class BossWarService {
             bu.soldierTier = Math.min(10, 1 + t.level / 10);
             bu.soldierCount = squadSoldiers[i];
             bu.maxSoldierCount = t.squadSoldiersPerUnit;
-            bu.soldierLife = stats[0];
+            bu.soldierLife = Math.max(1, scaleBossStat(stats[0], isStrongSquad));
             bu.position = i;
             sideBMapping[sideBCount++] = i;
             sideB.add(bu);
@@ -838,6 +847,23 @@ public class BossWarService {
 
     private String resolvePlayerName(String userId) {
         return playerNameResolver.resolve(userId);
+    }
+
+    private long normalizeLegacyHp(long hp, long currentTemplateHp) {
+        if (hp <= 0 || currentTemplateHp <= 0) return Math.max(0, hp);
+        // 旧模板是当前的100倍，若明显超出现模板上限，按100倍换算。
+        if (hp > currentTemplateHp * 5) {
+            long scaled = hp / 100L;
+            if (scaled <= 0) scaled = 1;
+            return Math.min(scaled, currentTemplateHp);
+        }
+        return Math.min(hp, currentTemplateHp);
+    }
+
+    private int scaleBossStat(int base, boolean isStrongSquad) {
+        double variance = isStrongSquad ? STRONG_STAT_VARIANCE : WEAK_STAT_VARIANCE;
+        double ratio = 1.0 + (random.nextDouble() * 2 - 1) * variance;
+        return Math.max(1, (int) Math.round(base * ratio));
     }
 
     // ═══════════════════════════════════════════
