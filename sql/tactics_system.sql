@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS `user_tactics` (
   `user_id` VARCHAR(64) NOT NULL,
   `tactics_id` VARCHAR(32) NOT NULL,
   `level` INT DEFAULT 1,
+  `quantity` INT NOT NULL DEFAULT 1 COMMENT '拥有数量（每份可给1名武将装备）',
   `create_time` BIGINT,
   UNIQUE KEY `uk_user_tactics` (`user_id`, `tactics_id`),
   INDEX `idx_user_id` (`user_id`)

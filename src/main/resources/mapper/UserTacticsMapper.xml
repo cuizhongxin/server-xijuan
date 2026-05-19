@@ -3,21 +3,23 @@
 <mapper namespace="com.tencent.wxcloudrun.dao.UserTacticsMapper">
 
     <select id="findByUserId" resultType="java.util.Map">
-        SELECT tactics_id AS tacticsId, level, create_time AS createTime
+        SELECT tactics_id AS tacticsId, level, quantity, create_time AS createTime
         FROM user_tactics
         WHERE user_id = #{userId}
     </select>
 
     <select id="findByUserIdAndTacticsId" resultType="java.util.Map">
-        SELECT tactics_id AS tacticsId, level, create_time AS createTime
+        SELECT tactics_id AS tacticsId, level, quantity, create_time AS createTime
         FROM user_tactics
         WHERE user_id = #{userId} AND tactics_id = #{tacticsId}
     </select>
 
     <insert id="upsert">
-        INSERT INTO user_tactics (user_id, tactics_id, level, create_time)
-        VALUES (#{userId}, #{tacticsId}, #{level}, #{createTime})
-        ON DUPLICATE KEY UPDATE level = #{level}
+        INSERT INTO user_tactics (user_id, tactics_id, level, quantity, create_time)
+        VALUES (#{userId}, #{tacticsId}, #{level}, 1, #{createTime})
+        ON DUPLICATE KEY UPDATE
+            level = GREATEST(level, #{level}),
+            quantity = IFNULL(quantity, 1) + 1
     </insert>
 
     <update id="updateLevel">

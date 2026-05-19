@@ -202,14 +202,56 @@ public class TacticsConfig {
     /**
      * 计算升级消耗
      */
-    public static Map<String, Integer> calcUpgradeCost(TacticsTemplate t, int currentLevel) {
-        Map<String, Integer> cost = new HashMap<>();
+    public static Map<String, Object> calcUpgradeCost(TacticsTemplate t, int currentLevel) {
+        Map<String, Object> cost = new HashMap<>();
         int nextLv = currentLevel + 1;
         if (nextLv > 10) return cost;
-        if (t.getUpgradePaperPerLv() > 0) cost.put("paper", t.getUpgradePaperPerLv() * nextLv);
-        if (t.getUpgradeSilverPerLv() > 0) cost.put("silver", t.getUpgradeSilverPerLv() * nextLv);
-        if (t.getUpgradeGoldPerLv() > 0) cost.put("gold", t.getUpgradeGoldPerLv() * nextLv);
+        if (t.getUpgradeSilverPerLv() > 0) {
+            cost.put("silver", t.getUpgradeSilverPerLv() * nextLv);
+        }
+        String itemId = getUpgradeBookItemId(currentLevel);
+        cost.put("itemId", itemId);
+        cost.put("itemName", getUpgradeBookItemName(itemId));
+        cost.put("itemCount", 1);
+        cost.put("successRate", getUpgradeSuccessRate(currentLevel));
         return cost;
+    }
+
+    /**
+     * 兵法升级对应兵书（按当前等级）
+     * 15021: 1-2级，15022: 3-4级，15023: 5-6级，15024: 7-9级
+     */
+    public static String getUpgradeBookItemId(int currentLevel) {
+        if (currentLevel <= 2) return "15021";
+        if (currentLevel <= 4) return "15022";
+        if (currentLevel <= 6) return "15023";
+        return "15024";
+    }
+
+    public static String getUpgradeBookItemName(String itemId) {
+        if ("15021".equals(itemId)) return "三十六计";
+        if ("15022".equals(itemId)) return "鬼谷兵法";
+        if ("15023".equals(itemId)) return "太公六韬";
+        if ("15024".equals(itemId)) return "孙子兵法";
+        return "兵法书";
+    }
+
+    /**
+     * APK风格升级成功率：等级越高成功率越低
+     */
+    public static int getUpgradeSuccessRate(int currentLevel) {
+        switch (currentLevel) {
+            case 1: return 100; // 1->2
+            case 2: return 90;  // 2->3
+            case 3: return 80;  // 3->4
+            case 4: return 70;  // 4->5
+            case 5: return 60;  // 5->6
+            case 6: return 50;  // 6->7
+            case 7: return 40;  // 7->8
+            case 8: return 30;  // 8->9
+            case 9: return 20;  // 9->10
+            default: return 100;
+        }
     }
 
     /**
