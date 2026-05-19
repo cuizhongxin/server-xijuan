@@ -276,12 +276,13 @@ public class WarehouseService {
      */
     public int getItemCount(String userId, String itemId) {
         Warehouse warehouse = getWarehouse(userId);
+        int total = 0;
         for (Warehouse.WarehouseItem item : warehouse.getItemStorage().getItems()) {
             if (item.getItemId().equals(itemId)) {
-                return item.getCount();
+                total += Math.max(0, item.getCount());
             }
         }
-        return 0;
+        return total;
     }
 
     /**
@@ -290,23 +291,10 @@ public class WarehouseService {
     public boolean consumeItem(String userId, String itemId, int count) {
         Warehouse warehouse = getWarehouse(userId);
         Warehouse.ItemStorage storage = warehouse.getItemStorage();
-        for (int i = 0; i < storage.getItems().size(); i++) {
-            Warehouse.WarehouseItem item = storage.getItems().get(i);
-            if (item.getItemId().equals(itemId)) {
-                if (item.getCount() < count) {
-                    return false;
-                }
-                if (item.getCount() > count) {
-                    item.setCount(item.getCount() - count);
-                } else {
-                    storage.getItems().remove(i);
-                    storage.setUsedSlots(Math.max(0, storage.getUsedSlots() - 1));
-                }
-                warehouseRepository.save(warehouse);
-                return true;
-            }
-        }
-        return false;
+        boolean ok = deductItemAcrossStacks(storage, itemId, count);
+        if (!ok) return false;
+        warehouseRepository.save(warehouse);
+        return true;
     }
 
     /**
@@ -355,21 +343,47 @@ public class WarehouseService {
     public boolean removeItem(String userId, String itemId, int count) {
         Warehouse warehouse = getWarehouse(userId);
         Warehouse.ItemStorage storage = warehouse.getItemStorage();
-        
-        for (int i = 0; i < storage.getItems().size(); i++) {
-            Warehouse.WarehouseItem item = storage.getItems().get(i);
-            if (item.getItemId().equals(itemId)) {
-                if (item.getCount() > count) {
-                    item.setCount(item.getCount() - count);
-                } else {
-                    storage.getItems().remove(i);
-                    storage.setUsedSlots(Math.max(0, storage.getUsedSlots() - 1));
-                }
-                warehouseRepository.save(warehouse);
-                return true;
+        boolean ok = deductItemAcrossStacks(storage, itemId, count);
+        if (!ok) return false;
+        warehouseRepository.save(warehouse);
+        return true;
+    }
+
+    /**
+     * 跨堆叠扣减同一 itemId，解决“同道具多格堆叠导致扣减不足”的问题
+     */
+    private boolean deductItemAcrossStacks(Warehouse.ItemStorage storage, String itemId, int count) {
+        if (count <= 0) return true;
+        if (storage == null || storage.getItems() == null || storage.getItems().isEmpty()) return false;
+
+        int total = 0;
+        for (Warehouse.WarehouseItem item : storage.getItems()) {
+            if (item != null && itemId.equals(item.getItemId())) {
+                total += Math.max(0, item.getCount());
             }
         }
-        return false;
+        if (total < count) return false;
+
+        int remain = count;
+        for (int i = 0; i < storage.getItems().size() && remain > 0; ) {
+            Warehouse.WarehouseItem item = storage.getItems().get(i);
+            if (item == null || !itemId.equals(item.getItemId())) {
+                i++;
+                continue;
+            }
+
+            int stackCount = Math.max(0, item.getCount());
+            if (stackCount > remain) {
+                item.setCount(stackCount - remain);
+                remain = 0;
+                i++;
+            } else {
+                remain -= stackCount;
+                storage.getItems().remove(i);
+                storage.setUsedSlots(Math.max(0, storage.getUsedSlots() - 1));
+            }
+        }
+        return remain == 0;
     }
     
     /**
