@@ -1,5 +1,8 @@
 package com.tencent.wxcloudrun.service.battle;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.*;
 
 /**
@@ -21,6 +24,7 @@ import java.util.*;
  */
 public class BattleCalculator {
 
+    private static final Logger logger = LoggerFactory.getLogger(BattleCalculator.class);
     private static final Random random = new Random();
 
     /** 击杀倍率：控制战斗节奏，目标5~8回合内分出胜负 */
@@ -249,14 +253,28 @@ public class BattleCalculator {
     // ==================== 核心伤害计算 ====================
 
     public static DamageResult calcDamage(BattleUnit attacker, BattleUnit target) {
+        Objects.requireNonNull(attacker, "attacker");
+        Objects.requireNonNull(target, "target");
+        String attackerName = attacker.name != null ? attacker.name : "UNKNOWN_A";
+        String targetName = target.name != null ? target.name : "UNKNOWN_B";
+        logger.info("[BattleCalc] START attacker={}({}) target={}({}) atk={} def={} valor={} command={} mob={} dodge={} hit={} soldiers={}/{} life={} | target atk={} def={} valor={} command={} mob={} dodge={} hit={} soldiers={}/{} life={}",
+                attackerName, troopTypeName(attacker.troopType),
+                targetName, troopTypeName(target.troopType),
+                attacker.totalAttack, attacker.totalDefense, attacker.valor, attacker.command, attacker.mobility, attacker.dodge, attacker.hit,
+                attacker.soldierCount, attacker.maxSoldierCount, attacker.soldierLife,
+                target.totalAttack, target.totalDefense, target.valor, target.command, target.mobility, target.dodge, target.hit,
+                target.soldierCount, target.maxSoldierCount, target.soldierLife);
         int targetDodge = target.dodge;
         // 长蛇阵：提升闪避
         if ("t_infantry_2".equals(target.tacticsId)) {
             targetDodge += (int) target.tacticsEffectValue;
         }
+        double dodgeRate = Math.min(50, Math.max(0, targetDodge - attacker.hit));
         if (isDodge(attacker.hit, targetDodge)) {
             DamageResult dodge = new DamageResult(0, false, true, 0);
             dodge.targetUnit = target;
+            logger.info("[BattleCalc] DODGE attacker={} target={} dodgeRate={} attackerHit={} targetDodge={}",
+                    attackerName, targetName, fmt(dodgeRate), attacker.hit, targetDodge);
             return dodge;
         }
 
@@ -269,6 +287,8 @@ public class BattleCalculator {
         double valorBonus = getValorBonus(attacker.valor);
         double commandReduction = getCommandReduction(target.command);
         double randomFactor = 0.95 + random.nextDouble() * 0.10;
+        double yanhangBonus = 1.0;
+        double defendReduceMul = 1.0;
 
         double finalDamage = netDamage
                 * typeBonus
@@ -278,8 +298,8 @@ public class BattleCalculator {
 
         // 雁行阵：增强对弓兵伤害
         if ("t_infantry_3".equals(attacker.tacticsId) && attacker.tacticsLevel > 0 && target.troopType == 3) {
-            double archerBonus = 1.0 + calcYanhangArcherBonus(attacker.tacticsLevel) / 100.0;
-            finalDamage *= archerBonus;
+            yanhangBonus = 1.0 + calcYanhangArcherBonus(attacker.tacticsLevel) / 100.0;
+            finalDamage *= yanhangBonus;
         }
 
         // 名将特性：攻击方士兵伤害直加（不经攻防公式）
@@ -299,15 +319,18 @@ public class BattleCalculator {
         if (target.tacticsId != null && finalDamage > 0) {
             switch (target.tacticsId) {
                 case "t_infantry_1": // 方圆阵 - 全减伤
-                    finalDamage *= Math.max(0.3, 1.0 - target.tacticsEffectValue / 100.0);
+                    defendReduceMul = Math.max(0.3, 1.0 - target.tacticsEffectValue / 100.0);
+                    finalDamage *= defendReduceMul;
                     break;
                 case "t_infantry_3": // 雁行阵 - 减骑兵伤害
                     if (attacker.troopType == 2) {
-                        finalDamage *= Math.max(0.2, 1.0 - target.tacticsEffectValue / 100.0);
+                        defendReduceMul = Math.max(0.2, 1.0 - target.tacticsEffectValue / 100.0);
+                        finalDamage *= defendReduceMul;
                     }
                     break;
                 case "t_infantry_4": // 偃月阵 - 提防并进一步减伤
-                    finalDamage *= Math.max(0.2, 1.0 - target.tacticsEffectValue / 100.0);
+                    defendReduceMul = Math.max(0.2, 1.0 - target.tacticsEffectValue / 100.0);
+                    finalDamage *= defendReduceMul;
                     break;
             }
         }
@@ -339,6 +362,11 @@ public class BattleCalculator {
                 dr.reflectLoss = Math.min(dr.reflectLoss, Math.max(0, attacker.soldierCount));
             }
         }
+        double hpLossRatio = target.maxSoldierCount > 0 ? (soldierLoss * 100.0 / target.maxSoldierCount) : 0;
+        logger.info("[BattleCalc] END attacker={} target={} net={} typeBonus={} valorBonus={} cmdReduce={} random={} yanhang={} defendMul={} traitDmgBonus={} traitResist={} finalDamage={} soldierLife={} soldierLoss={} lossRatio={}%, reflectLoss={}",
+                attackerName, targetName, fmt(netDamage), fmt(typeBonus), fmt(valorBonus), fmt(commandReduction),
+                fmt(randomFactor), fmt(yanhangBonus), fmt(defendReduceMul), attacker.traitDmgBonus,
+                target.traitDamageResist, fmt(finalDamage), soldierLife, soldierLoss, fmt(hpLossRatio), dr.reflectLoss);
         return dr;
     }
 
@@ -441,20 +469,30 @@ public class BattleCalculator {
 
     public static TacticsResult calcDamageWithTactics(BattleUnit attacker, BattleUnit target,
                                                        List<BattleUnit> allEnemies) {
+        Objects.requireNonNull(attacker, "attacker");
+        Objects.requireNonNull(target, "target");
         TacticsResult result = new TacticsResult();
         result.triggered = false;
         result.tacticsName = null;
+        String attackerName = attacker.name != null ? attacker.name : "UNKNOWN_A";
+        String targetName = target.name != null ? target.name : "UNKNOWN_B";
 
         if (attacker.tacticsId == null || attacker.tacticsId.isEmpty()) {
+            logger.info("[BattleTactics] attacker={} target={} no-tactics", attackerName, targetName);
             result.damages.add(calcDamage(attacker, target));
             return result;
         }
 
         String tid = attacker.tacticsId;
+        logger.info("[BattleTactics] attacker={} target={} tacticsId={} tacticsName={} level={} triggerRateBase={} triggerBonus={} triggerMul={} effect={}",
+                attackerName, targetName, tid, attacker.tacticsName, attacker.tacticsLevel,
+                fmt(attacker.tacticsTriggerRate), fmt(attacker.tacticsTriggerBonus),
+                fmt(attacker.tacticsTriggerMultiplier), fmt(attacker.tacticsEffectValue));
 
         // ===== 步兵被动兵法（纯受击减伤，攻击时无主动效果） =====
         if ("t_infantry_1".equals(tid) || "t_infantry_2".equals(tid) || "t_infantry_3".equals(tid)
                 || "t_infantry_4".equals(tid) || "t_infantry_5".equals(tid)) {
+            logger.info("[BattleTactics] attacker={} tactics={} passive-only", attackerName, tid);
             result.damages.add(calcDamage(attacker, target));
             return result;
         }
@@ -470,12 +508,15 @@ public class BattleCalculator {
             dr.soldierLoss = Math.max(1, Math.min(dr.soldierLoss, target.soldierCount));
             result.damages.add(dr);
             attacker.totalAttack = origAtk;
+            logger.info("[BattleTactics] attacker={} tactics={} passive-triggered bonusAtk={} dmgMul={} finalLoss={}",
+                    attackerName, tid, bonusAtk, fmt(dmgMul), dr.soldierLoss);
             return result;
         }
 
         // ===== 主动兵法发动判定 =====
         double triggerRate = (attacker.tacticsTriggerRate + attacker.tacticsTriggerBonus) * attacker.tacticsTriggerMultiplier;
         boolean triggered = random.nextDouble() * 100 < triggerRate;
+        logger.info("[BattleTactics] attacker={} tactics={} triggerRate={} triggered={}", attackerName, tid, fmt(triggerRate), triggered);
 
         if (!triggered) {
             result.damages.add(calcDamage(attacker, target));
@@ -484,6 +525,7 @@ public class BattleCalculator {
 
         // 偷袭类兵法被免疫时直接视为未触发
         if (target.traitImmuneAmbush && "t_cavalry_2".equals(tid)) {
+            logger.info("[BattleTactics] attacker={} tactics={} blocked-by-immune-ambush target={}", attackerName, tid, targetName);
             result.damages.add(calcDamage(attacker, target));
             return result;
         }
@@ -497,6 +539,7 @@ public class BattleCalculator {
                 }
             }
             if (!hasArcher) {
+                logger.info("[BattleTactics] attacker={} tactics={} fallback-normal-attack because no alive archers", attackerName, tid);
                 result.damages.add(calcDamage(attacker, target));
                 return result;
             }
@@ -517,6 +560,8 @@ public class BattleCalculator {
                 result.damages.add(dr);
                 result.effectDesc = "铁骑冲锋！";
                 attacker.totalAttack = origAtk;
+                logger.info("[BattleTactics] attacker={} tactics={} bonusAtk={} dmgMul={} target={} finalLoss={}",
+                        attackerName, tid, bonusAtk, fmt(dmgMul), targetName, dr.soldierLoss);
                 break;
             }
             case "t_cavalry_2": {
@@ -538,6 +583,8 @@ public class BattleCalculator {
                 result.damages.add(dr);
                 if (!archers.isEmpty()) result.specialTarget = actualTarget.name;
                 attacker.totalAttack = origAtk;
+                logger.info("[BattleTactics] attacker={} tactics={} bonusAtk={} dmgMul={} actualTarget={} finalLoss={}",
+                        attackerName, tid, bonusAtk, fmt(dmgMul), actualTarget.name, dr.soldierLoss);
                 break;
             }
             // t_cavalry_3 (以逸待劳) 已改为被动反击兵法，不在此主动触发
@@ -553,6 +600,8 @@ public class BattleCalculator {
                             dr.soldierLoss = Math.max(1, (int)(dr.soldierLoss * pierceRatio));
                             dr.soldierLoss = Math.max(1, Math.min(dr.soldierLoss, e.soldierCount));
                             result.damages.add(dr);
+                            logger.info("[BattleTactics] attacker={} tactics={} aoeTarget={} row={} ratio={} finalLoss={}",
+                                    attackerName, tid, e.name, atkRow, fmt(pierceRatio), dr.soldierLoss);
                         }
                     }
                 }
@@ -580,6 +629,8 @@ public class BattleCalculator {
                             dr.soldierLoss = Math.max(1, (int)(dr.soldierLoss * aoeRatio));
                             dr.soldierLoss = Math.max(1, Math.min(dr.soldierLoss, e.soldierCount));
                             result.damages.add(dr);
+                            logger.info("[BattleTactics] attacker={} tactics={} aoeTarget={} row={} ratio={} finalLoss={}",
+                                    attackerName, tid, e.name, atkRow, fmt(aoeRatio), dr.soldierLoss);
                         }
                     }
                 }
@@ -594,6 +645,17 @@ public class BattleCalculator {
         }
 
         return result;
+    }
+
+    private static String fmt(double n) {
+        return String.format(Locale.ROOT, "%.4f", n);
+    }
+
+    private static String troopTypeName(int troopType) {
+        if (troopType == 1) return "步";
+        if (troopType == 2) return "骑";
+        if (troopType == 3) return "弓";
+        return "未知";
     }
 
     // ==================== 反击判定（以逸待劳） ====================

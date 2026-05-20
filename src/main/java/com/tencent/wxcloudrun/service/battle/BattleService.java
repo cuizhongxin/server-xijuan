@@ -1,5 +1,7 @@
 package com.tencent.wxcloudrun.service.battle;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -13,6 +15,7 @@ import java.util.stream.Collectors;
 @Service
 public class BattleService {
 
+    private static final Logger logger = LoggerFactory.getLogger(BattleService.class);
     private static final int DEFAULT_MAX_ROUNDS = 20;
 
     /**
@@ -27,6 +30,8 @@ public class BattleService {
                               List<BattleCalculator.BattleUnit> sideB,
                               int maxRounds) {
         if (maxRounds <= 0) maxRounds = DEFAULT_MAX_ROUNDS;
+        logger.info("[BattleFlow] START maxRounds={} sideA={} sideB={}",
+                maxRounds, formatUnits(sideA), formatUnits(sideB));
 
         // 标记阵营
         Map<BattleCalculator.BattleUnit, Boolean> isSideA = new HashMap<>();
@@ -46,6 +51,7 @@ public class BattleService {
             roundNum++;
             RoundLog roundLog = new RoundLog();
             roundLog.roundNum = roundNum;
+            logger.info("[BattleFlow] ROUND={} begin", roundNum);
 
             for (BattleCalculator.BattleUnit attacker : allUnits) {
                 if (attacker.soldierCount <= 0) continue;
@@ -58,6 +64,8 @@ public class BattleService {
                 if (aliveEnemies.isEmpty()) break;
 
                 BattleCalculator.BattleUnit target = pickTarget(attacker, aliveEnemies);
+                logger.info("[BattleFlow] ROUND={} action attacker={} target={} attackerStats={} targetStats={}",
+                        roundNum, safeName(attacker), safeName(target), formatUnit(attacker), formatUnit(target));
 
                 BattleCalculator.TacticsResult tr = BattleCalculator.calcDamageWithTactics(
                         attacker, target, aliveEnemies);
@@ -78,6 +86,8 @@ public class BattleService {
                     action.tacticsTriggered = true;
                     action.tacticsName = tr.tacticsName;
                     action.effectDesc = "声东击西被" + counterUnit.name + "以逸待劳打断！";
+                    logger.info("[BattleFlow] ROUND={} action interrupted by counterUnit={} counterStats={}",
+                            roundNum, safeName(counterUnit), formatUnit(counterUnit));
                     HitDetail hit = new HitDetail();
                     hit.soldierLoss = 0;
                     hit.targetRemaining = target.soldierCount;
@@ -90,6 +100,7 @@ public class BattleService {
                     List<ActionLog> reflectActions = new ArrayList<>();
                     for (BattleCalculator.DamageResult dr : tr.damages) {
                         BattleCalculator.BattleUnit actualTarget = dr.targetUnit != null ? dr.targetUnit : target;
+                        int before = actualTarget.soldierCount;
                         HitDetail hit = new HitDetail();
                         hit.isDodge = dr.isDodge;
                         hit.soldierLoss = dr.soldierLoss;
@@ -97,6 +108,9 @@ public class BattleService {
                         if (!dr.isDodge) {
                             actualTarget.soldierCount = Math.max(0, actualTarget.soldierCount - dr.soldierLoss);
                         }
+                        logger.info("[BattleFlow] ROUND={} hit attacker={} -> target={} dodge={} soldierLoss={} targetBefore={} targetAfter={} reflectLoss={}",
+                                roundNum, safeName(attacker), safeName(actualTarget), dr.isDodge, dr.soldierLoss,
+                                before, actualTarget.soldierCount, dr.reflectLoss);
                         hit.targetRemaining = actualTarget.soldierCount;
                         hit.targetIdx = attackerIsA ? sideB.indexOf(actualTarget) : sideA.indexOf(actualTarget);
                         hit.targetName = actualTarget.name;
@@ -123,6 +137,8 @@ public class BattleService {
                             reflectHit.isCounter = true;
                             reflectAction.hits.add(reflectHit);
                             reflectActions.add(reflectAction);
+                            logger.info("[BattleFlow] ROUND={} reflect source={} target={} reflectLoss={} targetAfter={}",
+                                    roundNum, safeName(actualTarget), safeName(attacker), reflectLoss, attacker.soldierCount);
                         }
                     }
                     if (!reflectActions.isEmpty()) {
@@ -151,6 +167,9 @@ public class BattleService {
                     if (!counterDr.isDodge) {
                         attacker.soldierCount = Math.max(0, attacker.soldierCount - counterDr.soldierLoss);
                     }
+                    logger.info("[BattleFlow] ROUND={} counter attacker={} target={} dodge={} soldierLoss={} targetAfter={}",
+                            roundNum, safeName(counterUnit), safeName(attacker), counterDr.isDodge,
+                            counterDr.soldierLoss, attacker.soldierCount);
                     counterHit.targetRemaining = attacker.soldierCount;
                     counterAction.hits.add(counterHit);
                     roundLog.actions.add(counterAction);
@@ -160,6 +179,10 @@ public class BattleService {
             }
 
             rounds.add(roundLog);
+            logger.info("[BattleFlow] ROUND={} end sideARemaining={} sideBRemaining={}",
+                    roundNum,
+                    sideA.stream().mapToInt(u -> Math.max(0, u.soldierCount)).sum(),
+                    sideB.stream().mapToInt(u -> Math.max(0, u.soldierCount)).sum());
             if (sideAAllDead(sideA) || sideAAllDead(sideB)) break;
         }
 
@@ -181,6 +204,9 @@ public class BattleService {
         for (BattleCalculator.BattleUnit u : sideB) {
             report.sideBSummary.add(new UnitSummary(u));
         }
+        logger.info("[BattleFlow] END victoryA={} totalRounds={} sideARemaining={} sideBRemaining={} sideAFinal={} sideBFinal={}",
+                report.victoryA, report.totalRounds, report.sideARemaining, report.sideBRemaining,
+                formatUnits(sideA), formatUnits(sideB));
 
         return report;
     }
@@ -203,6 +229,28 @@ public class BattleService {
 
     private boolean sideAAllDead(List<BattleCalculator.BattleUnit> side) {
         return side.stream().noneMatch(u -> u.soldierCount > 0);
+    }
+
+    private String safeName(BattleCalculator.BattleUnit u) {
+        return u == null ? "UNKNOWN" : (u.name == null ? "UNKNOWN" : u.name);
+    }
+
+    private String formatUnit(BattleCalculator.BattleUnit u) {
+        if (u == null) return "null";
+        return String.format(Locale.ROOT,
+                "%s[pos=%d,troop=%d,atk=%d,def=%d,valor=%d,command=%d,mob=%d,dodge=%d,hit=%d,life=%d,soldier=%d/%d,tactics=%s,lv=%d,trigger=%.2f,effect=%.2f]",
+                safeName(u), u.position, u.troopType, u.totalAttack, u.totalDefense, u.valor, u.command,
+                u.mobility, u.dodge, u.hit, u.soldierLife, u.soldierCount, u.maxSoldierCount,
+                u.tacticsId, u.tacticsLevel, u.tacticsTriggerRate, u.tacticsEffectValue);
+    }
+
+    private String formatUnits(List<BattleCalculator.BattleUnit> units) {
+        if (units == null || units.isEmpty()) return "[]";
+        List<String> parts = new ArrayList<>();
+        for (BattleCalculator.BattleUnit u : units) {
+            parts.add(formatUnit(u));
+        }
+        return parts.toString();
     }
 
     // ==================== 数据类 ====================
