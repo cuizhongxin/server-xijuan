@@ -87,7 +87,7 @@ public class AllianceService {
             throw new BusinessException("联盟名称需为2-12个字符");
         }
         if (ugcModerationService.containsBlockedKeyword(allianceName)) {
-            throw new BusinessException("联盟名称包含敏感内容，请修改后重试");
+            throw new BusinessException(ugcModerationService.buildBlockedNotice("联盟名称"));
         }
         if (allianceMapper.userAllianceExists(userId) > 0) {
             throw new BusinessException("您已加入联盟，请先退出当前联盟");

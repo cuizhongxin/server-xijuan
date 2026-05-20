@@ -52,7 +52,7 @@ public class ChatService {
             throw new BusinessException(400, "消息不能超过" + MAX_MSG_LENGTH + "字");
         }
         if (ugcModerationService.containsBlockedKeyword(content)) {
-            throw new BusinessException(400, "消息包含敏感内容，请修改后再发送");
+            throw new BusinessException(400, ugcModerationService.buildBlockedNotice("聊天内容"));
         }
 
         long now = System.currentTimeMillis();

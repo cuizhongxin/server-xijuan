@@ -24,6 +24,8 @@ public class UgcModerationService {
 
     private static final Logger log = LoggerFactory.getLogger(UgcModerationService.class);
     private static final long ACCESS_TOKEN_REFRESH_BUFFER_MS = 60_000L;
+    private static final String BLOCKED_NOTICE_TEMPLATE =
+            "【内容审核拦截】%s触发关键词屏蔽；系统已启用关键词屏蔽及相关用户处理机制，请修改后重试。";
 
     private final WechatConfig wechatConfig;
     private final RestTemplate restTemplate = new RestTemplate();
@@ -62,6 +64,11 @@ public class UgcModerationService {
 
     public String getContentMask() {
         return safeMask(contentMask, "[内容已屏蔽]");
+    }
+
+    public String buildBlockedNotice(String target) {
+        String t = (target == null || target.trim().isEmpty()) ? "当前内容" : target.trim();
+        return String.format(BLOCKED_NOTICE_TEMPLATE, t);
     }
 
     public List<String> getBlockedKeywords() {

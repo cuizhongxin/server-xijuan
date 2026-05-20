@@ -161,7 +161,11 @@ public class GameServerController {
         }
 
         // 校验名字格式
-        String validated = validateName(lordName);
+        String trimmedLordName = lordName == null ? null : lordName.trim();
+        if (ugcModerationService.containsBlockedKeyword(trimmedLordName)) {
+            return ApiResponse.error(400, ugcModerationService.buildBlockedNotice("角色名"));
+        }
+        String validated = validateName(trimmedLordName);
         if (validated == null) {
             return ApiResponse.error(400, "名字需要2-8个字符，只能包含中文、字母、数字、下划线");
         }
@@ -246,7 +250,11 @@ public class GameServerController {
     public ApiResponse<Map<String, Object>> checkName(
             @RequestParam int serverId,
             @RequestParam String lordName) {
-        String validated = validateName(lordName);
+        String trimmedLordName = lordName == null ? null : lordName.trim();
+        if (ugcModerationService.containsBlockedKeyword(trimmedLordName)) {
+            return ApiResponse.error(400, ugcModerationService.buildBlockedNotice("角色名"));
+        }
+        String validated = validateName(trimmedLordName);
         if (validated == null) {
             return ApiResponse.error(400, "名字需要2-8个字符，只能包含中文、字母、数字、下划线");
         }
@@ -265,7 +273,6 @@ public class GameServerController {
         String trimmed = name.trim();
         if (trimmed.length() < 2 || trimmed.length() > 8) return null;
         if (!trimmed.matches("^[\\u4e00-\\u9fa5a-zA-Z0-9_]+$")) return null;
-        if (ugcModerationService.containsBlockedKeyword(trimmed)) return null;
         return trimmed;
     }
 
