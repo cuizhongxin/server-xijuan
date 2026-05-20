@@ -26,7 +26,6 @@ public class AllianceBossService {
 
     private static final Logger logger = LoggerFactory.getLogger(AllianceBossService.class);
 
-    private static final int MAX_DAILY_ATTACKS = 3;
     private static final int FEED_COST_GOLD = 100;
     private static final int MIN_FEED_QUALITY = 2;
     private static final int[] QUALITY_FEED_VALUES = {0, 0, 1, 3, 8, 15, 20};
@@ -91,6 +90,7 @@ public class AllianceBossService {
 
     public Map<String, Object> getInfo(String userId) {
         int serverId = extractServerId(userId);
+        int dailyCount = bossMapper.findUserDailyAttackCount(userId);
         Map<String, Object> boss = bossMapper.findCurrentBossByServerId(serverId);
         if (boss == null) {
             ensureBossExists(serverId);
@@ -104,6 +104,9 @@ public class AllianceBossService {
         int feedCount = boss.get("feedCount") != null ? ((Number) boss.get("feedCount")).intValue() : 0;
         int feedTarget = boss.get("feedTarget") != null ? ((Number) boss.get("feedTarget")).intValue() : 100;
         boss.put("feedFull", feedCount >= feedTarget);
+        boss.put("dailyAttacksUsed", dailyCount);
+        boss.put("maxDailyAttacks", -1);
+        boss.put("attacksLeft", -1);
         return boss;
     }
 
@@ -255,9 +258,6 @@ public class AllianceBossService {
         }
 
         int dailyCount = bossMapper.findUserDailyAttackCount(userId);
-        if (dailyCount >= MAX_DAILY_ATTACKS) {
-            throw new BusinessException(400, "今日攻击次数已用完（最多" + MAX_DAILY_ATTACKS + "次/天）");
-        }
 
         long bossId = ((Number) boss.get("id")).longValue();
         long currentHp = ((Number) boss.get("currentHp")).longValue();
@@ -367,7 +367,8 @@ public class AllianceBossService {
         result.put("maxHp", maxHp);
         result.put("killed", killed);
         result.put("dailyAttacksUsed", dailyCount + 1);
-        result.put("maxDailyAttacks", MAX_DAILY_ATTACKS);
+        result.put("maxDailyAttacks", -1);
+        result.put("attacksLeft", -1);
         result.put("cooldown", cooldownMs / 1000);
         if (killed) {
             result.put("rewardGold", rewardGold);

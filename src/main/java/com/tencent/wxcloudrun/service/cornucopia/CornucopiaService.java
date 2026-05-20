@@ -3,6 +3,7 @@ package com.tencent.wxcloudrun.service.cornucopia;
 import com.tencent.wxcloudrun.dao.CornucopiaMapper;
 import com.tencent.wxcloudrun.dao.RewardIssueLogMapper;
 import com.tencent.wxcloudrun.exception.BusinessException;
+import com.tencent.wxcloudrun.service.PlayerNameResolver;
 import com.tencent.wxcloudrun.service.UserResourceService;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.slf4j.Logger;
@@ -53,6 +54,9 @@ public class CornucopiaService {
 
     @Autowired
     private RewardIssueLogMapper rewardIssueLogMapper;
+
+    @Autowired
+    private PlayerNameResolver playerNameResolver;
 
     static int extractServerId(String compositeUserId) {
         if (compositeUserId == null) return 1;
@@ -105,6 +109,8 @@ public class CornucopiaService {
             last.put("firstPrize", lastDrawn.get("firstPrize"));
             last.put("grandWinnerId", lastDrawn.get("grandWinnerId"));
             last.put("firstWinnerId", lastDrawn.get("firstWinnerId"));
+            last.put("grandWinnerName", resolvePlayerName((String) lastDrawn.get("grandWinnerId")));
+            last.put("firstWinnerName", resolvePlayerName((String) lastDrawn.get("firstWinnerId")));
             result.put("lastPeriod", last);
         }
 
@@ -244,9 +250,11 @@ public class CornucopiaService {
         result.put("periodNum", periodNum);
         result.put("grandNumber", grandNumber);
         result.put("grandWinnerId", grandWinnerId);
+        result.put("grandWinnerName", resolvePlayerName(grandWinnerId));
         result.put("grandPrize", grandPrize);
         result.put("firstNumber", firstNumber);
         result.put("firstWinnerId", firstWinnerId);
+        result.put("firstWinnerName", resolvePlayerName(firstWinnerId));
         result.put("firstPrize", firstPrize);
         result.put("carryover", carryover);
         return result;
@@ -342,5 +350,15 @@ public class CornucopiaService {
         if (userId == null || amount <= 0) return;
         if (!tryMarkIssued(bizType, bizId, userId, serverId, "amount=" + amount)) return;
         userResourceService.addBoundGold(userId, amount);
+    }
+
+    private String resolvePlayerName(String userId) {
+        if (userId == null || userId.isEmpty()) return "-";
+        try {
+            return playerNameResolver.resolve(userId);
+        } catch (Exception e) {
+            logger.warn("解析聚宝盆玩家名失败: userId={}", userId, e);
+            return userId;
+        }
     }
 }

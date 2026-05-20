@@ -8,6 +8,7 @@ import com.tencent.wxcloudrun.repository.EquipmentPreRepository;
 import com.tencent.wxcloudrun.service.equipment.EquipmentService;
 import com.tencent.wxcloudrun.service.general.GeneralService;
 import com.tencent.wxcloudrun.service.UserResourceService;
+import com.tencent.wxcloudrun.service.warehouse.WarehouseService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -41,6 +42,7 @@ public class CampaignService {
     private final EquipmentRepository equipmentRepository;
     private final EquipmentPreRepository equipmentPreRepository;
     private final EquipmentService equipmentService;
+    private final WarehouseService warehouseService;
     private final TacticsConfig tacticsConfig;
     private final UserTacticsMapper userTacticsMapper;
     private final com.tencent.wxcloudrun.service.herorank.PeerageService peerageService;
@@ -1029,6 +1031,8 @@ public class CampaignService {
             for (CampaignProgress.DropItem drop : drops) {
                 if ("EQUIP_PRE".equals(drop.getType())) {
                     createEquipmentFromDrop(odUserId, drop);
+                } else {
+                    grantItemDropToWarehouse(odUserId, drop);
                 }
             }
 
@@ -1225,6 +1229,8 @@ public class CampaignService {
             for (CampaignProgress.DropItem drop : drops) {
                 if ("EQUIP_PRE".equals(drop.getType())) {
                     createEquipmentFromDrop(odUserId, drop);
+                } else {
+                    grantItemDropToWarehouse(odUserId, drop);
                 }
             }
             
@@ -1688,6 +1694,30 @@ public class CampaignService {
             }
         } catch (NumberFormatException e) {
             log.warn("战役掉落装备ID解析失败: itemId={}", drop.getItemId());
+        }
+    }
+
+    private void grantItemDropToWarehouse(String odUserId, CampaignProgress.DropItem drop) {
+        if (drop == null) return;
+        String itemId = drop.getItemId();
+        Integer count = drop.getCount();
+        if (itemId == null || itemId.isEmpty() || count == null || count <= 0) return;
+        try {
+            Warehouse.WarehouseItem item = Warehouse.WarehouseItem.builder()
+                    .itemId(itemId)
+                    .itemType("material")
+                    .name(drop.getItemName() != null ? drop.getItemName() : itemId)
+                    .icon(drop.getIcon() != null ? drop.getIcon() : ("images/item/" + itemId + ".jpg"))
+                    .quality(drop.getQuality())
+                    .count(count)
+                    .maxStack(9999)
+                    .usable(false)
+                    .bound(false)
+                    .build();
+            warehouseService.addItem(odUserId, item);
+        } catch (Exception e) {
+            log.error("战役掉落道具入库失败: userId={}, itemId={}, count={}", odUserId, itemId, count, e);
+            throw e;
         }
     }
 }
