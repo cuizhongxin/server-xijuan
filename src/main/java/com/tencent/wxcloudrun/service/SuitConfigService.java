@@ -258,16 +258,20 @@ public class SuitConfigService {
      * 确保描述与实际计算逻辑一致（3件=攻防, 6件=辅助属性）
      */
     public String[] getSetEffectDescriptions(String setId) {
+        return getSetEffectDescriptions(setId, 1.0);
+    }
+
+    private String[] getSetEffectDescriptions(String setId, double qualityRate) {
         Map<String, Object> suit = findSuitBySetId(setId);
         if (suit == null) return new String[]{"", ""};
-        int genAtt = getInt(suit, "gen_att");
-        int genDef = getInt(suit, "gen_def");
-        int genFor = getInt(suit, "gen_for");
-        int genLeader = getInt(suit, "gen_leader");
-        int armyLife = getInt(suit, "army_life");
-        int armySp = getInt(suit, "army_sp");
-        int armyHit = getInt(suit, "army_hit");
-        int armyMis = getInt(suit, "army_mis");
+        int genAtt = (int) (getInt(suit, "gen_att") * qualityRate);
+        int genDef = (int) (getInt(suit, "gen_def") * qualityRate);
+        int genFor = (int) (getInt(suit, "gen_for") * qualityRate);
+        int genLeader = (int) (getInt(suit, "gen_leader") * qualityRate);
+        int armyLife = (int) (getInt(suit, "army_life") * qualityRate);
+        int armySp = (int) (getInt(suit, "army_sp") * qualityRate);
+        int armyHit = (int) (getInt(suit, "army_hit") * qualityRate);
+        int armyMis = (int) (getInt(suit, "army_mis") * qualityRate);
         String threeDesc = buildDesc(genAtt, genDef, 0, 0, 0, 0, 0, 0);
         String sixDesc = buildSecondaryDesc(genFor, genLeader, armyLife, armySp, armyHit, armyMis);
         return new String[]{threeDesc, sixDesc};
@@ -278,12 +282,17 @@ public class SuitConfigService {
      */
     public void fixSetDescriptions(List<Equipment> equips) {
         if (equips == null) return;
+        Map<String, Integer> setCounts = countEquippedSets(equips);
+        Map<String, Double> qualityRates = calcSetQualityRate(equips);
         Map<String, String[]> descCache = new HashMap<>();
         for (Equipment eq : equips) {
             Equipment.SetInfo si = eq.getSetInfo();
             if (si == null || si.getSetId() == null || si.getSetId().isEmpty()) continue;
             String setId = si.getSetId();
-            String[] descs = descCache.computeIfAbsent(setId, this::getSetEffectDescriptions);
+            int count = setCounts.getOrDefault(setId, 0);
+            double qRate = qualityRates.getOrDefault(setId, 1.0);
+            String cacheKey = setId + "#" + count + "#" + String.format(Locale.ROOT, "%.4f", qRate);
+            String[] descs = descCache.computeIfAbsent(cacheKey, k -> getSetEffectDescriptions(setId, qRate));
             si.setThreeSetEffect(descs[0] != null && !descs[0].equals("-") ? descs[0] : "");
             si.setSixSetEffect(descs[1] != null && !descs[1].equals("-") ? descs[1] : "");
         }
