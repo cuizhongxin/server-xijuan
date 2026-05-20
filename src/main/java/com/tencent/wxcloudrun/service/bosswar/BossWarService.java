@@ -493,9 +493,7 @@ public class BossWarService {
         }
         if (sideB.isEmpty()) throw new RuntimeException("Boss小队异常，请重试");
 
-        BattleService.BattleReport report = battleService.fight(
-                sideA, sideB, 1,
-                "BOSS_WAR", userId + ":server=" + serverId + ":boss=" + bossId);
+        BattleService.BattleReport report = battleService.fight(sideA, sideB, 1);
 
         long hpDamage = 0;
         int soldiersKilled = 0;

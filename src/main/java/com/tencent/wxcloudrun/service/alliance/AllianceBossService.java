@@ -311,9 +311,7 @@ public class AllianceBossService {
             throw new BusinessException(400, "Boss小队异常，请重试");
         }
 
-        BattleService.BattleReport report = battleService.fight(
-                sideA, sideB, 1,
-                "ALLIANCE_BOSS", userId + ":bossLevel=" + bossLevel);
+        BattleService.BattleReport report = battleService.fight(sideA, sideB, 1);
 
         boolean squadWiped = true;
         for (int i = 0; i < sideBCount; i++) {

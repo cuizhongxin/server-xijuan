@@ -316,9 +316,7 @@ public class PlunderService {
             }
         }
 
-        BattleService.BattleReport report = battleService.fight(
-                playerBattleUnits, enemyBattleUnits, 20,
-                "PLUNDER", userId + "->" + targetId);
+        BattleService.BattleReport report = battleService.fight(playerBattleUnits, enemyBattleUnits, 20);
         boolean victory = report.victoryA;
 
         List<String> battleLog = new ArrayList<>();

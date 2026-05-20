@@ -240,9 +240,7 @@ public class HeroRankService {
 
         if (sideA.isEmpty()) throw new RuntimeException("请先配置阵型");
 
-        BattleService.BattleReport report = battleService.fight(
-                sideA, sideB, 20,
-                "HERO_RANK", userId + "->" + targetId);
+        BattleService.BattleReport report = battleService.fight(sideA, sideB, 20);
         boolean victory = report.victoryA;
 
         int myNewRank = myRank;
