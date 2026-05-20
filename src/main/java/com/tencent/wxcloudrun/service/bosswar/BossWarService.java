@@ -35,6 +35,7 @@ public class BossWarService {
 
     private static final int SQUAD_SIZE = 6;
     private static final int BASE_COOLDOWN_SEC = 90;
+    private static final int ADMIN_BOSS_COOLDOWN_SEC = 10;
     private static final double COMMON_DROP_RATE = 0.25;
     private static final double EQUIP_DROP_RATE = 0.10;
     private static final double STRONG_SQUAD_CHANCE = 0.3;
@@ -512,6 +513,9 @@ public class BossWarService {
 
         int vipLevel = getPlayerVipLevel(userId);
         int coolSec = (int) (BASE_COOLDOWN_SEC * (100 - getVipCdReductionPct(vipLevel)) / 100.0);
+        if ("1".equals(String.valueOf(userId))) {
+            coolSec = ADMIN_BOSS_COOLDOWN_SEC;
+        }
         long cooldownUntil = now + coolSec * 1000L;
 
         boolean bossKilled;
