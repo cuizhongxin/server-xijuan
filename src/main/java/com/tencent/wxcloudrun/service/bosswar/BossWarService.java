@@ -206,6 +206,22 @@ public class BossWarService {
         return 1;
     }
 
+    private boolean isAdminUser(String userId) {
+        if (userId == null || userId.isEmpty()) return false;
+        if ("1".equals(userId)) return true;
+        if (userId.contains("_")) {
+            String head = userId.substring(0, userId.indexOf('_'));
+            return "1".equals(head);
+        }
+        return false;
+    }
+
+    private long normalizeCooldownUntil(String userId, long cooldownUntil, long now) {
+        if (!isAdminUser(userId)) return cooldownUntil;
+        long adminMaxUntil = now + ADMIN_BOSS_COOLDOWN_SEC * 1000L;
+        return Math.min(cooldownUntil, adminMaxUntil);
+    }
+
     // ═══════════════════════════════════════════
     //  DB 状态读写
     // ═══════════════════════════════════════════
@@ -354,8 +370,10 @@ public class BossWarService {
         if (pd != null) {
             myDamage = ((Number) pd.get("totalDamage")).longValue();
             myAttackCount = ((Number) pd.get("attackCount")).intValue();
+            long now = System.currentTimeMillis();
             long cooldownUntil = ((Number) pd.get("cooldownUntil")).longValue();
-            cooldown = Math.max(0, (cooldownUntil - System.currentTimeMillis()) / 1000.0);
+            cooldownUntil = normalizeCooldownUntil(userId, cooldownUntil, now);
+            cooldown = Math.max(0, (cooldownUntil - now) / 1000.0);
         }
         bm.put("myDamage", myDamage);
         bm.put("myAttackCount", myAttackCount);
@@ -445,6 +463,7 @@ public class BossWarService {
         long now = System.currentTimeMillis();
         if (pd != null) {
             long cooldownUntil = ((Number) pd.get("cooldownUntil")).longValue();
+            cooldownUntil = normalizeCooldownUntil(userId, cooldownUntil, now);
             if (cooldownUntil > now) {
                 throw new RuntimeException("正在休整中，还需等待" + (cooldownUntil - now) / 1000 + "秒");
             }
@@ -513,7 +532,7 @@ public class BossWarService {
 
         int vipLevel = getPlayerVipLevel(userId);
         int coolSec = (int) (BASE_COOLDOWN_SEC * (100 - getVipCdReductionPct(vipLevel)) / 100.0);
-        if ("1".equals(String.valueOf(userId))) {
+        if (isAdminUser(userId)) {
             coolSec = ADMIN_BOSS_COOLDOWN_SEC;
         }
         long cooldownUntil = now + coolSec * 1000L;
