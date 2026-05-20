@@ -75,4 +75,8 @@ ugc:
     name-mask: "合规玩家"
     content-mask: "[内容已屏蔽]"
 
+# 命中的用户将被拒绝访问（英文逗号分隔）
+access:
+  blocked-user-whitelist: "1"
+
 

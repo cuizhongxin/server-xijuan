@@ -6,11 +6,15 @@ import com.tencent.wxcloudrun.util.JwtUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * 认证拦截器
@@ -25,6 +29,12 @@ public class AuthInterceptor implements HandlerInterceptor {
     
     @Autowired
     private UserIdService userIdService;
+
+    @Value("${access.blocked-user-whitelist:}")
+    private String blockedUserWhitelistRaw;
+
+    private volatile String blockedUserWhitelistCacheRaw = "";
+    private volatile Set<Long> blockedUserWhitelist = Collections.emptySet();
     
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
@@ -79,6 +89,11 @@ public class AuthInterceptor implements HandlerInterceptor {
                 logger.info("为openId创建新userId: openId={}, userId={}", openId, userId);
             }
         }
+
+        if (isBlockedUser(userId)) {
+            logger.warn("用户访问被拒绝，userId={}", userId);
+            throw new BusinessException(403, "当前账号不可访问");
+        }
         
         // 将openId和userId存入request attribute
         request.setAttribute("openId", openId);
@@ -104,6 +119,41 @@ public class AuthInterceptor implements HandlerInterceptor {
         logger.debug("设置用户信息: openId={}, userId={}", openId, request.getAttribute("userId"));
         
         return true;
+    }
+
+    private boolean isBlockedUser(Long userId) {
+        if (userId == null) return false;
+        return getBlockedUserWhitelist().contains(userId);
+    }
+
+    private Set<Long> getBlockedUserWhitelist() {
+        String raw = blockedUserWhitelistRaw == null ? "" : blockedUserWhitelistRaw.trim();
+        if (raw.equals(blockedUserWhitelistCacheRaw)) {
+            return blockedUserWhitelist;
+        }
+        synchronized (this) {
+            raw = blockedUserWhitelistRaw == null ? "" : blockedUserWhitelistRaw.trim();
+            if (raw.equals(blockedUserWhitelistCacheRaw)) {
+                return blockedUserWhitelist;
+            }
+            Set<Long> parsed = new HashSet<>();
+            if (!raw.isEmpty()) {
+                String[] arr = raw.split("[,，]");
+                for (String item : arr) {
+                    if (item == null) continue;
+                    String t = item.trim();
+                    if (t.isEmpty()) continue;
+                    try {
+                        parsed.add(Long.parseLong(t));
+                    } catch (NumberFormatException e) {
+                        logger.warn("忽略非法 access.blocked-user-whitelist 配置值: {}", t);
+                    }
+                }
+            }
+            blockedUserWhitelist = Collections.unmodifiableSet(parsed);
+            blockedUserWhitelistCacheRaw = raw;
+            return blockedUserWhitelist;
+        }
     }
 }
 
