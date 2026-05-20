@@ -711,6 +711,7 @@ public class RefineService {
         COMPOSE_RECIPES.put(14009, new int[]{14010, 15004, 3, 10000});
         COMPOSE_RECIPES.put(14010, new int[]{14011, 15004, 3, 10000});
         COMPOSE_RECIPES.put(14011, new int[]{14012, 15004, 3, 10000});
+        COMPOSE_RECIPES.put(14012, new int[]{14013, 15004, 3, 10000});
         COMPOSE_RECIPES.put(14013, new int[]{14014, 15004, 3, 10000});
         COMPOSE_RECIPES.put(14014, new int[]{14015, 15004, 3, 10000});
         COMPOSE_RECIPES.put(14015, new int[]{14016, 15004, 3, 10000});

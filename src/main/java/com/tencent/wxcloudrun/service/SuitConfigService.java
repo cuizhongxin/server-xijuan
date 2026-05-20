@@ -57,7 +57,6 @@ public class SuitConfigService {
 
     /**
      * 计算同套装装备的品质缩放比例（平均 attrRate / 10000）
-     * 业务修正：套装效果最低按85%结算，避免粗糙品质套装效果偏低。
      */
     private Map<String, Double> calcSetQualityRate(List<Equipment> equips) {
         Map<String, List<Double>> ratesBySet = new HashMap<>();
@@ -66,7 +65,6 @@ public class SuitConfigService {
             if (si == null || si.getSetId() == null || si.getSetId().isEmpty()) continue;
             int qv = eq.getQualityValue() != null && eq.getQualityValue() > 0 ? eq.getQualityValue() : 1;
             double rate = EquipmentConfig.getEquipQualityLevel(qv).attrRate / 10000.0;
-            rate = Math.max(0.85, rate);
             ratesBySet.computeIfAbsent(si.getSetId(), k -> new ArrayList<>()).add(rate);
         }
         Map<String, Double> result = new HashMap<>();
