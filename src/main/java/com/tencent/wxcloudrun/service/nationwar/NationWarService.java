@@ -1123,7 +1123,9 @@ public class NationWarService {
             defenderLevel = npcDef.getLevel();
         }
 
-        BattleService.BattleReport report = battleService.fight(sideA, sideB, 20);
+        BattleService.BattleReport report = battleService.fight(
+                sideA, sideB, 20,
+                "NATION_WAR", cityId + ":" + attacker.getOdUserId() + "->" + defenderId);
         boolean attackerWins = report.victoryA;
 
         updateSoldiersAfterBattle(attacker, sideA);

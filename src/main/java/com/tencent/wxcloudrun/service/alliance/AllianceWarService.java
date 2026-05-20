@@ -623,7 +623,9 @@ public class AllianceWarService {
     private void simulateBattle(WarBattle battle, WarParticipant p1, WarParticipant p2, int round) {
         List<BattleCalculator.BattleUnit> sideA = buildWarParticipantUnits(p1);
         List<BattleCalculator.BattleUnit> sideB = buildWarParticipantUnits(p2);
-        BattleService.BattleReport report = battleService.fight(sideA, sideB, 20);
+        BattleService.BattleReport report = battleService.fight(
+                sideA, sideB, 20,
+                "ALLIANCE_WAR", battle.getId());
         battle.setBattleReportJson(JSON.toJSONString(report));
         battle.setEndTime(System.currentTimeMillis());
         battle.setPlayer1Score(report.victoryA ? 1 : 0);

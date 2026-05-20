@@ -1163,7 +1163,9 @@ public class CampaignService {
             enemyUnits.add(enemy);
         }
 
-        BattleService.BattleReport report = battleService.fight(playerUnits, enemyUnits, 20);
+        BattleService.BattleReport report = battleService.fight(
+                playerUnits, enemyUnits, 20,
+                "CAMPAIGN", odUserId + ":" + campaignId + ":stage=" + progress.getCurrentStage());
 
         List<String> battleLog = new ArrayList<>();
         battleLog.addAll(report.toBattleLog("我方", "敌方"));

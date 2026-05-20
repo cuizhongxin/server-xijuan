@@ -389,7 +389,9 @@ public class SupplyService {
                 ? Collections.singletonList(buildDefaultEnemy(myLevel))
                 : buildBattleUnits(defGenerals);
 
-        BattleService.BattleReport report = battleService.fight(sideA, sideB, 20);
+        BattleService.BattleReport report = battleService.fight(
+                sideA, sideB, 20,
+                "SUPPLY_ROB", userId + ":transport=" + transportId);
         boolean victory = report.victoryA;
 
         long silverStolen = 0, paperStolen = 0, foodStolen = 0, metalStolen = 0;
