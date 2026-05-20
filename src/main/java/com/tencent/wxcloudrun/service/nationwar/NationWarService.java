@@ -1221,6 +1221,9 @@ public class NationWarService {
                 r.put("scoreGained", f.getScoreGained() != null ? f.getScoreGained() : 0);
                 r.put("hasReplay", f.getBattleReportJson() != null && !f.getBattleReportJson().isEmpty());
                 r.put("battleReportJson", f.getBattleReportJson());
+                r.put("battleReport", f.getBattleReportJson() != null && !f.getBattleReportJson().isEmpty()
+                        ? JSON.parseObject(f.getBattleReportJson())
+                        : null);
                 return r;
             }
         }
@@ -1240,6 +1243,7 @@ public class NationWarService {
                 r.put("scoreGained", b.getScoreGained() != null ? b.getScoreGained() : 0);
                 r.put("hasReplay", false);
                 r.put("battleReportJson", null);
+                r.put("battleReport", null);
                 return r;
             }
         }
