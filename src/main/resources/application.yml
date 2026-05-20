@@ -77,6 +77,6 @@ ugc:
 
 # 命中的用户将被拒绝访问（英文逗号分隔）
 access:
-  blocked-user-whitelist: "1"
+  blocked-user-whitelist: "20"
 
 
