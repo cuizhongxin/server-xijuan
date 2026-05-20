@@ -273,6 +273,7 @@ public class BattleCalculator {
         if (isDodge(attacker.hit, targetDodge)) {
             DamageResult dodge = new DamageResult(0, false, true, 0);
             dodge.targetUnit = target;
+            dodge.rawSoldierLoss = 0;
             logger.info("[BattleCalc] DODGE attacker={} target={} dodgeRate={} attackerHit={} targetDodge={}",
                     attackerName, targetName, fmt(dodgeRate), attacker.hit, targetDodge);
             return dodge;
@@ -335,12 +336,13 @@ public class BattleCalculator {
             }
         }
 
-        int soldierLoss;
+        int rawSoldierLoss;
         if (finalDamage <= 0) {
-            soldierLoss = 1 + random.nextInt(5);
+            rawSoldierLoss = 1 + random.nextInt(5);
         } else {
-            soldierLoss = Math.max(1, (int) Math.ceil(finalDamage * KILL_MULTIPLIER / Math.max(1, soldierLife)));
+            rawSoldierLoss = Math.max(1, (int) Math.ceil(finalDamage * KILL_MULTIPLIER / Math.max(1, soldierLife)));
         }
+        int soldierLoss = rawSoldierLoss;
         if (target.soldierCount > 0) {
             soldierLoss = Math.max(1, Math.min(soldierLoss, target.soldierCount));
         } else {
@@ -349,6 +351,7 @@ public class BattleCalculator {
 
         DamageResult dr = new DamageResult(soldierLoss, false, false, soldierLoss);
         dr.targetUnit = target;
+        dr.rawSoldierLoss = rawSoldierLoss;
         // 却月阵/雁行阵：受击反伤
         if (soldierLoss > 0 && attacker.soldierCount > 0) {
             double reflectRate = 0;
@@ -597,8 +600,8 @@ public class BattleCalculator {
                     for (BattleUnit e : allEnemies) {
                         if (e.soldierCount > 0 && Math.floorMod(e.position, 2) == atkRow) {
                             DamageResult dr = calcDamage(attacker, e);
-                            dr.soldierLoss = Math.max(1, (int)(dr.soldierLoss * pierceRatio));
-                            dr.soldierLoss = Math.max(1, Math.min(dr.soldierLoss, e.soldierCount));
+                            dr.soldierLoss = applyRatioBeforeCap(dr, pierceRatio, e.soldierCount);
+                            dr.damage = dr.soldierLoss;
                             result.damages.add(dr);
                             logger.info("[BattleTactics] attacker={} tactics={} aoeTarget={} row={} ratio={} finalLoss={}",
                                     attackerName, tid, e.name, atkRow, fmt(pierceRatio), dr.soldierLoss);
@@ -626,8 +629,8 @@ public class BattleCalculator {
                     for (BattleUnit e : allEnemies) {
                         if (e.soldierCount > 0 && Math.floorMod(e.position, 2) == atkRow) {
                             DamageResult dr = calcDamage(attacker, e);
-                            dr.soldierLoss = Math.max(1, (int)(dr.soldierLoss * aoeRatio));
-                            dr.soldierLoss = Math.max(1, Math.min(dr.soldierLoss, e.soldierCount));
+                            dr.soldierLoss = applyRatioBeforeCap(dr, aoeRatio, e.soldierCount);
+                            dr.damage = dr.soldierLoss;
                             result.damages.add(dr);
                             logger.info("[BattleTactics] attacker={} tactics={} aoeTarget={} row={} ratio={} finalLoss={}",
                                     attackerName, tid, e.name, atkRow, fmt(aoeRatio), dr.soldierLoss);
@@ -649,6 +652,13 @@ public class BattleCalculator {
 
     private static String fmt(double n) {
         return String.format(Locale.ROOT, "%.4f", n);
+    }
+
+    private static int applyRatioBeforeCap(DamageResult dr, double ratio, int targetSoldierCount) {
+        if (dr == null || dr.isDodge || targetSoldierCount <= 0) return 0;
+        int baseLoss = dr.rawSoldierLoss > 0 ? dr.rawSoldierLoss : dr.soldierLoss;
+        int scaledLoss = Math.max(1, (int) Math.ceil(baseLoss * Math.max(0, ratio)));
+        return Math.min(scaledLoss, targetSoldierCount);
     }
 
     private static String troopTypeName(int troopType) {
@@ -732,6 +742,7 @@ public class BattleCalculator {
         public boolean isCounter;
         public BattleUnit targetUnit; // 实际受伤目标（兵法可能改变攻击目标，如声东击西）
         public int reflectLoss;       // 反伤给攻击方的兵损
+        public int rawSoldierLoss;    // 未按当前兵力上限截断前的理论兵损
 
         public DamageResult(int damage, boolean isCrit, boolean isDodge, int soldierLoss) {
             this.damage = damage;
@@ -739,6 +750,7 @@ public class BattleCalculator {
             this.isDodge = isDodge;
             this.soldierLoss = soldierLoss;
             this.reflectLoss = 0;
+            this.rawSoldierLoss = soldierLoss;
         }
     }
 
