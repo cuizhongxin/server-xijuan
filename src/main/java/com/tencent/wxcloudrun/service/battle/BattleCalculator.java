@@ -316,7 +316,7 @@ public class BattleCalculator {
         if (finalDamage <= 0) {
             soldierLoss = 1 + random.nextInt(5);
         } else {
-            soldierLoss = Math.max(1, (int) Math.round(finalDamage * KILL_MULTIPLIER / Math.max(1, soldierLife)));
+            soldierLoss = Math.max(1, (int) Math.ceil(finalDamage * KILL_MULTIPLIER / Math.max(1, soldierLife)));
         }
         if (target.soldierCount > 0) {
             soldierLoss = Math.max(1, Math.min(soldierLoss, target.soldierCount));
