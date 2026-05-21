@@ -3,28 +3,33 @@
 <mapper namespace="com.tencent.wxcloudrun.dao.UserTacticsMapper">
 
     <select id="findByUserId" resultType="java.util.Map">
-        SELECT tactics_id AS tacticsId, level, quantity, create_time AS createTime
-        FROM user_tactics
+        SELECT instance_id AS instanceId, tactics_id AS tacticsId, level,
+               create_time AS createTime
+        FROM user_tactics_instance
         WHERE user_id = #{userId}
+        ORDER BY create_time DESC
     </select>
 
     <select id="findByUserIdAndTacticsId" resultType="java.util.Map">
-        SELECT tactics_id AS tacticsId, level, quantity, create_time AS createTime
-        FROM user_tactics
-        WHERE user_id = #{userId} AND tactics_id = #{tacticsId}
+        SELECT instance_id AS instanceId, tactics_id AS tacticsId, level,
+               create_time AS createTime
+        FROM user_tactics_instance
+        WHERE user_id = #{userId}
+          AND (instance_id = #{tacticsId} OR tactics_id = #{tacticsId})
+        ORDER BY CASE WHEN instance_id = #{tacticsId} THEN 0 ELSE 1 END, create_time DESC
+        LIMIT 1
     </select>
 
     <insert id="upsert">
-        INSERT INTO user_tactics (user_id, tactics_id, level, quantity, create_time)
-        VALUES (#{userId}, #{tacticsId}, #{level}, 1, #{createTime})
-        ON DUPLICATE KEY UPDATE
-            level = GREATEST(level, #{level}),
-            quantity = IFNULL(quantity, 1) + 1
+        INSERT INTO user_tactics_instance (instance_id, user_id, tactics_id, level, create_time)
+        VALUES (REPLACE(UUID(), '-', ''), #{userId}, #{tacticsId}, #{level}, #{createTime})
     </insert>
 
     <update id="updateLevel">
-        UPDATE user_tactics SET level = #{level}
-        WHERE user_id = #{userId} AND tactics_id = #{tacticsId}
+        UPDATE user_tactics_instance
+        SET level = #{level}
+        WHERE user_id = #{userId}
+          AND instance_id = #{tacticsId}
     </update>
 
 </mapper>

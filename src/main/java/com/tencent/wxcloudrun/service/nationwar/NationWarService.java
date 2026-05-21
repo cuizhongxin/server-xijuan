@@ -1335,16 +1335,19 @@ public class NationWarService {
                         u.tacticsTriggerBonus = generalService.getTacticsTriggerBonus(g.getSlotId());
                     }
                     if (g.getTacticsId() != null) {
-                        TacticsConfig.TacticsTemplate tt = tacticsConfig.getById(g.getTacticsId());
-                        if (tt != null) {
-                            Map<String, Object> owned = userTacticsMapper.findByUserIdAndTacticsId(
-                                    g.getUserId(), g.getTacticsId());
-                            int tLevel = owned != null ? ((Number) owned.get("level")).intValue() : 1;
-                            u.tacticsId = tt.getId();
-                            u.tacticsName = tt.getName();
-                            u.tacticsLevel = tLevel;
-                            u.tacticsEffectValue = TacticsConfig.calcEffect(tt, tLevel);
-                            u.tacticsTriggerRate = TacticsConfig.calcTriggerRate(tt, tLevel);
+                        Map<String, Object> owned = userTacticsMapper.findByUserIdAndTacticsId(
+                                g.getUserId(), g.getTacticsId());
+                        if (owned != null) {
+                            String templateId = String.valueOf(owned.get("tacticsId"));
+                            TacticsConfig.TacticsTemplate tt = tacticsConfig.getById(templateId);
+                            if (tt != null) {
+                                int tLevel = ((Number) owned.get("level")).intValue();
+                                u.tacticsId = tt.getId();
+                                u.tacticsName = tt.getName();
+                                u.tacticsLevel = tLevel;
+                                u.tacticsEffectValue = TacticsConfig.calcEffect(tt, tLevel);
+                                u.tacticsTriggerRate = TacticsConfig.calcTriggerRate(tt, tLevel);
+                            }
                         }
                     }
                     units.add(u);

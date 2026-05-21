@@ -45,12 +45,12 @@ public class TacticsService {
         List<Map<String, Object>> owned = userTacticsMapper.findByUserId(userId);
         List<Map<String, Object>> result = new ArrayList<>();
         for (Map<String, Object> row : owned) {
-            String tacticsId = (String) row.get("tacticsId");
+            String instanceId = String.valueOf(row.get("instanceId"));
+            String tacticsId = String.valueOf(row.get("tacticsId"));
             int level = ((Number) row.get("level")).intValue();
-            int quantity = parseQuantity(row.get("quantity"));
             TacticsTemplate t = tacticsConfig.getById(tacticsId);
             if (t == null) continue;
-            result.add(buildTacticsInfo(userId, t, level, quantity, true));
+            result.add(buildTacticsInfo(userId, instanceId, t, level, true));
         }
         return result;
     }
@@ -59,20 +59,21 @@ public class TacticsService {
      * 获取所有兵法配置（含用户拥有状态/等级）
      */
     public List<Map<String, Object>> getAllTacticsWithOwnership(String userId) {
-        Map<String, Integer> ownedLevelMap = new HashMap<>();
-        Map<String, Integer> ownedQuantityMap = new HashMap<>();
-        for (Map<String, Object> row : userTacticsMapper.findByUserId(userId)) {
-            String tacticsId = (String) row.get("tacticsId");
-            ownedLevelMap.put(tacticsId, ((Number) row.get("level")).intValue());
-            ownedQuantityMap.put(tacticsId, parseQuantity(row.get("quantity")));
-        }
-
         List<Map<String, Object>> result = new ArrayList<>();
+        List<Map<String, Object>> ownedRows = userTacticsMapper.findByUserId(userId);
+        Set<String> ownedTemplateIds = new HashSet<>();
+        for (Map<String, Object> row : ownedRows) {
+            String instanceId = String.valueOf(row.get("instanceId"));
+            String tacticsId = String.valueOf(row.get("tacticsId"));
+            int level = ((Number) row.get("level")).intValue();
+            TacticsTemplate t = tacticsConfig.getById(tacticsId);
+            if (t == null) continue;
+            ownedTemplateIds.add(t.getId());
+            result.add(buildTacticsInfo(userId, instanceId, t, level, true));
+        }
         for (TacticsTemplate t : tacticsConfig.getAllTemplates().values()) {
-            boolean owned = ownedLevelMap.containsKey(t.getId());
-            int level = owned ? ownedLevelMap.get(t.getId()) : 0;
-            int quantity = owned ? ownedQuantityMap.getOrDefault(t.getId(), 1) : 0;
-            result.add(buildTacticsInfo(userId, t, level, quantity, owned));
+            if (ownedTemplateIds.contains(t.getId())) continue;
+            result.add(buildTacticsInfo(userId, null, t, 0, false));
         }
         return result;
     }
@@ -91,15 +92,16 @@ public class TacticsService {
 
         userTacticsMapper.upsert(userId, tacticsId, 1, System.currentTimeMillis());
         Map<String, Object> latest = userTacticsMapper.findByUserIdAndTacticsId(userId, tacticsId);
-        int quantity = latest == null ? 1 : parseQuantity(latest.get("quantity"));
+        String instanceId = latest == null ? null : String.valueOf(latest.get("instanceId"));
         int level = latest == null ? 1 : ((Number) latest.get("level")).intValue();
         logger.info("用户 {} 制造兵法 {} ({})", userId, t.getName(), tacticsId);
 
         Map<String, Object> result = new HashMap<>();
+        result.put("instanceId", instanceId);
         result.put("tacticsId", tacticsId);
         result.put("name", t.getName());
         result.put("level", level);
-        result.put("quantity", quantity);
+        result.put("quantity", 1);
         result.put("cost", cost);
         result.put("remainingPaper", resource.getPaper());
         result.put("remainingSilver", resource.getSilver());
@@ -110,11 +112,12 @@ public class TacticsService {
      * 升级兵法（扣资源，等级+1，上限10）
      */
     public Map<String, Object> upgradeTactics(String userId, String tacticsId) {
-        TacticsTemplate t = tacticsConfig.getById(tacticsId);
-        if (t == null) throw new BusinessException(400, "兵法不存在");
-
         Map<String, Object> existing = userTacticsMapper.findByUserIdAndTacticsId(userId, tacticsId);
         if (existing == null) throw new BusinessException(400, "未拥有此兵法");
+        String instanceId = String.valueOf(existing.get("instanceId"));
+        String templateId = String.valueOf(existing.get("tacticsId"));
+        TacticsTemplate t = tacticsConfig.getById(templateId);
+        if (t == null) throw new BusinessException(400, "兵法不存在");
 
         int currentLevel = ((Number) existing.get("level")).intValue();
         if (currentLevel >= 10) throw new BusinessException(400, "兵法已满级");
@@ -148,14 +151,16 @@ public class TacticsService {
         int finalLevel = currentLevel;
         if (success) {
             finalLevel = nextLevel;
-            userTacticsMapper.updateLevel(userId, tacticsId, finalLevel);
+            userTacticsMapper.updateLevel(userId, instanceId, finalLevel);
         }
         int leftBookCount = warehouseService.getItemCount(userId, bookItemId);
         logger.info("用户 {} 升级兵法 {} ({}): lv{}->{} success={} rate={}%",
                 userId, t.getName(), tacticsId, currentLevel, nextLevel, success, successRate);
 
         Map<String, Object> result = new HashMap<>();
+        result.put("instanceId", instanceId);
         result.put("tacticsId", tacticsId);
+        result.put("templateId", templateId);
         result.put("name", t.getName());
         result.put("success", success);
         result.put("level", finalLevel);
@@ -182,15 +187,16 @@ public class TacticsService {
         if (general == null) throw new BusinessException(404, "武将不存在");
         if (!userId.equals(general.getUserId())) throw new BusinessException(403, "武将不属于该用户");
 
-        TacticsTemplate t = tacticsConfig.getById(tacticsId);
-        if (t == null) throw new BusinessException(400, "兵法不存在");
-
         Map<String, Object> existing = userTacticsMapper.findByUserIdAndTacticsId(userId, tacticsId);
         if (existing == null) throw new BusinessException(400, "未拥有此兵法");
-        int ownedQuantity = parseQuantity(existing.get("quantity"));
-        int equippedCount = countEquippedByOtherGenerals(userId, generalId, tacticsId);
-        if (equippedCount >= ownedQuantity) {
-            throw new BusinessException(400, "该兵法已被其他武将装备，请先卸下或再制造一份");
+        String instanceId = String.valueOf(existing.get("instanceId"));
+        String templateId = String.valueOf(existing.get("tacticsId"));
+        TacticsTemplate t = tacticsConfig.getById(templateId);
+        if (t == null) throw new BusinessException(400, "兵法不存在");
+
+        String occupiedBy = findEquippedGeneralByInstance(userId, generalId, instanceId);
+        if (occupiedBy != null) {
+            throw new BusinessException(400, "该兵法实例已被其他武将装备，请先卸下");
         }
 
         if (t.isVipExclusive() && t.getExclusiveGeneralName() != null
@@ -203,7 +209,7 @@ public class TacticsService {
             throw new BusinessException(400, "此兵法仅适用于" + t.getTroopType() + "兵");
         }
 
-        general.setTacticsId(tacticsId);
+        general.setTacticsId(instanceId);
         general.setUpdateTime(System.currentTimeMillis());
         generalRepository.update(general);
         logger.info("武将 {} 装备兵法 {}", general.getName(), t.getName());
@@ -212,11 +218,12 @@ public class TacticsService {
         Map<String, Object> result = new HashMap<>();
         result.put("generalId", generalId);
         result.put("generalName", general.getName());
-        result.put("tacticsId", tacticsId);
+        result.put("instanceId", instanceId);
+        result.put("tacticsId", templateId);
         result.put("tacticsName", t.getName());
         result.put("tacticsLevel", level);
-        result.put("ownedQuantity", ownedQuantity);
-        result.put("equippedCount", equippedCount + 1);
+        result.put("ownedQuantity", 1);
+        result.put("equippedCount", 1);
         return result;
     }
 
@@ -258,18 +265,22 @@ public class TacticsService {
             return result;
         }
 
-        TacticsTemplate t = tacticsConfig.getById(general.getTacticsId());
+        Map<String, Object> owned = userTacticsMapper.findByUserIdAndTacticsId(userId, general.getTacticsId());
+        if (owned == null) {
+            result.put("equipped", false);
+            return result;
+        }
+        String instanceId = String.valueOf(owned.get("instanceId"));
+        String templateId = String.valueOf(owned.get("tacticsId"));
+        TacticsTemplate t = tacticsConfig.getById(templateId);
         if (t == null) {
             result.put("equipped", false);
             return result;
         }
-
-        Map<String, Object> owned = userTacticsMapper.findByUserIdAndTacticsId(userId, general.getTacticsId());
-        int level = owned != null ? ((Number) owned.get("level")).intValue() : 1;
+        int level = ((Number) owned.get("level")).intValue();
 
         result.put("equipped", true);
-        int quantity = owned != null ? parseQuantity(owned.get("quantity")) : 1;
-        result.put("tactics", buildTacticsInfo(userId, t, level, quantity, true));
+        result.put("tactics", buildTacticsInfo(userId, instanceId, t, level, true));
         return result;
     }
 
@@ -292,9 +303,11 @@ public class TacticsService {
 
     // ==================== 内部方法 ====================
 
-    private Map<String, Object> buildTacticsInfo(String userId, TacticsTemplate t, int level, int quantity, boolean owned) {
+    private Map<String, Object> buildTacticsInfo(String userId, String instanceId, TacticsTemplate t, int level, boolean owned) {
         Map<String, Object> info = new LinkedHashMap<>();
-        info.put("id", t.getId());
+        info.put("id", owned ? instanceId : t.getId());
+        info.put("instanceId", owned ? instanceId : null);
+        info.put("templateId", t.getId());
         info.put("name", t.getName());
         info.put("icon", t.getIcon());
         info.put("apkIconId", t.getApkIconId());
@@ -305,7 +318,7 @@ public class TacticsService {
         info.put("effectDesc", t.getEffectDesc());
         info.put("owned", owned);
         info.put("level", level);
-        info.put("quantity", quantity);
+        info.put("quantity", owned ? 1 : 0);
         info.put("maxLevel", 10);
         info.put("vipExclusive", t.isVipExclusive());
 
@@ -326,8 +339,10 @@ public class TacticsService {
                 }
                 info.put("upgradeCost", upgradeCost);
             }
+            info.put("equipped", isInstanceEquipped(userId, instanceId));
         } else {
             info.put("craftCost", TacticsConfig.calcCraftCost(t));
+            info.put("equipped", false);
         }
         return info;
     }
@@ -368,24 +383,24 @@ public class TacticsService {
                 || normalizedGeneral.contains(normalizedExclusive);
     }
 
-    private int parseQuantity(Object quantityObj) {
-        if (quantityObj instanceof Number) {
-            return Math.max(1, ((Number) quantityObj).intValue());
-        }
-        return 1;
-    }
-
-    private int countEquippedByOtherGenerals(String userId, String currentGeneralId, String tacticsId) {
+    private String findEquippedGeneralByInstance(String userId, String currentGeneralId, String instanceId) {
         List<General> generals = generalRepository.findByUserId(userId);
-        int count = 0;
         for (General g : generals) {
             if (g == null || g.getId() == null) continue;
             if (g.getId().equals(currentGeneralId)) continue;
-            if (tacticsId.equals(g.getTacticsId())) {
-                count++;
-            }
+            if (instanceId.equals(g.getTacticsId())) return g.getId();
         }
-        return count;
+        return null;
+    }
+
+    private boolean isInstanceEquipped(String userId, String instanceId) {
+        if (instanceId == null || instanceId.isEmpty()) return false;
+        List<General> generals = generalRepository.findByUserId(userId);
+        for (General g : generals) {
+            if (g == null) continue;
+            if (instanceId.equals(g.getTacticsId())) return true;
+        }
+        return false;
     }
 
     private int toInt(Object obj) {

@@ -1003,11 +1003,11 @@ public class CampaignService {
         if (victory) {
             long expGained = stage.getExpReward() != null ? stage.getExpReward() : 0;
             long silverGained = stage.getSilverReward() != null ? stage.getSilverReward() : 0;
-            result.setExpGained(expGained);
-            result.setSilverGained(silverGained);
-
             Random dropRandom = new Random();
             List<CampaignProgress.DropItem> drops = processDrops(stage.getDrops(), dropRandom);
+            silverGained += calcResourceSilverFromDrops(drops);
+            result.setExpGained(expGained);
+            result.setSilverGained(silverGained);
             result.setDrops(drops);
 
             try {
@@ -1200,11 +1200,12 @@ public class CampaignService {
             long silverGained = stage.getSilverReward();
             
             result.setExpGained(expGained);
-            result.setSilverGained(silverGained);
             
             // 处理掉落
             Random dropRandom = new Random();
             List<CampaignProgress.DropItem> drops = processDrops(stage.getDrops(), dropRandom);
+            silverGained += calcResourceSilverFromDrops(drops);
+            result.setSilverGained(silverGained);
             result.setDrops(drops);
             
             try {
@@ -1699,6 +1700,7 @@ public class CampaignService {
 
     private void grantItemDropToWarehouse(String odUserId, CampaignProgress.DropItem drop) {
         if (drop == null) return;
+        if (isResourceDrop(drop)) return;
         String itemId = drop.getItemId();
         Integer count = drop.getCount();
         if (itemId == null || itemId.isEmpty() || count == null || count <= 0) return;
@@ -1719,5 +1721,26 @@ public class CampaignService {
             log.error("战役掉落道具入库失败: userId={}, itemId={}, count={}", odUserId, itemId, count, e);
             throw e;
         }
+    }
+
+    private boolean isResourceDrop(CampaignProgress.DropItem drop) {
+        if (drop == null) return false;
+        String type = drop.getType();
+        if (type == null) return false;
+        return "RESOURCE".equalsIgnoreCase(type) || "resource".equalsIgnoreCase(type);
+    }
+
+    private long calcResourceSilverFromDrops(List<CampaignProgress.DropItem> drops) {
+        if (drops == null || drops.isEmpty()) return 0L;
+        long total = 0L;
+        for (CampaignProgress.DropItem drop : drops) {
+            if (!isResourceDrop(drop)) continue;
+            String itemId = drop.getItemId();
+            if (itemId == null) continue;
+            if (!"silver".equalsIgnoreCase(itemId)) continue;
+            Integer cnt = drop.getCount();
+            if (cnt != null && cnt > 0) total += cnt;
+        }
+        return total;
     }
 }

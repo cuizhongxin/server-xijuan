@@ -592,16 +592,19 @@ public class HeroRankService {
 
                 u.position = units.size();
                 if (g.getTacticsId() != null) {
-                    TacticsTemplate tt = tacticsConfig.getById(g.getTacticsId());
-                    if (tt != null) {
-                        Map<String, Object> owned = userTacticsMapper.findByUserIdAndTacticsId(
-                            g.getUserId(), g.getTacticsId());
-                        int tLv = owned != null ? ((Number) owned.get("level")).intValue() : 1;
-                        u.tacticsId = tt.getId();
-                        u.tacticsName = tt.getName();
-                        u.tacticsLevel = tLv;
-                        u.tacticsEffectValue = TacticsConfig.calcEffect(tt, tLv);
-                        u.tacticsTriggerRate = TacticsConfig.calcTriggerRate(tt, tLv);
+                    Map<String, Object> owned = userTacticsMapper.findByUserIdAndTacticsId(
+                        g.getUserId(), g.getTacticsId());
+                    if (owned != null) {
+                        String templateId = String.valueOf(owned.get("tacticsId"));
+                        TacticsTemplate tt = tacticsConfig.getById(templateId);
+                        if (tt != null) {
+                            int tLv = ((Number) owned.get("level")).intValue();
+                            u.tacticsId = tt.getId();
+                            u.tacticsName = tt.getName();
+                            u.tacticsLevel = tLv;
+                            u.tacticsEffectValue = TacticsConfig.calcEffect(tt, tLv);
+                            u.tacticsTriggerRate = TacticsConfig.calcTriggerRate(tt, tLv);
+                        }
                     }
                 }
                 units.add(u);
