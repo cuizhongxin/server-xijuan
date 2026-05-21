@@ -61,6 +61,17 @@
         SELECT user_id AS userId, server_id AS serverId, lord_name AS lordName
         FROM user_server
     </select>
+    
+    <select id="findVirtualPlayerServers" resultType="java.util.HashMap">
+        SELECT us.user_id AS userId,
+               us.server_id AS serverId,
+               us.lord_name AS lordName,
+               IFNULL(ul.level, 1) AS roleLevel
+        FROM user_server us
+        LEFT JOIN user_level ul ON ul.user_id = CONCAT(us.user_id, '_', us.server_id)
+        WHERE us.user_id LIKE 'sim_bot_%'
+           OR us.user_id LIKE 'robot_%'
+    </select>
 
     <update id="updateServerStatus">
         UPDATE game_server SET status = #{status} WHERE id = #{id}

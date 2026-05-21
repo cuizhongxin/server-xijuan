@@ -8,6 +8,7 @@ import com.tencent.wxcloudrun.model.SecretRealm;
 import com.tencent.wxcloudrun.model.Shop;
 import com.tencent.wxcloudrun.service.ShopService;
 import com.tencent.wxcloudrun.service.PlayerNameResolver;
+import com.tencent.wxcloudrun.service.UserResourceService;
 import com.tencent.wxcloudrun.service.alliance.AllianceWarService;
 import com.tencent.wxcloudrun.service.bosswar.BossWarService;
 import com.tencent.wxcloudrun.service.campaign.CampaignService;
@@ -43,6 +44,8 @@ import java.time.LocalTime;
 public class PlayerSimulationService {
 
     private static final Logger logger = LoggerFactory.getLogger(PlayerSimulationService.class);
+    private static final String SIM_USER_PREFIX = "sim_bot_";
+    private static final String SIM_LORD_PREFIX = "演武";
 
     private static final String[] WORLD_CHAT_TEMPLATES = new String[] {
             "有一起打军需的吗？",
@@ -82,6 +85,7 @@ public class PlayerSimulationService {
     private final WarehouseService warehouseService;
     private final PlayerNameResolver playerNameResolver;
     private final SimulationConfigService simulationConfigService;
+    private final UserResourceService userResourceService;
 
     private final Random random = new Random();
 
@@ -106,7 +110,8 @@ public class PlayerSimulationService {
                                    GeneralService generalService,
                                    WarehouseService warehouseService,
                                    PlayerNameResolver playerNameResolver,
-                                   SimulationConfigService simulationConfigService) {
+                                   SimulationConfigService simulationConfigService,
+                                   UserResourceService userResourceService) {
         this.gameServerMapper = gameServerMapper;
         this.chatService = chatService;
         this.heroRankService = heroRankService;
@@ -129,6 +134,7 @@ public class PlayerSimulationService {
         this.warehouseService = warehouseService;
         this.playerNameResolver = playerNameResolver;
         this.simulationConfigService = simulationConfigService;
+        this.userResourceService = userResourceService;
     }
 
     public Map<String, Object> runSimulationOnce(int maxPlayers, boolean includeWarModules) {
@@ -139,7 +145,7 @@ public class PlayerSimulationService {
                                                  boolean includeWarModules,
                                                  String activityProfile,
                                                  Map<Integer, Double> serverWeights) {
-        List<Map<String, Object>> players = gameServerMapper.findAllPlayerServers();
+        List<Map<String, Object>> players = prepareVirtualPlayers(maxPlayers, serverWeights);
         if (players == null || players.isEmpty()) {
             Map<String, Object> empty = new LinkedHashMap<>();
             empty.put("totalPlayers", 0);
@@ -147,7 +153,8 @@ public class PlayerSimulationService {
             empty.put("successActions", 0);
             empty.put("failedActions", 0);
             empty.put("actionStats", Collections.emptyMap());
-            empty.put("message", "没有可模拟的玩家");
+            empty.put("message", "没有可模拟的虚拟玩家");
+            empty.put("virtualOnly", true);
             return empty;
         }
 
@@ -276,7 +283,93 @@ public class PlayerSimulationService {
         result.put("activityProfile", profile);
         result.put("timeWindow", isNightPvpTime ? "night-pvp" : (isDaytime ? "day-production" : "normal"));
         result.put("serverWeights", serverWeights == null ? Collections.emptyMap() : serverWeights);
+        result.put("virtualOnly", true);
         return result;
+    }
+
+    private List<Map<String, Object>> prepareVirtualPlayers(int maxPlayers, Map<Integer, Double> serverWeights) {
+        List<Map<String, Object>> players = gameServerMapper.findVirtualPlayerServers();
+        int targetPool = Math.max(1, maxPlayers);
+        if (players != null && players.size() >= targetPool) return players;
+
+        int need = targetPool - (players == null ? 0 : players.size());
+        if (need > 0) {
+            createVirtualPlayers(need, serverWeights);
+        }
+        return gameServerMapper.findVirtualPlayerServers();
+    }
+
+    private void createVirtualPlayers(int needCount, Map<Integer, Double> serverWeights) {
+        List<Map<String, Object>> servers = gameServerMapper.findAllServers();
+        if (servers == null || servers.isEmpty()) return;
+
+        List<Integer> serverPool = buildServerPool(servers, serverWeights);
+        if (serverPool.isEmpty()) return;
+
+        int created = 0;
+        int attempts = 0;
+        int maxAttempts = Math.max(needCount * 8, 32);
+        while (created < needCount && attempts < maxAttempts) {
+            attempts++;
+            int serverId = serverPool.get(random.nextInt(serverPool.size()));
+            String rawUserId = SIM_USER_PREFIX + Long.toString(System.currentTimeMillis(), 36) + Integer.toString(random.nextInt(46656), 36);
+            if (gameServerMapper.findPlayerServer(rawUserId, serverId) != null) continue;
+
+            String lordName = genUniqueLordName(serverId);
+            if (lordName == null) continue;
+
+            try {
+                long now = System.currentTimeMillis();
+                gameServerMapper.insertPlayerServer(rawUserId, serverId, lordName, now);
+                gameServerMapper.incrementServerPlayers(serverId);
+                initVirtualRoleData(rawUserId + "_" + serverId);
+                created++;
+            } catch (Exception e) {
+                logger.warn("创建虚拟账号失败 user={} server={} err={}", rawUserId, serverId, e.getMessage());
+            }
+        }
+    }
+
+    private List<Integer> buildServerPool(List<Map<String, Object>> servers, Map<Integer, Double> serverWeights) {
+        List<Integer> pool = new ArrayList<>();
+        for (Map<String, Object> s : servers) {
+            int sid = intVal(s.get("id"), 0);
+            if (sid <= 0) continue;
+            String status = str(s.get("serverStatus"));
+            if (!status.isEmpty() && !"normal".equalsIgnoreCase(status)) continue;
+
+            double w = 1.0D;
+            if (serverWeights != null && !serverWeights.isEmpty()) {
+                w = Math.max(0.1D, serverWeights.getOrDefault(sid, 1.0D));
+            }
+            int copies = Math.max(1, (int) Math.round(w * 3));
+            for (int i = 0; i < copies; i++) pool.add(sid);
+        }
+        return pool;
+    }
+
+    private String genUniqueLordName(int serverId) {
+        for (int i = 0; i < 20; i++) {
+            String name = SIM_LORD_PREFIX + (1000 + random.nextInt(9000));
+            if (gameServerMapper.isNameTaken(serverId, name) <= 0) return name;
+        }
+        return null;
+    }
+
+    private void initVirtualRoleData(String gameUserId) {
+        userResourceService.getUserResource(gameUserId);
+        try {
+            List<General> generals = generalService.getUserGenerals(gameUserId);
+            if (generals == null || generals.isEmpty()) {
+                General starter = generalService.grantStarterGeneral(gameUserId);
+                String starterId = objString(starter, "id");
+                if (!starterId.isEmpty()) {
+                    formationService.setFormation(gameUserId, Collections.singletonList(starterId));
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("虚拟账号初始化武将失败 user={} err={}", gameUserId, e.getMessage());
+        }
     }
 
     private void doChat(String userId, String playerName, int serverId) {

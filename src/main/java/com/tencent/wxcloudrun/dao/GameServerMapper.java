@@ -35,6 +35,8 @@ public interface GameServerMapper {
                       @Param("maxPlayers") int maxPlayers);
 
     List<Map<String, Object>> findAllPlayerServers();
+    
+    List<Map<String, Object>> findVirtualPlayerServers();
 
     void updateServerStatus(@Param("id") int id, @Param("status") String status);
 
