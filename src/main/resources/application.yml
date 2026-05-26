@@ -49,7 +49,7 @@ logging:
 # 玩家行为模拟（默认关闭，避免影响线上）
 simulation:
   players:
-    enabled: true
+    enabled: false
     cron: "0 */10 * * * ?"
     max-players-per-tick: 30
     include-war-modules: true
