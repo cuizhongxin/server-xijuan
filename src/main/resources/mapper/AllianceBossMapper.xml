@@ -24,6 +24,12 @@
         UPDATE alliance_boss SET current_hp = #{currentHp} WHERE id = #{id}
     </update>
 
+    <update id="updateBossHpConfig">
+        UPDATE alliance_boss
+        SET max_hp = #{maxHp}, current_hp = #{currentHp}
+        WHERE id = #{id}
+    </update>
+
     <update id="updateBossStatus">
         UPDATE alliance_boss SET status = #{status} WHERE id = #{id}
     </update>

@@ -8,7 +8,9 @@ import com.tencent.wxcloudrun.repository.EquipmentPreRepository;
 import com.tencent.wxcloudrun.service.equipment.EquipmentService;
 import com.tencent.wxcloudrun.service.general.GeneralService;
 import com.tencent.wxcloudrun.service.UserResourceService;
+import com.tencent.wxcloudrun.service.PlayerNameResolver;
 import com.tencent.wxcloudrun.service.warehouse.WarehouseService;
+import com.tencent.wxcloudrun.service.chat.ChatService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -51,6 +53,8 @@ public class CampaignService {
     private final BattleService battleService;
     private final StoryProgressMapper storyProgressMapper;
     private final com.tencent.wxcloudrun.service.level.LevelService levelService;
+    private final ChatService chatService;
+    private final PlayerNameResolver playerNameResolver;
     
     // 战役配置
     private final Map<String, Campaign> campaignConfigs = new ConcurrentHashMap<>();
@@ -1035,6 +1039,7 @@ public class CampaignService {
                     grantItemDropToWarehouse(odUserId, drop);
                 }
             }
+            announceCampaignDrops(odUserId, campaign, stage, drops);
 
             boolean isFirstClear = progress.getMaxClearedStage() < progress.getCurrentStage();
             result.setIsFirstClear(isFirstClear);
@@ -1234,6 +1239,7 @@ public class CampaignService {
                     grantItemDropToWarehouse(odUserId, drop);
                 }
             }
+            announceCampaignDrops(odUserId, campaign, stage, drops);
             
             // 检查是否首次通关
             boolean isFirstClear = progress.getMaxClearedStage() < progress.getCurrentStage();
@@ -1742,5 +1748,54 @@ public class CampaignService {
             if (cnt != null && cnt > 0) total += cnt;
         }
         return total;
+    }
+
+    private void announceCampaignDrops(String userId, Campaign campaign, Campaign.Stage stage,
+                                       List<CampaignProgress.DropItem> drops) {
+        if (drops == null || drops.isEmpty()) return;
+        List<String> gained = new ArrayList<>();
+        for (CampaignProgress.DropItem drop : drops) {
+            if (drop == null) continue;
+            String type = drop.getType();
+            if (!"EQUIP_PRE".equals(type) && !"ITEM".equals(type)) continue;
+            String name = drop.getItemName();
+            if (name == null || name.trim().isEmpty()) continue;
+            int count = drop.getCount() != null ? drop.getCount() : 0;
+            if (count <= 0) continue;
+            gained.add(name + "x" + count);
+        }
+        if (gained.isEmpty()) return;
+
+        int serverId = extractServerId(userId);
+        String playerName = resolvePlayerName(userId);
+        String campaignName = campaign != null ? campaign.getName() : "战役";
+        String stageName = stage != null && stage.getName() != null ? stage.getName() : "关卡";
+        String msg = "【战役掉落】玩家【" + playerName + "】在【" + campaignName + "-" + stageName + "】获得："
+                + String.join("、", gained);
+        chatService.sendSystemMessage(serverId, "world", msg);
+    }
+
+    private int extractServerId(String userId) {
+        if (userId == null) return 1;
+        int idx = userId.lastIndexOf('_');
+        if (idx > 0 && idx < userId.length() - 1) {
+            try {
+                return Integer.parseInt(userId.substring(idx + 1));
+            } catch (NumberFormatException ignore) {
+            }
+        }
+        return 1;
+    }
+
+    private String resolvePlayerName(String userId) {
+        if (userId == null || userId.isEmpty()) return "未知君主";
+        try {
+            String name = playerNameResolver.resolve(userId);
+            if (name != null && !name.trim().isEmpty() && !"君主".equals(name)) {
+                return name;
+            }
+        } catch (Exception ignore) {
+        }
+        return userId;
     }
 }

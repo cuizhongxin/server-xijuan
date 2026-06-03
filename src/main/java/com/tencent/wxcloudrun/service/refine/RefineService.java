@@ -71,29 +71,15 @@ public class RefineService {
         40000, 60000, 80000, 100000, 120000, 140000, 160000, 180000, 200000, 220000
     };
 
-    // APK addPro 千分比: [targetLevel][slotId] (slot 1-6)
-    private static final int[][] ENHANCE_ADD_PRO = {
-        {0, 13,9,7,13,9,7},     // +1
-        {0, 22,15,12,22,15,12}, // +2
-        {0, 31,21,17,31,21,17}, // +3
-        {0, 45,30,25,45,30,25}, // +4
-        {0, 67,45,37,67,45,37}, // +5
-        {0, 90,60,50,90,60,50}, // +6
-        {0, 117,78,65,117,78,65}, // +7
-        {0, 144,96,80,144,96,80}, // +8
-        {0, 171,114,95,171,114,95}, // +9
-        {0, 202,135,112,202,135,112}, // +10
-        {0, 234,156,130,234,156,130}, // +11
-        {0, 265,177,147,265,177,147}, // +12
-        {0, 297,198,165,297,198,165}, // +13
-        {0, 328,219,182,328,219,182}, // +14
-        {0, 360,240,200,360,240,200}, // +15
-        {0, 391,261,217,391,261,217}, // +16
-        {0, 423,282,235,423,282,235}, // +17
-        {0, 454,303,252,454,303,252}, // +18
-        {0, 486,324,270,486,324,270}, // +19
-        {0, 562,375,312,562,375,312}  // +20
-    };
+    /**
+     * 强化加成曲线（按“总属性 = 原属性 + 强化附加”计算）：
+     * 1) +1~+7：每级增加 1/11（约9.09%）原属性
+     * 2) +8~+20：每级增加 2/11（约18.18%）原属性（即前段翻倍）
+     * 3) +20 时附加属性 = 原属性 * 3.0，总属性 = 原属性 * 4.0
+     */
+    private static final double EARLY_LEVEL_BONUS_PER_LEVEL = 1.0 / 11.0; // +1 ~ +7
+    private static final double LATE_LEVEL_BONUS_PER_LEVEL = 2.0 / 11.0;  // +8 ~ +20
+    private static final int BOOST_START_LEVEL = 8;
 
     // APK spAdd (机动加成)
     private static final int[] ENHANCE_SP_ADD = {
@@ -629,24 +615,28 @@ public class RefineService {
             base = Equipment.Attributes.builder().attack(50).defense(30).build();
         }
 
-        int slotId = 1;
-        if (equipment.getSlotType() != null && equipment.getSlotType().getId() != null) {
-            slotId = equipment.getSlotType().getId();
-        }
-        if (slotId < 1 || slotId > 6) slotId = 1;
-
-        int idx = Math.min(level, MAX_ENHANCE_LEVEL) - 1;
-        int promille = ENHANCE_ADD_PRO[idx][slotId];
-        int spAdd = ENHANCE_SP_ADD[idx];
+        int clampedLevel = Math.min(level, MAX_ENHANCE_LEVEL);
+        double bonusRate = calculateEnhanceBonusRate(clampedLevel);
+        int spAdd = ENHANCE_SP_ADD[clampedLevel - 1];
 
         return Equipment.Attributes.builder()
-            .attack(base.getAttack() * promille / 1000)
-            .defense(base.getDefense() * promille / 1000)
-            .valor(base.getValor() * promille / 1000)
-            .command(base.getCommand() * promille / 1000)
-            .hp(base.getHp() * promille / 1000)
-            .mobility(base.getMobility() * promille / 1000 + spAdd)
+            .attack((int)(base.getAttack() * bonusRate))
+            .defense((int)(base.getDefense() * bonusRate))
+            .valor((int)(base.getValor() * bonusRate))
+            .command((int)(base.getCommand() * bonusRate))
+            .hp((int)(base.getHp() * bonusRate))
+            .mobility((int)(base.getMobility() * bonusRate) + spAdd)
             .build();
+    }
+
+    private double calculateEnhanceBonusRate(int level) {
+        if (level <= 0) return 0D;
+        if (level < BOOST_START_LEVEL) {
+            return level * EARLY_LEVEL_BONUS_PER_LEVEL;
+        }
+        double earlyBonus = (BOOST_START_LEVEL - 1) * EARLY_LEVEL_BONUS_PER_LEVEL;
+        int boostedLevels = level - (BOOST_START_LEVEL - 1);
+        return earlyBonus + boostedLevels * LATE_LEVEL_BONUS_PER_LEVEL;
     }
 
     private static int val(Integer v) { return v != null ? v : 0; }

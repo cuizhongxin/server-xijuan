@@ -13,6 +13,7 @@ import com.tencent.wxcloudrun.exception.BusinessException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.tencent.wxcloudrun.service.chat.ChatService;
+import com.tencent.wxcloudrun.service.PlayerNameResolver;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
@@ -32,6 +33,8 @@ public class SecretRealmService {
     private WarehouseService warehouseService;
     @Autowired @Lazy
     private ChatService chatService;
+    @Autowired
+    private PlayerNameResolver playerNameResolver;
     @Autowired
     private UserResourceRepository resourceRepository;
     @Autowired
@@ -554,10 +557,23 @@ public class SecretRealmService {
                 try { serverId = Integer.parseInt(userId.substring(userId.lastIndexOf('_') + 1)); }
                 catch (Exception ignored) {}
             }
-            String msg = "恭喜玩家在秘境中探得稀有装备【" + eq.getName() + "】！";
+            String playerName = resolvePlayerName(userId);
+            String msg = "恭喜玩家【" + playerName + "】在秘境中探得稀有装备【" + eq.getName() + "】！";
             chatService.sendSystemMessage(serverId, "world", msg);
         } catch (Exception e) {
             logger.warn("秘境装备播报异常", e);
         }
+    }
+
+    private String resolvePlayerName(String userId) {
+        if (userId == null || userId.isEmpty()) return "未知君主";
+        try {
+            String name = playerNameResolver.resolve(userId);
+            if (name != null && !name.trim().isEmpty() && !"君主".equals(name)) {
+                return name;
+            }
+        } catch (Exception ignore) {
+        }
+        return userId;
     }
 }

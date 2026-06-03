@@ -18,6 +18,10 @@ public interface AllianceBossMapper {
 
     void updateBossHp(@Param("id") long id, @Param("currentHp") long currentHp);
 
+    void updateBossHpConfig(@Param("id") long id,
+                            @Param("maxHp") long maxHp,
+                            @Param("currentHp") long currentHp);
+
     void updateBossStatus(@Param("id") long id, @Param("status") String status);
 
     void resetBoss(@Param("id") long id,

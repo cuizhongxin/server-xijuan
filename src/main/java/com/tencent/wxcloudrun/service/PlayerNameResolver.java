@@ -27,28 +27,62 @@ public class PlayerNameResolver {
      * 优先拆分复合ID精确查询，失败时尝试用原始ID模糊匹配。
      */
     public String resolve(String compositeUserId) {
-        if (compositeUserId == null || compositeUserId.isEmpty()) return DEFAULT_NAME;
+        if (compositeUserId == null) return DEFAULT_NAME;
+        compositeUserId = compositeUserId.trim();
+        if (compositeUserId.isEmpty() || "null".equalsIgnoreCase(compositeUserId)) return DEFAULT_NAME;
         try {
             int idx = compositeUserId.lastIndexOf('_');
+            String rawUserId = compositeUserId;
             if (idx > 0) {
-                String rawUserId = compositeUserId.substring(0, idx);
-                int serverId = Integer.parseInt(compositeUserId.substring(idx + 1));
-                Map<String, Object> ps = gameServerMapper.findPlayerServer(rawUserId, serverId);
-                if (ps != null && ps.get("lordName") != null) {
-                    String name = ps.get("lordName").toString();
-                    if (!name.isEmpty()) return name;
+                rawUserId = compositeUserId.substring(0, idx);
+                String serverPart = compositeUserId.substring(idx + 1);
+                if (isNumeric(serverPart)) {
+                    int serverId = Integer.parseInt(serverPart);
+                    Map<String, Object> ps = gameServerMapper.findPlayerServer(rawUserId, serverId);
+                    String name = extractLordName(ps);
+                    if (isValidName(name)) return name;
                 }
             }
-            List<Map<String, Object>> servers = gameServerMapper.findPlayerServers(compositeUserId);
-            if (servers != null && !servers.isEmpty()) {
-                Object lordName = servers.get(0).get("lordName");
-                if (lordName != null && !lordName.toString().isEmpty()) {
-                    return lordName.toString();
-                }
+
+            String name = firstLordName(gameServerMapper.findPlayerServers(compositeUserId));
+            if (isValidName(name)) return name;
+
+            if (!rawUserId.equals(compositeUserId)) {
+                name = firstLordName(gameServerMapper.findPlayerServers(rawUserId));
+                if (isValidName(name)) return name;
             }
         } catch (Exception e) {
             logger.debug("解析主公名称失败: {}", compositeUserId);
         }
         return DEFAULT_NAME;
+    }
+
+    private String firstLordName(List<Map<String, Object>> servers) {
+        if (servers == null || servers.isEmpty()) return null;
+        for (Map<String, Object> server : servers) {
+            String name = extractLordName(server);
+            if (isValidName(name)) return name;
+        }
+        return null;
+    }
+
+    private String extractLordName(Map<String, Object> row) {
+        if (row == null) return null;
+        Object lordName = row.get("lordName");
+        return lordName == null ? null : String.valueOf(lordName).trim();
+    }
+
+    private boolean isValidName(String name) {
+        return name != null && !name.trim().isEmpty()
+                && !"null".equalsIgnoreCase(name.trim())
+                && !DEFAULT_NAME.equals(name.trim());
+    }
+
+    private boolean isNumeric(String value) {
+        if (value == null || value.isEmpty()) return false;
+        for (int i = 0; i < value.length(); i++) {
+            if (!Character.isDigit(value.charAt(i))) return false;
+        }
+        return true;
     }
 }

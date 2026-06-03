@@ -569,6 +569,7 @@ public class BossWarService {
         Map<String, Object> lordLevelInfo = null;
         if (squadWiped) {
             dropResult = rollDrops(userId, bossId, isStrongSquad);
+            announceBossDrops(serverId, t.name, userId, dropResult, bossKilled);
             expGained = isStrongSquad ? t.strongExp : t.weakExp;
             try {
                 lordLevelInfo = levelService.addExp(userId, expGained, "Boss战-" + t.name);
@@ -640,6 +641,25 @@ public class BossWarService {
 
         result.put("rewards", rewards);
         return result;
+    }
+
+    private void announceBossDrops(int serverId, String bossName, String userId,
+                                   Map<String, Object> dropResult, boolean bossKilled) {
+        if (dropResult == null) return;
+        Object rewardsObj = dropResult.get("rewards");
+        if (!(rewardsObj instanceof List)) return;
+        @SuppressWarnings("unchecked")
+        List<String> rewards = (List<String>) rewardsObj;
+        if (rewards.isEmpty()) return;
+        try {
+            String playerName = resolvePlayerName(userId);
+            String action = bossKilled ? "击败" : "讨伐";
+            String msg = "【Boss掉落】玩家【" + playerName + "】" + action + "【" + bossName + "】获得："
+                    + String.join("、", rewards);
+            chatService.sendSystemMessage(serverId, "world", msg);
+        } catch (Exception e) {
+            logger.warn("Boss掉落公告发送失败: serverId={}, bossName={}", serverId, bossName, e);
+        }
     }
 
     // ═══════════════════════════════════════════

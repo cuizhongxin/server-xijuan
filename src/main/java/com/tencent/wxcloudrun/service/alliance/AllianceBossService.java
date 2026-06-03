@@ -10,6 +10,8 @@ import com.tencent.wxcloudrun.service.SuitConfigService;
 import com.tencent.wxcloudrun.service.battle.BattleCalculator;
 import com.tencent.wxcloudrun.service.battle.BattleService;
 import com.tencent.wxcloudrun.service.formation.FormationService;
+import com.tencent.wxcloudrun.service.PlayerNameResolver;
+import com.tencent.wxcloudrun.service.chat.ChatService;
 import com.tencent.wxcloudrun.service.warehouse.WarehouseService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,7 +31,7 @@ public class AllianceBossService {
     private static final int FEED_COST_GOLD = 100;
     private static final int MIN_FEED_QUALITY = 2;
     private static final int[] QUALITY_FEED_VALUES = {0, 0, 1, 3, 8, 15, 20};
-    private static final long ALLIANCE_BOSS_HP = 5_000_000L;
+    private static final long ALLIANCE_BOSS_HP = 30_000L;
     private static final int SUMMON_MIN_HOUR = 0;
     private static final int SUMMON_MIN_MINUTE = 0;
     private static final int SUMMON_MAX_HOUR = 23;
@@ -50,11 +52,11 @@ public class AllianceBossService {
     };
 
     private static final String[][] BOSS_TABLE = {
-            {"远古巨兽", "5000000"},
-            {"蛮荒凶兽", "5000000"},
-            {"上古魔龙", "5000000"},
-            {"混沌巨龙", "5000000"},
-            {"灭世龙王", "5000000"}
+            {"远古巨兽", String.valueOf(ALLIANCE_BOSS_HP)},
+            {"蛮荒凶兽", String.valueOf(ALLIANCE_BOSS_HP)},
+            {"上古魔龙", String.valueOf(ALLIANCE_BOSS_HP)},
+            {"混沌巨龙", String.valueOf(ALLIANCE_BOSS_HP)},
+            {"灭世龙王", String.valueOf(ALLIANCE_BOSS_HP)}
     };
 
     private final Random random = new Random();
@@ -67,6 +69,8 @@ public class AllianceBossService {
     @Autowired private FormationService formationService;
     @Autowired private SuitConfigService suitConfigService;
     @Autowired private WarehouseService warehouseService;
+    @Autowired @org.springframework.context.annotation.Lazy private ChatService chatService;
+    @Autowired private PlayerNameResolver playerNameResolver;
 
     static int extractServerId(String compositeUserId) {
         if (compositeUserId != null && compositeUserId.contains("_")) {
@@ -99,6 +103,7 @@ public class AllianceBossService {
         if (boss == null) {
             throw new BusinessException(500, "Boss数据异常");
         }
+        reconcileBossHpConfig(boss);
         boss.put("summonTime", String.format("%02d:%02d-%02d:%02d",
                 SUMMON_MIN_HOUR, SUMMON_MIN_MINUTE, SUMMON_MAX_HOUR, SUMMON_MAX_MINUTE));
         int feedCount = boss.get("feedCount") != null ? ((Number) boss.get("feedCount")).intValue() : 0;
@@ -251,6 +256,7 @@ public class AllianceBossService {
         if (boss == null) {
             throw new BusinessException(500, "Boss数据异常");
         }
+        reconcileBossHpConfig(boss);
 
         String status = (String) boss.get("status");
         if (!"fighting".equals(status)) {
@@ -354,11 +360,13 @@ public class AllianceBossService {
                     Long.parseLong(BOSS_TABLE[idx][1]), Long.parseLong(BOSS_TABLE[idx][1]));
 
             logger.info("联盟Boss被击杀! serverId={}, 升级到Lv.{} {}", serverId, nextLevel, BOSS_TABLE[idx][0]);
+            announceBossKilled(serverId, userId, rewardGold, rewardSilver);
         }
 
         Map<String, Object> dropResult = null;
         if (squadWiped && random.nextDouble() < DROP_RATE) {
             dropResult = rollDrop(userId);
+            announceBossDrop(serverId, userId, dropResult);
         }
 
         Map<String, Object> result = new HashMap<>();
@@ -379,6 +387,38 @@ public class AllianceBossService {
         }
         result.put("battleReport", report);
         return result;
+    }
+
+    /**
+     * 在线修正联盟Boss血量配置：
+     * - maxHp 永远按当前等级表值
+     * - currentHp 只向上限收敛，不主动回血
+     */
+    private void reconcileBossHpConfig(Map<String, Object> boss) {
+        if (boss == null) return;
+        Object idObj = boss.get("id");
+        Object levelObj = boss.get("bossLevel");
+        Object maxHpObj = boss.get("maxHp");
+        Object currentHpObj = boss.get("currentHp");
+        if (!(idObj instanceof Number) || !(levelObj instanceof Number)
+                || !(maxHpObj instanceof Number) || !(currentHpObj instanceof Number)) {
+            return;
+        }
+
+        int level = ((Number) levelObj).intValue();
+        int idx = Math.max(0, Math.min(BOSS_TABLE.length - 1, level - 1));
+        long expectedMaxHp = Long.parseLong(BOSS_TABLE[idx][1]);
+        long currentMaxHp = ((Number) maxHpObj).longValue();
+        long currentHp = ((Number) currentHpObj).longValue();
+        if (currentMaxHp == expectedMaxHp) return;
+
+        long fixedCurrentHp = Math.min(currentHp, expectedMaxHp);
+        long bossId = ((Number) idObj).longValue();
+        bossMapper.updateBossHpConfig(bossId, expectedMaxHp, fixedCurrentHp);
+        boss.put("maxHp", expectedMaxHp);
+        boss.put("currentHp", fixedCurrentHp);
+        logger.info("联盟Boss血量配置已修正: id={}, level={}, maxHp {} -> {}, currentHp -> {}",
+                bossId, level, currentMaxHp, expectedMaxHp, fixedCurrentHp);
     }
 
     private Map<String, Object> rollDrop(String userId) {
@@ -407,6 +447,43 @@ public class AllianceBossService {
         drop.put("itemName", itemName);
         drop.put("count", 1);
         return drop;
+    }
+
+    private void announceBossKilled(int serverId, String userId, long rewardGold, long rewardSilver) {
+        try {
+            String playerName = resolvePlayerName(userId);
+            String msg = "【联盟Boss】玩家【" + playerName + "】完成最后一击，获得奖励：黄金x"
+                    + rewardGold + "、白银x" + rewardSilver;
+            chatService.sendSystemMessage(serverId, "world", msg);
+        } catch (Exception e) {
+            logger.warn("联盟Boss击败公告发送失败", e);
+        }
+    }
+
+    private void announceBossDrop(int serverId, String userId, Map<String, Object> dropResult) {
+        if (dropResult == null) return;
+        try {
+            String itemName = String.valueOf(dropResult.get("itemName"));
+            int count = dropResult.get("count") instanceof Number ? ((Number) dropResult.get("count")).intValue() : 1;
+            if (itemName == null || itemName.trim().isEmpty() || "null".equals(itemName)) return;
+            String playerName = resolvePlayerName(userId);
+            String msg = "【联盟Boss掉落】玩家【" + playerName + "】获得【" + itemName + "x" + count + "】";
+            chatService.sendSystemMessage(serverId, "world", msg);
+        } catch (Exception e) {
+            logger.warn("联盟Boss掉落公告发送失败", e);
+        }
+    }
+
+    private String resolvePlayerName(String userId) {
+        if (userId == null || userId.isEmpty()) return "未知君主";
+        try {
+            String name = playerNameResolver.resolve(userId);
+            if (name != null && !name.trim().isEmpty() && !"君主".equals(name)) {
+                return name;
+            }
+        } catch (Exception ignore) {
+        }
+        return userId;
     }
 
     public List<Map<String, Object>> getRecords(String userId) {
