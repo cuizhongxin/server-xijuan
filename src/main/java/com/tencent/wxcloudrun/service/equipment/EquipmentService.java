@@ -50,6 +50,13 @@ public class EquipmentService {
     private static final Map<Integer, List<String>> RING_NAMES = new HashMap<>();
     private static final Map<Integer, List<String>> SHOES_NAMES = new HashMap<>();
     private static final Map<Integer, List<String>> NECKLACE_NAMES = new HashMap<>();
+    private static final int MAX_ENHANCE_LEVEL = 20;
+    private static final double EARLY_LEVEL_BONUS_PER_LEVEL = 1.0 / 11.0; // +1 ~ +7
+    private static final double LATE_LEVEL_BONUS_PER_LEVEL = 2.0 / 11.0;  // +8 ~ +20
+    private static final int BOOST_START_LEVEL = 8;
+    private static final int[] ENHANCE_SP_ADD = {
+            0,0,0,1,1,2,2,3,4,5,6,7,8,9,10,11,12,13,14,15
+    };
     
     static {
         // 武器名称（按等级）
@@ -101,28 +108,28 @@ public class EquipmentService {
      * 获取用户所有装备
      */
     public List<Equipment> getUserEquipments(String userId) {
-        return equipmentRepository.findByUserId(userId);
+        return patchEnhanceAttributes(equipmentRepository.findByUserId(userId));
     }
     
     /**
      * 获取用户背包中的装备（未装备）
      */
     public List<Equipment> getUserBagEquipments(String userId) {
-        return equipmentRepository.findUnequippedByUserId(userId);
+        return patchEnhanceAttributes(equipmentRepository.findUnequippedByUserId(userId));
     }
     
     /**
      * 获取武将已装备的装备
      */
     public List<Equipment> getGeneralEquipments(String generalId) {
-        return equipmentRepository.findEquippedByGeneralId(generalId);
+        return patchEnhanceAttributes(equipmentRepository.findEquippedByGeneralId(generalId));
     }
     
     /**
      * 根据ID获取装备
      */
     public Equipment getEquipmentById(String equipmentId) {
-        return equipmentRepository.findById(equipmentId);
+        return patchEnhanceAttributes(equipmentRepository.findById(equipmentId));
     }
     
     /**
@@ -136,7 +143,7 @@ public class EquipmentService {
         if (!userId.equals(equipment.getUserId())) {
             return null;
         }
-        return equipment;
+        return patchEnhanceAttributes(equipment);
     }
     
     /**
@@ -960,6 +967,51 @@ public class EquipmentService {
         target.setCritRate(target.getCritRate() + source.getCritRate());
         target.setCritDamage(target.getCritDamage() + source.getCritDamage());
     }
+
+    private List<Equipment> patchEnhanceAttributes(List<Equipment> equipments) {
+        if (equipments == null) return null;
+        for (Equipment equipment : equipments) {
+            patchEnhanceAttributes(equipment);
+        }
+        return equipments;
+    }
+
+    private Equipment patchEnhanceAttributes(Equipment equipment) {
+        if (equipment == null) return null;
+        int level = equipment.getEnhanceLevel() != null ? equipment.getEnhanceLevel() : 0;
+        equipment.setEnhanceAttributes(calculateEnhanceBonus(equipment.getBaseAttributes(), level));
+        return equipment;
+    }
+
+    private Equipment.Attributes calculateEnhanceBonus(Equipment.Attributes base, int level) {
+        if (base == null || level <= 0) {
+            return Equipment.Attributes.builder().build();
+        }
+        int clampedLevel = Math.min(level, MAX_ENHANCE_LEVEL);
+        double bonusRate = calculateEnhanceBonusRate(clampedLevel);
+        int spAdd = ENHANCE_SP_ADD[clampedLevel - 1];
+
+        return Equipment.Attributes.builder()
+                .attack((int) (safe(base.getAttack()) * bonusRate))
+                .defense((int) (safe(base.getDefense()) * bonusRate))
+                .valor((int) (safe(base.getValor()) * bonusRate))
+                .command((int) (safe(base.getCommand()) * bonusRate))
+                .hp((int) (safe(base.getHp()) * bonusRate))
+                .mobility((int) (safe(base.getMobility()) * bonusRate) + spAdd)
+                .build();
+    }
+
+    private double calculateEnhanceBonusRate(int level) {
+        if (level <= 0) return 0D;
+        if (level < BOOST_START_LEVEL) {
+            return level * EARLY_LEVEL_BONUS_PER_LEVEL;
+        }
+        double earlyBonus = (BOOST_START_LEVEL - 1) * EARLY_LEVEL_BONUS_PER_LEVEL;
+        int boostedLevels = level - (BOOST_START_LEVEL - 1);
+        return earlyBonus + boostedLevels * LATE_LEVEL_BONUS_PER_LEVEL;
+    }
+
+    private int safe(Integer v) { return v != null ? v : 0; }
 }
 
 

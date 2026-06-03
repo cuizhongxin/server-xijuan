@@ -17,6 +17,13 @@ import java.util.*;
 public class SuitConfigService {
 
     private static final Logger logger = LoggerFactory.getLogger(SuitConfigService.class);
+    private static final int MAX_ENHANCE_LEVEL = 20;
+    private static final double EARLY_LEVEL_BONUS_PER_LEVEL = 1.0 / 11.0; // +1 ~ +7
+    private static final double LATE_LEVEL_BONUS_PER_LEVEL = 2.0 / 11.0;  // +8 ~ +20
+    private static final int BOOST_START_LEVEL = 8;
+    private static final int[] ENHANCE_SP_ADD = {
+            0,0,0,1,1,2,2,3,4,5,6,7,8,9,10,11,12,13,14,15
+    };
 
     @Autowired
     private SuitConfigMapper suitConfigMapper;
@@ -177,8 +184,9 @@ public class SuitConfigService {
                 bonus.merge("mobility", safe(a.getMobility()), Integer::sum);
                 if (a.getDodge() != null) bonus.merge("dodge", a.getDodge().intValue(), Integer::sum);
             }
-            if (eq.getEnhanceAttributes() != null) {
-                Equipment.Attributes a = eq.getEnhanceAttributes();
+            Equipment.Attributes enhance = calculateRealtimeEnhance(eq);
+            if (enhance != null) {
+                Equipment.Attributes a = enhance;
                 bonus.merge("attack", safe(a.getAttack()), Integer::sum);
                 bonus.merge("defense", safe(a.getDefense()), Integer::sum);
                 bonus.merge("valor", safe(a.getValor()), Integer::sum);
@@ -217,6 +225,34 @@ public class SuitConfigService {
     }
 
     private int safe(Integer v) { return v != null ? v : 0; }
+
+    private Equipment.Attributes calculateRealtimeEnhance(Equipment eq) {
+        if (eq == null || eq.getBaseAttributes() == null) return null;
+        int level = eq.getEnhanceLevel() != null ? eq.getEnhanceLevel() : 0;
+        if (level <= 0) return null;
+
+        int clampedLevel = Math.min(level, MAX_ENHANCE_LEVEL);
+        double bonusRate = calculateEnhanceBonusRate(clampedLevel);
+        int spAdd = ENHANCE_SP_ADD[clampedLevel - 1];
+        Equipment.Attributes base = eq.getBaseAttributes();
+
+        return Equipment.Attributes.builder()
+                .attack((int) (safe(base.getAttack()) * bonusRate))
+                .defense((int) (safe(base.getDefense()) * bonusRate))
+                .valor((int) (safe(base.getValor()) * bonusRate))
+                .command((int) (safe(base.getCommand()) * bonusRate))
+                .hp((int) (safe(base.getHp()) * bonusRate))
+                .mobility((int) (safe(base.getMobility()) * bonusRate) + spAdd)
+                .build();
+    }
+
+    private double calculateEnhanceBonusRate(int level) {
+        if (level <= 0) return 0D;
+        if (level < BOOST_START_LEVEL) return level * EARLY_LEVEL_BONUS_PER_LEVEL;
+        double earlyBonus = (BOOST_START_LEVEL - 1) * EARLY_LEVEL_BONUS_PER_LEVEL;
+        int boostedLevels = level - (BOOST_START_LEVEL - 1);
+        return earlyBonus + boostedLevels * LATE_LEVEL_BONUS_PER_LEVEL;
+    }
 
     private String buildDesc(int att, int def, int vl, int cmd, int hp, int sp, int hit, int mis) {
         List<String> parts = new ArrayList<>();
