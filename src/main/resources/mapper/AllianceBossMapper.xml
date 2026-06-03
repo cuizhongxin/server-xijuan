@@ -70,6 +70,38 @@
         LIMIT #{limit}
     </select>
 
+    <select id="findDailyAttackRankingsByServerId" resultType="java.util.HashMap">
+        SELECT user_id AS userId, SUM(damage) AS totalDamage,
+               COUNT(*) AS attackCount
+        FROM alliance_boss_record
+        WHERE action_type = 'attack'
+          AND server_id = #{serverId}
+          AND DATE(created_at) = CURDATE()
+        GROUP BY user_id
+        ORDER BY totalDamage DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findDailyFeedRankingsByServerId" resultType="java.util.HashMap">
+        SELECT user_id AS userId, SUM(feed_amount) AS totalFeed,
+               COUNT(*) AS feedTimes
+        FROM alliance_boss_record
+        WHERE action_type IN ('feed', 'feed_equip')
+          AND server_id = #{serverId}
+          AND DATE(created_at) = CURDATE()
+        GROUP BY user_id
+        ORDER BY totalFeed DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="countActionByServerIdToday" resultType="int">
+        SELECT COUNT(*)
+        FROM alliance_boss_record
+        WHERE server_id = #{serverId}
+          AND action_type = #{actionType}
+          AND DATE(created_at) = CURDATE()
+    </select>
+
     <select id="findUserDailyAttackCount" resultType="int">
         SELECT COUNT(*)
         FROM alliance_boss_record

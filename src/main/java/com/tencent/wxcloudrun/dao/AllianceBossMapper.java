@@ -44,5 +44,14 @@ public interface AllianceBossMapper {
     List<Map<String, Object>> findRankingsByServerId(@Param("serverId") int serverId,
                                                      @Param("limit") int limit);
 
+    List<Map<String, Object>> findDailyAttackRankingsByServerId(@Param("serverId") int serverId,
+                                                                @Param("limit") int limit);
+
+    List<Map<String, Object>> findDailyFeedRankingsByServerId(@Param("serverId") int serverId,
+                                                              @Param("limit") int limit);
+
+    int countActionByServerIdToday(@Param("serverId") int serverId,
+                                   @Param("actionType") String actionType);
+
     int findUserDailyAttackCount(@Param("userId") String userId);
 }

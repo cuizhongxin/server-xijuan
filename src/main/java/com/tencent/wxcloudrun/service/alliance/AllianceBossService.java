@@ -12,6 +12,7 @@ import com.tencent.wxcloudrun.service.battle.BattleService;
 import com.tencent.wxcloudrun.service.formation.FormationService;
 import com.tencent.wxcloudrun.service.PlayerNameResolver;
 import com.tencent.wxcloudrun.service.chat.ChatService;
+import com.tencent.wxcloudrun.service.mail.MailService;
 import com.tencent.wxcloudrun.service.warehouse.WarehouseService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,6 +41,20 @@ public class AllianceBossService {
     private static final int SQUAD_SOLDIERS_PER_UNIT = 1000;
     private static final int BASE_COOLDOWN_SEC = 90;
     private static final double DROP_RATE = 0.20;
+    private static final long LAST_HIT_REWARD_GOLD = 0L;
+    private static final long LAST_HIT_REWARD_SILVER = 0L;
+    private static final String SETTLE_MARK_FEED = "settle_feed_rank";
+    private static final String SETTLE_MARK_KILL = "settle_kill_rank";
+    private static final String BOUND_GOLD_ITEM_NAME = "绑金";
+    private static final String MID_RECRUIT_TOKEN_NAME = "中级招贤令";
+    private static final String ENHANCE_STONE_1_NAME = "1级强化石";
+
+    private static final List<Map<String, Object>> RANK_REWARD_TOP3 = new ArrayList<>();
+    static {
+        RANK_REWARD_TOP3.add(rankReward(1, "绑金", 30));
+        RANK_REWARD_TOP3.add(rankReward(2, "中级招贤令", 1));
+        RANK_REWARD_TOP3.add(rankReward(3, "1级强化石", 5));
+    }
 
     private static final int[] TROOP_LAYOUT = {1, 1, 3, 2, 3, 1};
 
@@ -71,6 +86,7 @@ public class AllianceBossService {
     @Autowired private WarehouseService warehouseService;
     @Autowired @org.springframework.context.annotation.Lazy private ChatService chatService;
     @Autowired private PlayerNameResolver playerNameResolver;
+    @Autowired @org.springframework.context.annotation.Lazy private MailService mailService;
 
     static int extractServerId(String compositeUserId) {
         if (compositeUserId != null && compositeUserId.contains("_")) {
@@ -112,6 +128,8 @@ public class AllianceBossService {
         boss.put("dailyAttacksUsed", dailyCount);
         boss.put("maxDailyAttacks", -1);
         boss.put("attacksLeft", -1);
+        boss.put("feedPrize", buildRankPrizePayload("喂养排行奖励"));
+        boss.put("killPrize", buildRankPrizePayload("击败排行奖励"));
         return boss;
     }
 
@@ -344,15 +362,12 @@ public class AllianceBossService {
         }
 
         boolean killed = newHp <= 0;
-        long rewardGold = 0;
-        long rewardSilver = 0;
+        long rewardGold = LAST_HIT_REWARD_GOLD;
+        long rewardSilver = LAST_HIT_REWARD_SILVER;
 
         if (killed) {
-            rewardGold = 1000L * bossLevel;
-            rewardSilver = 5000L * bossLevel;
-            userResourceService.addGold(userId, rewardGold);
-            userResourceService.addSilver(userId, rewardSilver);
             pool.clear();
+            settleRankRewards(serverId);
 
             int nextLevel = Math.min(bossLevel + 1, BOSS_TABLE.length);
             int idx = nextLevel - 1;
@@ -360,7 +375,7 @@ public class AllianceBossService {
                     Long.parseLong(BOSS_TABLE[idx][1]), Long.parseLong(BOSS_TABLE[idx][1]));
 
             logger.info("联盟Boss被击杀! serverId={}, 升级到Lv.{} {}", serverId, nextLevel, BOSS_TABLE[idx][0]);
-            announceBossKilled(serverId, userId, rewardGold, rewardSilver);
+            announceBossKilled(serverId, userId);
         }
 
         Map<String, Object> dropResult = null;
@@ -449,11 +464,10 @@ public class AllianceBossService {
         return drop;
     }
 
-    private void announceBossKilled(int serverId, String userId, long rewardGold, long rewardSilver) {
+    private void announceBossKilled(int serverId, String userId) {
         try {
             String playerName = resolvePlayerName(userId);
-            String msg = "【联盟Boss】玩家【" + playerName + "】完成最后一击，获得奖励：黄金x"
-                    + rewardGold + "、白银x" + rewardSilver;
+            String msg = "【联盟Boss】玩家【" + playerName + "】完成最后一击！最后一击无额外奖励，排行奖励请在结算后查看。";
             chatService.sendSystemMessage(serverId, "world", msg);
         } catch (Exception e) {
             logger.warn("联盟Boss击败公告发送失败", e);
@@ -493,6 +507,91 @@ public class AllianceBossService {
 
     public List<Map<String, Object>> getRankings(String userId) {
         int serverId = extractServerId(userId);
-        return bossMapper.findRankingsByServerId(serverId, 20);
+        return bossMapper.findDailyAttackRankingsByServerId(serverId, 20);
+    }
+
+    private static Map<String, Object> rankReward(int rank, String itemName, int count) {
+        Map<String, Object> m = new HashMap<>();
+        m.put("rank", rank);
+        m.put("itemName", itemName);
+        m.put("count", count);
+        return m;
+    }
+
+    private void settleRankRewards(int serverId) {
+        try {
+            settleOneRanking(serverId, true);
+            settleOneRanking(serverId, false);
+        } catch (Exception e) {
+            logger.warn("联盟Boss排行结算异常, serverId={}", serverId, e);
+        }
+    }
+
+    private void settleOneRanking(int serverId, boolean feedRank) {
+        String settleMark = feedRank ? SETTLE_MARK_FEED : SETTLE_MARK_KILL;
+        if (bossMapper.countActionByServerIdToday(serverId, settleMark) > 0) {
+            return;
+        }
+
+        List<Map<String, Object>> rankings = feedRank
+                ? bossMapper.findDailyFeedRankingsByServerId(serverId, 3)
+                : bossMapper.findDailyAttackRankingsByServerId(serverId, 3);
+        if (rankings == null || rankings.isEmpty()) {
+            bossMapper.insertRecord("SYSTEM", settleMark, 0, 0, serverId);
+            return;
+        }
+
+        for (int i = 0; i < Math.min(3, rankings.size()); i++) {
+            Map<String, Object> row = rankings.get(i);
+            if (row == null || row.get("userId") == null) continue;
+            String userId = String.valueOf(row.get("userId"));
+            Map<String, Object> reward = RANK_REWARD_TOP3.get(i);
+            int rank = ((Number) reward.get("rank")).intValue();
+            String itemName = String.valueOf(reward.get("itemName"));
+            int count = ((Number) reward.get("count")).intValue();
+
+            List<Map<String, Object>> attachments = buildRankRewardAttachments(itemName, count);
+            String title = feedRank ? "联盟Boss喂养排行奖励" : "联盟Boss击败排行奖励";
+            String content = "恭喜主公在" + (feedRank ? "喂养排行" : "击败排行")
+                    + "中获得第" + rank + "名，奖励：" + itemName + "x" + count + "。";
+            mailService.sendSystemMail(userId, title, content, attachments);
+        }
+
+        bossMapper.insertRecord("SYSTEM", settleMark, 0, 0, serverId);
+        logger.info("联盟Boss{}排行奖励结算完成, serverId={}", feedRank ? "喂养" : "击败", serverId);
+    }
+
+    private List<Map<String, Object>> buildRankRewardAttachments(String itemName, int count) {
+        List<Map<String, Object>> list = new ArrayList<>();
+        if (count <= 0) return list;
+        Map<String, Object> att = new LinkedHashMap<>();
+        if (BOUND_GOLD_ITEM_NAME.equals(itemName)) {
+            att.put("itemType", "boundGold");
+            att.put("itemId", "0");
+        } else if (MID_RECRUIT_TOKEN_NAME.equals(itemName)) {
+            att.put("itemType", "item");
+            att.put("itemId", "15012");
+        } else if (ENHANCE_STONE_1_NAME.equals(itemName)) {
+            att.put("itemType", "item");
+            att.put("itemId", "14001");
+        } else {
+            att.put("itemType", "item");
+            att.put("itemId", "0");
+        }
+        att.put("itemName", itemName);
+        att.put("itemQuality", "");
+        att.put("count", count);
+        att.put("itemCount", count);
+        att.put("claimed", 0);
+        list.add(att);
+        return list;
+    }
+
+    private Map<String, Object> buildRankPrizePayload(String title) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("title", title);
+        payload.put("canGet", false);
+        payload.put("items", RANK_REWARD_TOP3);
+        return payload;
     }
 }
