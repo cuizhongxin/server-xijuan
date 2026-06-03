@@ -53,5 +53,6 @@ public interface AllianceBossMapper {
     int countActionByServerIdToday(@Param("serverId") int serverId,
                                    @Param("actionType") String actionType);
 
-    int findUserDailyAttackCount(@Param("userId") String userId);
+    int findUserDailyAttackCount(@Param("userId") String userId,
+                                 @Param("serverId") int serverId);
 }

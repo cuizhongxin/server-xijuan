@@ -43,8 +43,9 @@ public class AllianceBossService {
     private static final double DROP_RATE = 0.20;
     private static final long LAST_HIT_REWARD_GOLD = 0L;
     private static final long LAST_HIT_REWARD_SILVER = 0L;
-    private static final String SETTLE_MARK_FEED = "settle_feed_rank";
-    private static final String SETTLE_MARK_KILL = "settle_kill_rank";
+    private static final String SETTLE_MARK_FEED = "settle_feed_rank_";
+    private static final String SETTLE_MARK_KILL = "settle_kill_rank_";
+    private static final String CYCLE_RESET_MARK = "boss_cycle_reset";
     private static final String BOUND_GOLD_ITEM_NAME = "绑金";
     private static final String MID_RECRUIT_TOKEN_NAME = "中级招贤令";
     private static final String JUNIOR_RECRUIT_TOKEN_NAME = "初级招贤令";
@@ -160,7 +161,7 @@ public class AllianceBossService {
 
     public Map<String, Object> getInfo(String userId) {
         int serverId = extractServerId(userId);
-        int dailyCount = bossMapper.findUserDailyAttackCount(userId);
+        int dailyCount = bossMapper.findUserDailyAttackCount(userId, serverId);
         Map<String, Object> boss = bossMapper.findCurrentBossByServerId(serverId);
         if (boss == null) {
             ensureBossExists(serverId);
@@ -335,7 +336,7 @@ public class AllianceBossService {
             throw new BusinessException(400, "Boss未处于战斗状态，请先召唤");
         }
 
-        int dailyCount = bossMapper.findUserDailyAttackCount(userId);
+        int dailyCount = bossMapper.findUserDailyAttackCount(userId, serverId);
 
         long bossId = ((Number) boss.get("id")).longValue();
         long currentHp = ((Number) boss.get("currentHp")).longValue();
@@ -421,7 +422,8 @@ public class AllianceBossService {
 
         if (killed) {
             pool.clear();
-            settleRankRewards(serverId);
+            settleRankRewards(serverId, bossId);
+            bossMapper.insertRecord("SYSTEM", CYCLE_RESET_MARK, 0, 0, serverId);
 
             int nextLevel = Math.min(bossLevel + 1, BOSS_TABLE.length);
             int idx = nextLevel - 1;
@@ -677,17 +679,17 @@ public class AllianceBossService {
         return out;
     }
 
-    private void settleRankRewards(int serverId) {
+    private void settleRankRewards(int serverId, long bossId) {
         try {
-            settleOneRanking(serverId, true);
-            settleOneRanking(serverId, false);
+            settleOneRanking(serverId, bossId, true);
+            settleOneRanking(serverId, bossId, false);
         } catch (Exception e) {
             logger.warn("联盟Boss排行结算异常, serverId={}", serverId, e);
         }
     }
 
-    private void settleOneRanking(int serverId, boolean feedRank) {
-        String settleMark = feedRank ? SETTLE_MARK_FEED : SETTLE_MARK_KILL;
+    private void settleOneRanking(int serverId, long bossId, boolean feedRank) {
+        String settleMark = (feedRank ? SETTLE_MARK_FEED : SETTLE_MARK_KILL) + bossId;
         if (bossMapper.countActionByServerIdToday(serverId, settleMark) > 0) {
             return;
         }
