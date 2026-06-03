@@ -155,6 +155,7 @@ public class AllianceWarService {
      */
     public Map<String, Object> getWarStatus(String odUserId) {
         refreshTodayWarFromDb();
+        reconcileStatusByClock();
         Map<String, Object> result = new HashMap<>();
         ensureRewardPools();
         List<WarParticipant> participants = normalizeParticipants(todayWar.getParticipants());
@@ -169,12 +170,12 @@ public class AllianceWarService {
         result.put("allianceRewardPools", todayWar.getAllianceRewardPools());
         
         boolean registered = participants.stream()
-                .anyMatch(p -> p.getOdUserId().equals(odUserId));
+                .anyMatch(p -> sameUserId(p.getOdUserId(), odUserId));
         result.put("registered", registered);
         
         if (registered) {
             WarParticipant participant = participants.stream()
-                    .filter(p -> p.getOdUserId().equals(odUserId))
+                    .filter(p -> sameUserId(p.getOdUserId(), odUserId))
                     .findFirst()
                     .orElse(null);
             result.put("myParticipant", participant);
@@ -384,8 +385,10 @@ public class AllianceWarService {
         Calendar cal = Calendar.getInstance();
         int hour = cal.get(Calendar.HOUR_OF_DAY);
         int minute = cal.get(Calendar.MINUTE);
-        
-        if (hour < 20 || (hour == 20 && minute < 45)) {
+
+        if (todayWar != null && todayWar.getStatus() == WarStatus.REGISTERING) {
+            return "报名中，战斗开始 21:00";
+        } else if (hour < 20 || (hour == 20 && minute < 45)) {
             return "报名开始 20:45";
         } else if (hour == 20 && minute >= 45) {
             return "战斗开始 21:00";
@@ -393,11 +396,36 @@ public class AllianceWarService {
             return "明日报名 20:45";
         }
     }
+
+    /**
+     * 定时任务可能因重启/暂停错过触发，这里按当前时间补齐状态。
+     */
+    private synchronized void reconcileStatusByClock() {
+        if (todayWar == null) {
+            return;
+        }
+        Calendar cal = Calendar.getInstance();
+        int hour = cal.get(Calendar.HOUR_OF_DAY);
+        int minute = cal.get(Calendar.MINUTE);
+        int nowMinutes = hour * 60 + minute;
+        int registerStart = 20 * 60 + 45;
+        int warStart = 21 * 60;
+
+        WarStatus oldStatus = todayWar.getStatus();
+        if (nowMinutes >= registerStart && nowMinutes < warStart
+                && (oldStatus == WarStatus.NOT_STARTED || oldStatus == null)) {
+            todayWar.setStatus(WarStatus.REGISTERING);
+            saveTodayWar();
+            log.info("盟战状态纠偏: NOT_STARTED -> REGISTERING");
+        }
+    }
     
     /**
      * 报名参战
      */
     public WarParticipant register(String odUserId, String playerName, Integer level, Long power) {
+        refreshTodayWarFromDb();
+        reconcileStatusByClock();
         if (!testMode && todayWar.getStatus() != WarStatus.REGISTERING) {
             throw new BusinessException("当前不在报名时间，请在20:45-21:00之间报名");
         }
@@ -408,7 +436,7 @@ public class AllianceWarService {
         }
         
         boolean alreadyRegistered = todayWar.getParticipants().stream()
-                .anyMatch(p -> p.getOdUserId().equals(odUserId));
+                .anyMatch(p -> sameUserId(p.getOdUserId(), odUserId));
         if (alreadyRegistered) {
             throw new BusinessException("您已报名参战");
         }
@@ -443,11 +471,13 @@ public class AllianceWarService {
      * 取消报名
      */
     public void cancelRegister(String odUserId) {
+        refreshTodayWarFromDb();
+        reconcileStatusByClock();
         if (todayWar.getStatus() != WarStatus.REGISTERING && todayWar.getStatus() != WarStatus.NOT_STARTED) {
             throw new BusinessException("战斗已开始，无法取消报名");
         }
         
-        todayWar.getParticipants().removeIf(p -> p.getOdUserId().equals(odUserId));
+        todayWar.getParticipants().removeIf(p -> sameUserId(p.getOdUserId(), odUserId));
         
         int number = 1;
         for (WarParticipant p : todayWar.getParticipants()) {
