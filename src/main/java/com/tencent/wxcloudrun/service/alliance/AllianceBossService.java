@@ -47,13 +47,41 @@ public class AllianceBossService {
     private static final String SETTLE_MARK_KILL = "settle_kill_rank";
     private static final String BOUND_GOLD_ITEM_NAME = "绑金";
     private static final String MID_RECRUIT_TOKEN_NAME = "中级招贤令";
+    private static final String JUNIOR_RECRUIT_TOKEN_NAME = "初级招贤令";
     private static final String ENHANCE_STONE_1_NAME = "1级强化石";
+    private static final String RESOURCE_GIFT_NAME = "资源礼包";
+    private static final String SILVER_INGOT_NAME = "银锭";
+    private static final String SILVER_STRIP_NAME = "银条";
+    private static final String RANK_KEY_OTHER = "other";
+    private static final String RESOURCE_GIFT_ITEM_ID = "11051";
+    private static final String SILVER_INGOT_ITEM_ID = "11012";
+    private static final String SILVER_STRIP_ITEM_ID = "11011";
+    private static final String MID_RECRUIT_TOKEN_ITEM_ID = "15012";
+    private static final String JUNIOR_RECRUIT_TOKEN_ITEM_ID = "15011";
+    private static final String ENHANCE_STONE_1_ITEM_ID = "14001";
 
-    private static final List<Map<String, Object>> RANK_REWARD_TOP3 = new ArrayList<>();
+    private static final List<Map<String, Object>> RANK_REWARD_TIERS = new ArrayList<>();
     static {
-        RANK_REWARD_TOP3.add(rankReward(1, "绑金", 30));
-        RANK_REWARD_TOP3.add(rankReward(2, "中级招贤令", 1));
-        RANK_REWARD_TOP3.add(rankReward(3, "1级强化石", 5));
+        RANK_REWARD_TIERS.add(rankTier(1, "第1名", Arrays.asList(
+                rewardItem(BOUND_GOLD_ITEM_NAME, 50, "11024"),
+                rewardItem(MID_RECRUIT_TOKEN_NAME, 3, MID_RECRUIT_TOKEN_ITEM_ID),
+                rewardItem(RESOURCE_GIFT_NAME, 10, RESOURCE_GIFT_ITEM_ID),
+                rewardItem(SILVER_INGOT_NAME, 2, SILVER_INGOT_ITEM_ID))));
+        RANK_REWARD_TIERS.add(rankTier(2, "第2名", Arrays.asList(
+                rewardItem(BOUND_GOLD_ITEM_NAME, 30, "11023"),
+                rewardItem(MID_RECRUIT_TOKEN_NAME, 2, MID_RECRUIT_TOKEN_ITEM_ID),
+                rewardItem(RESOURCE_GIFT_NAME, 5, RESOURCE_GIFT_ITEM_ID),
+                rewardItem(SILVER_INGOT_NAME, 1, SILVER_INGOT_ITEM_ID))));
+        RANK_REWARD_TIERS.add(rankTier(3, "第3名", Arrays.asList(
+                rewardItem(BOUND_GOLD_ITEM_NAME, 10, "11025"),
+                rewardItem(MID_RECRUIT_TOKEN_NAME, 1, MID_RECRUIT_TOKEN_ITEM_ID),
+                rewardItem(RESOURCE_GIFT_NAME, 3, RESOURCE_GIFT_ITEM_ID),
+                rewardItem(SILVER_STRIP_NAME, 3, SILVER_STRIP_ITEM_ID))));
+        RANK_REWARD_TIERS.add(rankTier(RANK_KEY_OTHER, "其他", Arrays.asList(
+                rewardItem(RESOURCE_GIFT_NAME, 1, RESOURCE_GIFT_ITEM_ID),
+                rewardItem(SILVER_STRIP_NAME, 1, SILVER_STRIP_ITEM_ID),
+                rewardItem(ENHANCE_STONE_1_NAME, 1, ENHANCE_STONE_1_ITEM_ID),
+                rewardItem(JUNIOR_RECRUIT_TOKEN_NAME, 1, JUNIOR_RECRUIT_TOKEN_ITEM_ID))));
     }
 
     private static final int[] TROOP_LAYOUT = {1, 1, 3, 2, 3, 1};
@@ -97,6 +125,28 @@ public class AllianceBossService {
         return 1;
     }
 
+    private String normalizeBaseUserId(String userId) {
+        if (userId == null) return "";
+        int idx = userId.lastIndexOf('_');
+        if (idx > 0 && idx < userId.length() - 1) {
+            String suffix = userId.substring(idx + 1);
+            boolean allDigit = true;
+            for (int i = 0; i < suffix.length(); i++) {
+                if (!Character.isDigit(suffix.charAt(i))) {
+                    allDigit = false;
+                    break;
+                }
+            }
+            if (allDigit) return userId.substring(0, idx);
+        }
+        return userId;
+    }
+
+    private boolean sameUserId(String a, String b) {
+        if (Objects.equals(a, b)) return true;
+        return Objects.equals(normalizeBaseUserId(a), normalizeBaseUserId(b));
+    }
+
     /**
      * 确保指定区服存在联盟Boss，在创建区服时调用
      */
@@ -130,6 +180,10 @@ public class AllianceBossService {
         boss.put("attacksLeft", -1);
         boss.put("feedPrize", buildRankPrizePayload("喂养排行奖励"));
         boss.put("killPrize", buildRankPrizePayload("击败排行奖励"));
+        fillMyFeedStats(userId, serverId, boss);
+        fillMyAttackStats(userId, serverId, boss);
+        boss.put("topFeedRankings", buildTopRankings(serverId, true));
+        boss.put("topAttackRankings", buildTopRankings(serverId, false));
         return boss;
     }
 
@@ -510,12 +564,117 @@ public class AllianceBossService {
         return bossMapper.findDailyAttackRankingsByServerId(serverId, 20);
     }
 
-    private static Map<String, Object> rankReward(int rank, String itemName, int count) {
+    private static Map<String, Object> rewardItem(String itemName, int count, String itemId) {
         Map<String, Object> m = new HashMap<>();
-        m.put("rank", rank);
         m.put("itemName", itemName);
         m.put("count", count);
+        m.put("itemId", itemId);
         return m;
+    }
+
+    private static Map<String, Object> rankTier(Object rank, String rankText, List<Map<String, Object>> rewards) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("rank", rank);
+        m.put("rankText", rankText);
+        m.put("rewards", rewards);
+        return m;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> extractTierRewards(Map<String, Object> tier) {
+        if (tier == null) return Collections.emptyList();
+        Object rewards = tier.get("rewards");
+        if (!(rewards instanceof List)) return Collections.emptyList();
+        return (List<Map<String, Object>>) rewards;
+    }
+
+    private Map<String, Object> resolveRankTier(int rank) {
+        if (rank <= 1) return RANK_REWARD_TIERS.get(0);
+        if (rank == 2) return RANK_REWARD_TIERS.get(1);
+        if (rank == 3) return RANK_REWARD_TIERS.get(2);
+        return RANK_REWARD_TIERS.get(3);
+    }
+
+    private String formatRewards(List<Map<String, Object>> rewards) {
+        if (rewards == null || rewards.isEmpty()) return "无";
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < rewards.size(); i++) {
+            Map<String, Object> r = rewards.get(i);
+            if (r == null) continue;
+            String name = String.valueOf(r.get("itemName"));
+            int count = r.get("count") instanceof Number ? ((Number) r.get("count")).intValue() : 0;
+            if (i > 0) sb.append("、");
+            sb.append(name).append("x").append(count);
+        }
+        return sb.toString();
+    }
+
+    private void fillMyFeedStats(String userId, int serverId, Map<String, Object> boss) {
+        long myFeedValue = 0L;
+        int myFeedRank = 0;
+        List<Map<String, Object>> rankings = bossMapper.findDailyFeedRankingsByServerId(serverId, 5000);
+        if (rankings != null) {
+            for (int i = 0; i < rankings.size(); i++) {
+                Map<String, Object> row = rankings.get(i);
+                if (row == null || row.get("userId") == null) continue;
+                if (!sameUserId(userId, String.valueOf(row.get("userId")))) continue;
+                myFeedRank = i + 1;
+                Object totalFeed = row.get("totalFeed");
+                if (totalFeed instanceof Number) {
+                    myFeedValue = ((Number) totalFeed).longValue();
+                }
+                break;
+            }
+        }
+        boss.put("myFeedValue", myFeedValue);
+        boss.put("myFeedRank", myFeedRank > 0 ? myFeedRank : "-");
+    }
+
+    private void fillMyAttackStats(String userId, int serverId, Map<String, Object> boss) {
+        long myDamage = 0L;
+        int myRank = 0;
+        List<Map<String, Object>> rankings = bossMapper.findDailyAttackRankingsByServerId(serverId, 5000);
+        if (rankings != null) {
+            for (int i = 0; i < rankings.size(); i++) {
+                Map<String, Object> row = rankings.get(i);
+                if (row == null || row.get("userId") == null) continue;
+                if (!sameUserId(userId, String.valueOf(row.get("userId")))) continue;
+                myRank = i + 1;
+                Object totalDamage = row.get("totalDamage");
+                if (totalDamage instanceof Number) {
+                    myDamage = ((Number) totalDamage).longValue();
+                }
+                break;
+            }
+        }
+        boss.put("myDamage", myDamage);
+        boss.put("myRank", myRank > 0 ? myRank : "-");
+    }
+
+    private List<Map<String, Object>> buildTopRankings(int serverId, boolean feedRank) {
+        List<Map<String, Object>> source = feedRank
+                ? bossMapper.findDailyFeedRankingsByServerId(serverId, 3)
+                : bossMapper.findDailyAttackRankingsByServerId(serverId, 3);
+        List<Map<String, Object>> out = new ArrayList<>();
+        if (source == null) return out;
+        for (int i = 0; i < source.size(); i++) {
+            Map<String, Object> row = source.get(i);
+            if (row == null || row.get("userId") == null) continue;
+            String userId = String.valueOf(row.get("userId"));
+            Map<String, Object> one = new LinkedHashMap<>();
+            one.put("rank", i + 1);
+            one.put("userId", userId);
+            one.put("playerName", resolvePlayerName(userId));
+            if (feedRank) {
+                long totalFeed = row.get("totalFeed") instanceof Number ? ((Number) row.get("totalFeed")).longValue() : 0L;
+                one.put("totalFeed", totalFeed);
+            } else {
+                long totalDamage = row.get("totalDamage") instanceof Number ? ((Number) row.get("totalDamage")).longValue() : 0L;
+                one.put("totalDamage", totalDamage);
+            }
+            out.add(one);
+        }
+        return out;
     }
 
     private void settleRankRewards(int serverId) {
@@ -534,26 +693,26 @@ public class AllianceBossService {
         }
 
         List<Map<String, Object>> rankings = feedRank
-                ? bossMapper.findDailyFeedRankingsByServerId(serverId, 3)
-                : bossMapper.findDailyAttackRankingsByServerId(serverId, 3);
+                ? bossMapper.findDailyFeedRankingsByServerId(serverId, 5000)
+                : bossMapper.findDailyAttackRankingsByServerId(serverId, 5000);
         if (rankings == null || rankings.isEmpty()) {
             bossMapper.insertRecord("SYSTEM", settleMark, 0, 0, serverId);
             return;
         }
 
-        for (int i = 0; i < Math.min(3, rankings.size()); i++) {
+        for (int i = 0; i < rankings.size(); i++) {
             Map<String, Object> row = rankings.get(i);
             if (row == null || row.get("userId") == null) continue;
             String userId = String.valueOf(row.get("userId"));
-            Map<String, Object> reward = RANK_REWARD_TOP3.get(i);
-            int rank = ((Number) reward.get("rank")).intValue();
-            String itemName = String.valueOf(reward.get("itemName"));
-            int count = ((Number) reward.get("count")).intValue();
-
-            List<Map<String, Object>> attachments = buildRankRewardAttachments(itemName, count);
+            int rank = i + 1;
+            Map<String, Object> tier = resolveRankTier(rank);
+            String rankText = String.valueOf(tier.get("rankText"));
+            List<Map<String, Object>> rewards = extractTierRewards(tier);
+            List<Map<String, Object>> attachments = buildRankRewardAttachments(rewards);
+            if (attachments.isEmpty()) continue;
             String title = feedRank ? "联盟Boss喂养排行奖励" : "联盟Boss击败排行奖励";
             String content = "恭喜主公在" + (feedRank ? "喂养排行" : "击败排行")
-                    + "中获得第" + rank + "名，奖励：" + itemName + "x" + count + "。";
+                    + "中获得" + rankText + "，奖励：" + formatRewards(rewards) + "。";
             mailService.sendSystemMail(userId, title, content, attachments);
         }
 
@@ -561,37 +720,68 @@ public class AllianceBossService {
         logger.info("联盟Boss{}排行奖励结算完成, serverId={}", feedRank ? "喂养" : "击败", serverId);
     }
 
-    private List<Map<String, Object>> buildRankRewardAttachments(String itemName, int count) {
+    private List<Map<String, Object>> buildRankRewardAttachments(List<Map<String, Object>> rewards) {
         List<Map<String, Object>> list = new ArrayList<>();
-        if (count <= 0) return list;
-        Map<String, Object> att = new LinkedHashMap<>();
-        if (BOUND_GOLD_ITEM_NAME.equals(itemName)) {
-            att.put("itemType", "boundGold");
-            att.put("itemId", "0");
-        } else if (MID_RECRUIT_TOKEN_NAME.equals(itemName)) {
+        if (rewards == null || rewards.isEmpty()) return list;
+        for (Map<String, Object> reward : rewards) {
+            if (reward == null) continue;
+            String itemName = String.valueOf(reward.get("itemName"));
+            int count = reward.get("count") instanceof Number ? ((Number) reward.get("count")).intValue() : 0;
+            if (count <= 0) continue;
+            Map<String, Object> att = new LinkedHashMap<>();
             att.put("itemType", "item");
-            att.put("itemId", "15012");
-        } else if (ENHANCE_STONE_1_NAME.equals(itemName)) {
-            att.put("itemType", "item");
-            att.put("itemId", "14001");
-        } else {
-            att.put("itemType", "item");
-            att.put("itemId", "0");
+            String itemId = reward.get("itemId") != null ? String.valueOf(reward.get("itemId")) : null;
+            if (BOUND_GOLD_ITEM_NAME.equals(itemName)) {
+                // 绑金按道具发放到仓库，玩家可在仓库中看到并使用
+                int boundGoldItemId = boundGoldItemId(count);
+                att.put("itemId", String.valueOf(boundGoldItemId));
+                att.put("itemName", count + "绑金");
+            } else if (itemId != null && !itemId.trim().isEmpty()) {
+                att.put("itemId", itemId);
+            } else if (MID_RECRUIT_TOKEN_NAME.equals(itemName)) {
+                att.put("itemId", MID_RECRUIT_TOKEN_ITEM_ID);
+            } else if (JUNIOR_RECRUIT_TOKEN_NAME.equals(itemName)) {
+                att.put("itemId", JUNIOR_RECRUIT_TOKEN_ITEM_ID);
+            } else if (RESOURCE_GIFT_NAME.equals(itemName)) {
+                att.put("itemId", RESOURCE_GIFT_ITEM_ID);
+            } else if (SILVER_INGOT_NAME.equals(itemName)) {
+                att.put("itemId", SILVER_INGOT_ITEM_ID);
+            } else if (SILVER_STRIP_NAME.equals(itemName)) {
+                att.put("itemId", SILVER_STRIP_ITEM_ID);
+            } else if (ENHANCE_STONE_1_NAME.equals(itemName)) {
+                att.put("itemId", ENHANCE_STONE_1_ITEM_ID);
+            } else {
+                att.put("itemId", "0");
+            }
+            if (!att.containsKey("itemName")) {
+                att.put("itemName", itemName);
+            }
+            att.put("itemQuality", "");
+            att.put("count", count);
+            att.put("itemCount", count);
+            att.put("claimed", 0);
+            list.add(att);
         }
-        att.put("itemName", itemName);
-        att.put("itemQuality", "");
-        att.put("count", count);
-        att.put("itemCount", count);
-        att.put("claimed", 0);
-        list.add(att);
         return list;
+    }
+
+    private int boundGoldItemId(int amount) {
+        switch (amount) {
+            case 10: return 11025;
+            case 20: return 11027;
+            case 30: return 11023;
+            case 50: return 11024;
+            case 70: return 11028;
+            case 100: return 11029;
+            default: return 11023;
+        }
     }
 
     private Map<String, Object> buildRankPrizePayload(String title) {
         Map<String, Object> payload = new HashMap<>();
         payload.put("title", title);
         payload.put("canGet", false);
-        payload.put("items", RANK_REWARD_TOP3);
+        payload.put("tiers", RANK_REWARD_TIERS);
         return payload;
     }
 }
