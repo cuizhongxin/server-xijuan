@@ -12,11 +12,10 @@ import java.util.Map;
  * 健康检查控制器
  */
 @RestController
-@RequestMapping("/api")
 public class HealthController {
     
     /**
-     * 健康检查接口
+     * 健康检查接口（完整路径 /api/health）
      */
     @GetMapping("/health")
     public ApiResponse<Map<String, Object>> health() {

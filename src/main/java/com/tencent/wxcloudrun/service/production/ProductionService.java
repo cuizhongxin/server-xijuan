@@ -471,9 +471,9 @@ public class ProductionService {
         Random random = new Random();
         String equipId = recipe.getResultId();
 
-        // 1. 按APK概率随机品质（虎啸套装固定为紫色）
+        // 1. 虎啸固定完美；其他按APK概率随机前缀品质(粗糙/普通/优良/无暇/完美)
         boolean isTigerRoar = recipe.getResultName() != null && recipe.getResultName().contains("虎啸");
-        int qualityLevel = isTigerRoar ? 4 : rollEquipQuality(random);
+        int qualityLevel = isTigerRoar ? 5 : rollEquipQuality(random);
         String qualityPrefix = QUALITY_NAMES[qualityLevel];
         int attrRate = QUALITY_ATTR_RATE[qualityLevel]; // 万分比
 
@@ -498,8 +498,9 @@ public class ProductionService {
             .id(slotId).name(getSlotNameFromId(slotId)).build();
 
         // 品质颜色名 = 装备本身的颜色品质(绿/蓝/紫/橙), 不是品质前缀
+        String colorQualityName = isTigerRoar ? "紫" : recipe.getQuality();
         Equipment.Quality quality = Equipment.Quality.builder()
-            .id(getQualityId(recipe.getQuality())).name(recipe.getQuality())
+            .id(getQualityId(colorQualityName)).name(colorQualityName)
             .multiplier(attrRate / 10000.0).build();
 
         Equipment.Source source = Equipment.Source.builder()

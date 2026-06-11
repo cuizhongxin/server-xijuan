@@ -398,7 +398,6 @@ public class EquipmentService {
         int slotTypeId = pre.getSlotTypeId();
         Equipment.SlotType slotType = equipmentConfig.getSlotType(slotTypeId);
         int qualityId = pre.getDefaultQualityId();
-        Equipment.Quality quality = equipmentConfig.getQuality(qualityId);
 
         Equipment.SetInfo setInfo = null;
         String suitShortName = null;
@@ -434,13 +433,14 @@ public class EquipmentService {
                 .mobility(val(pre.getArmySp()))
                 .build();
 
-        // Roll quality — 虎啸套装固定为紫色品质
-        int equipQualityId;
+        // 虎啸固定完美，但颜色按紫色显示（联盟Boss喂养按紫色档计算）
         if (suitShortName != null && "虎啸".equals(suitShortName)) {
-            equipQualityId = 4;
-        } else {
-            equipQualityId = EquipmentConfig.rollEquipQuality();
+            qualityId = 4;
         }
+        Equipment.Quality quality = equipmentConfig.getQuality(qualityId);
+
+        int equipQualityId = (suitShortName != null && "虎啸".equals(suitShortName))
+                ? 5 : EquipmentConfig.rollEquipQuality();
         EquipmentConfig.EquipQualityLevel ql = EquipmentConfig.getEquipQualityLevel(equipQualityId);
         double rate = ql.attrRate / 10000.0;
 

@@ -31,6 +31,7 @@ public class AllianceBossService {
     private static final Logger logger = LoggerFactory.getLogger(AllianceBossService.class);
 
     private static final int FEED_COST_GOLD = 100;
+    private static final int FEED_ADD_VALUE_PER_ACTION = 10;
     private static final int MIN_FEED_QUALITY = 2;
     private static final int[] QUALITY_FEED_VALUES = {0, 0, 1, 3, 8, 15, 20};
     private static final long ALLIANCE_BOSS_HP = 30_000L;
@@ -186,6 +187,8 @@ public class AllianceBossService {
         boss.put("attacksLeft", -1);
         boss.put("feedPrize", buildRankPrizePayload("喂养排行奖励"));
         boss.put("killPrize", buildRankPrizePayload("击败排行奖励"));
+        boss.put("normalFeedCostGold", FEED_COST_GOLD);
+        boss.put("normalFeedAddValue", FEED_ADD_VALUE_PER_ACTION);
         boss.put("cooldown", currentCooldownSec(userId, serverId));
         fillMyFeedStats(userId, serverId, allianceMemberIds, boss);
         fillMyAttackStats(userId, serverId, allianceMemberIds, boss);
@@ -217,10 +220,11 @@ public class AllianceBossService {
             throw new BusinessException(400, "Boss已激活，无需继续投喂");
         }
 
-        bossMapper.incrementFeed(bossId, amount);
-        bossMapper.insertRecord(userId, "feed", 0, amount, serverId);
+        int addValue = amount * FEED_ADD_VALUE_PER_ACTION;
+        bossMapper.incrementFeed(bossId, addValue);
+        bossMapper.insertRecord(userId, "feed", 0, addValue, serverId);
 
-        int feedCount = ((Number) boss.get("feedCount")).intValue() + amount;
+        int feedCount = ((Number) boss.get("feedCount")).intValue() + addValue;
         int feedTarget = ((Number) boss.get("feedTarget")).intValue();
 
         boolean full = feedCount >= feedTarget;
@@ -230,6 +234,7 @@ public class AllianceBossService {
 
         Map<String, Object> result = new HashMap<>();
         result.put("feedAmount", amount);
+        result.put("addValue", addValue);
         result.put("cost", cost);
         result.put("feedCount", feedCount);
         result.put("feedTarget", feedTarget);
