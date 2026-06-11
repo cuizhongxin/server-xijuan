@@ -32,6 +32,8 @@ public interface AllianceMapper {
     void updateApplicationStatus(@Param("allianceId") String allianceId, @Param("userId") String userId, @Param("status") String status);
     
     void deleteMember(@Param("allianceId") String allianceId, @Param("userId") String userId);
+
+    List<String> findMemberUserIdsByAllianceId(@Param("allianceId") String allianceId);
     
     // 用户联盟映射
     String findAllianceIdByUserId(@Param("userId") String userId);

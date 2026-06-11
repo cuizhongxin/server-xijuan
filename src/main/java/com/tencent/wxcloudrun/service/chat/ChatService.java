@@ -20,6 +20,8 @@ public class ChatService {
     private static final Logger logger = LoggerFactory.getLogger(ChatService.class);
     private static final int MAX_MSG_LENGTH = 200;
     private static final long MIN_SEND_INTERVAL = 2000;
+    private static final String OFFICIAL_QQ_ANNOUNCEMENT_TITLE = "官方交流群";
+    private static final String OFFICIAL_QQ_ANNOUNCEMENT_CONTENT = "游戏官方交流qq群 239182101，欢迎加入一起探讨游戏相关功能";
 
     private final Map<String, Long> lastSendTime = new HashMap<>();
 
@@ -191,7 +193,27 @@ public class ChatService {
     }
 
     public List<Map<String, Object>> getAnnouncements() {
-        return chatMapper.findActiveAnnouncements(System.currentTimeMillis());
+        List<Map<String, Object>> announcements = chatMapper.findActiveAnnouncements(System.currentTimeMillis());
+        List<Map<String, Object>> result = announcements == null ? new ArrayList<>() : new ArrayList<>(announcements);
+        boolean exists = false;
+        for (Map<String, Object> item : result) {
+            if (item == null) continue;
+            String content = String.valueOf(item.getOrDefault("content", ""));
+            if (OFFICIAL_QQ_ANNOUNCEMENT_CONTENT.equals(content)) {
+                exists = true;
+                break;
+            }
+        }
+        if (!exists) {
+            Map<String, Object> official = new LinkedHashMap<>();
+            official.put("id", -1);
+            official.put("title", OFFICIAL_QQ_ANNOUNCEMENT_TITLE);
+            official.put("content", OFFICIAL_QQ_ANNOUNCEMENT_CONTENT);
+            official.put("type", "normal");
+            official.put("createTime", System.currentTimeMillis());
+            result.add(0, official);
+        }
+        return result;
     }
 
     private String getPlayerNation(String userId) {

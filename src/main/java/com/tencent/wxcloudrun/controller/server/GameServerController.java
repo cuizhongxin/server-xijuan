@@ -29,6 +29,8 @@ import java.util.*;
 public class GameServerController {
 
     private static final Logger logger = LoggerFactory.getLogger(GameServerController.class);
+    private static final String OFFICIAL_QQ_ANNOUNCEMENT_TITLE = "官方交流群";
+    private static final String OFFICIAL_QQ_ANNOUNCEMENT_CONTENT = "游戏官方交流qq群 239182101，欢迎加入一起探讨游戏相关功能";
 
     @Autowired
     private GameServerMapper serverMapper;
@@ -82,7 +84,8 @@ public class GameServerController {
         List<Map<String, Object>> servers = serverMapper.findAllServers();
         List<Map<String, Object>> playerServers = userId != null
                 ? serverMapper.findPlayerServers(userId) : Collections.emptyList();
-        List<Map<String, Object>> announcements = chatMapper.findActiveAnnouncements(System.currentTimeMillis());
+        List<Map<String, Object>> announcements = appendOfficialQqAnnouncement(
+                chatMapper.findActiveAnnouncements(System.currentTimeMillis()));
 
         boolean isAdmin = "1".equals(userId);
         if (!isAdmin) {
@@ -620,8 +623,31 @@ public class GameServerController {
         return null;
     }
 
+    private List<Map<String, Object>> appendOfficialQqAnnouncement(List<Map<String, Object>> source) {
+        List<Map<String, Object>> announcements = source == null ? new ArrayList<>() : new ArrayList<>(source);
+        boolean exists = false;
+        for (Map<String, Object> item : announcements) {
+            if (item == null) continue;
+            String content = String.valueOf(item.getOrDefault("content", ""));
+            if (OFFICIAL_QQ_ANNOUNCEMENT_CONTENT.equals(content)) {
+                exists = true;
+                break;
+            }
+        }
+        if (!exists) {
+            Map<String, Object> official = new LinkedHashMap<>();
+            official.put("id", -1);
+            official.put("title", OFFICIAL_QQ_ANNOUNCEMENT_TITLE);
+            official.put("content", OFFICIAL_QQ_ANNOUNCEMENT_CONTENT);
+            official.put("type", "normal");
+            official.put("createTime", System.currentTimeMillis());
+            announcements.add(0, official);
+        }
+        return announcements;
+    }
+
     /**
-     * 每日福利: 每天00:05通过邮件给所有主公发放3000黄金 + 300VIP点数
+     * 每日福利: 每天00:05通过邮件给所有主公发放100绑金
      */
     @Scheduled(cron = "0 5 0 * * ?", zone = "Asia/Shanghai")
     public void dailyWelfareMail() {
@@ -642,15 +668,10 @@ public class GameServerController {
                     Map<String, Object> goldAtt = new LinkedHashMap<>();
                     goldAtt.put("itemType", "boundGold");
                     goldAtt.put("itemName", "绑金");
-                    goldAtt.put("count", 3000);
+                    goldAtt.put("count", 100);
                     atts.add(goldAtt);
-                    Map<String, Object> vipAtt = new LinkedHashMap<>();
-                    vipAtt.put("itemType", "vipPoints");
-                    vipAtt.put("itemName", "VIP点数");
-                    vipAtt.put("count", 300);
-                    atts.add(vipAtt);
                     mailService.sendSystemMail(gameUserId, "每日俸禄",
-                            "主公辛苦了！这是你今日的俸禄：3000绑金、300VIP点数。\n请及时领取！",
+                            "主公辛苦了！这是你今日的俸禄：100绑金。\n请及时领取！",
                             atts);
                     sent++;
                 } catch (Exception e) {

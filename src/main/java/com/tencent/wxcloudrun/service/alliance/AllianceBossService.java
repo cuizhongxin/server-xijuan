@@ -1,6 +1,7 @@
 package com.tencent.wxcloudrun.service.alliance;
 
 import com.tencent.wxcloudrun.dao.AllianceBossMapper;
+import com.tencent.wxcloudrun.dao.AllianceMapper;
 import com.tencent.wxcloudrun.dao.EquipmentMapper;
 import com.tencent.wxcloudrun.exception.BusinessException;
 import com.tencent.wxcloudrun.model.Equipment;
@@ -43,8 +44,8 @@ public class AllianceBossService {
     private static final double DROP_RATE = 0.20;
     private static final long LAST_HIT_REWARD_GOLD = 0L;
     private static final long LAST_HIT_REWARD_SILVER = 0L;
-    private static final String SETTLE_MARK_FEED = "settle_feed_rank_";
-    private static final String SETTLE_MARK_KILL = "settle_kill_rank_";
+    private static final String SETTLE_MARK_FEED = "sf";
+    private static final String SETTLE_MARK_KILL = "sk";
     private static final String CYCLE_RESET_MARK = "boss_cycle_reset";
     private static final String BOUND_GOLD_ITEM_NAME = "绑金";
     private static final String MID_RECRUIT_TOKEN_NAME = "中级招贤令";
@@ -107,6 +108,7 @@ public class AllianceBossService {
     private final Map<Integer, ConcurrentLinkedQueue<int[]>> woundedPools = new ConcurrentHashMap<>();
 
     @Autowired private AllianceBossMapper bossMapper;
+    @Autowired private AllianceMapper allianceMapper;
     @Autowired private EquipmentMapper equipmentMapper;
     @Autowired private UserResourceService userResourceService;
     @Autowired private BattleService battleService;
@@ -161,6 +163,8 @@ public class AllianceBossService {
 
     public Map<String, Object> getInfo(String userId) {
         int serverId = extractServerId(userId);
+        String allianceId = resolveAllianceId(userId);
+        Set<String> allianceMemberIds = getAllianceMemberIdSet(allianceId);
         int dailyCount = bossMapper.findUserDailyAttackCount(userId, serverId);
         Map<String, Object> boss = bossMapper.findCurrentBossByServerId(serverId);
         if (boss == null) {
@@ -181,10 +185,10 @@ public class AllianceBossService {
         boss.put("attacksLeft", -1);
         boss.put("feedPrize", buildRankPrizePayload("喂养排行奖励"));
         boss.put("killPrize", buildRankPrizePayload("击败排行奖励"));
-        fillMyFeedStats(userId, serverId, boss);
-        fillMyAttackStats(userId, serverId, boss);
-        boss.put("topFeedRankings", buildTopRankings(serverId, true));
-        boss.put("topAttackRankings", buildTopRankings(serverId, false));
+        fillMyFeedStats(userId, serverId, allianceMemberIds, boss);
+        fillMyAttackStats(userId, serverId, allianceMemberIds, boss);
+        boss.put("topFeedRankings", buildTopRankings(serverId, allianceMemberIds, true));
+        boss.put("topAttackRankings", buildTopRankings(serverId, allianceMemberIds, false));
         return boss;
     }
 
@@ -422,7 +426,8 @@ public class AllianceBossService {
 
         if (killed) {
             pool.clear();
-            settleRankRewards(serverId, bossId);
+            String allianceId = resolveAllianceId(userId);
+            settleRankRewards(serverId, bossId, allianceId);
             bossMapper.insertRecord("SYSTEM", CYCLE_RESET_MARK, 0, 0, serverId);
 
             int nextLevel = Math.min(bossLevel + 1, BOSS_TABLE.length);
@@ -563,7 +568,12 @@ public class AllianceBossService {
 
     public List<Map<String, Object>> getRankings(String userId) {
         int serverId = extractServerId(userId);
-        return bossMapper.findDailyAttackRankingsByServerId(serverId, 20);
+        String allianceId = resolveAllianceId(userId);
+        Set<String> allianceMemberIds = getAllianceMemberIdSet(allianceId);
+        List<Map<String, Object>> all = bossMapper.findDailyAttackRankingsByServerId(serverId, 5000);
+        List<Map<String, Object>> filtered = filterRankingsByAlliance(all, allianceMemberIds);
+        if (filtered.size() > 20) return filtered.subList(0, 20);
+        return filtered;
     }
 
     private static Map<String, Object> rewardItem(String itemName, int count, String itemId) {
@@ -611,10 +621,11 @@ public class AllianceBossService {
         return sb.toString();
     }
 
-    private void fillMyFeedStats(String userId, int serverId, Map<String, Object> boss) {
+    private void fillMyFeedStats(String userId, int serverId, Set<String> allianceMemberIds, Map<String, Object> boss) {
         long myFeedValue = 0L;
         int myFeedRank = 0;
         List<Map<String, Object>> rankings = bossMapper.findDailyFeedRankingsByServerId(serverId, 5000);
+        rankings = filterRankingsByAlliance(rankings, allianceMemberIds);
         if (rankings != null) {
             for (int i = 0; i < rankings.size(); i++) {
                 Map<String, Object> row = rankings.get(i);
@@ -632,10 +643,11 @@ public class AllianceBossService {
         boss.put("myFeedRank", myFeedRank > 0 ? myFeedRank : "-");
     }
 
-    private void fillMyAttackStats(String userId, int serverId, Map<String, Object> boss) {
+    private void fillMyAttackStats(String userId, int serverId, Set<String> allianceMemberIds, Map<String, Object> boss) {
         long myDamage = 0L;
         int myRank = 0;
         List<Map<String, Object>> rankings = bossMapper.findDailyAttackRankingsByServerId(serverId, 5000);
+        rankings = filterRankingsByAlliance(rankings, allianceMemberIds);
         if (rankings != null) {
             for (int i = 0; i < rankings.size(); i++) {
                 Map<String, Object> row = rankings.get(i);
@@ -653,13 +665,14 @@ public class AllianceBossService {
         boss.put("myRank", myRank > 0 ? myRank : "-");
     }
 
-    private List<Map<String, Object>> buildTopRankings(int serverId, boolean feedRank) {
+    private List<Map<String, Object>> buildTopRankings(int serverId, Set<String> allianceMemberIds, boolean feedRank) {
         List<Map<String, Object>> source = feedRank
-                ? bossMapper.findDailyFeedRankingsByServerId(serverId, 3)
-                : bossMapper.findDailyAttackRankingsByServerId(serverId, 3);
+                ? bossMapper.findDailyFeedRankingsByServerId(serverId, 5000)
+                : bossMapper.findDailyAttackRankingsByServerId(serverId, 5000);
+        source = filterRankingsByAlliance(source, allianceMemberIds);
         List<Map<String, Object>> out = new ArrayList<>();
         if (source == null) return out;
-        for (int i = 0; i < source.size(); i++) {
+        for (int i = 0; i < Math.min(3, source.size()); i++) {
             Map<String, Object> row = source.get(i);
             if (row == null || row.get("userId") == null) continue;
             String userId = String.valueOf(row.get("userId"));
@@ -679,29 +692,35 @@ public class AllianceBossService {
         return out;
     }
 
-    private void settleRankRewards(int serverId, long bossId) {
+    private void settleRankRewards(int serverId, long bossId, String allianceId) {
         try {
-            settleOneRanking(serverId, bossId, true);
-            settleOneRanking(serverId, bossId, false);
+            settleOneRanking(serverId, bossId, allianceId, true);
+            settleOneRanking(serverId, bossId, allianceId, false);
         } catch (Exception e) {
             logger.warn("联盟Boss排行结算异常, serverId={}", serverId, e);
         }
     }
 
-    private void settleOneRanking(int serverId, long bossId, boolean feedRank) {
-        String settleMark = (feedRank ? SETTLE_MARK_FEED : SETTLE_MARK_KILL) + bossId;
+    private void settleOneRanking(int serverId, long bossId, String allianceId, boolean feedRank) {
+        if (allianceId == null || allianceId.trim().isEmpty()) return;
+        String settleMark = buildSettleMark(feedRank, bossId, allianceId);
         if (bossMapper.countActionByServerIdToday(serverId, settleMark) > 0) {
             return;
         }
 
+        Set<String> allianceMemberIds = getAllianceMemberIdSet(allianceId);
         List<Map<String, Object>> rankings = feedRank
                 ? bossMapper.findDailyFeedRankingsByServerId(serverId, 5000)
                 : bossMapper.findDailyAttackRankingsByServerId(serverId, 5000);
+        rankings = filterRankingsByAlliance(rankings, allianceMemberIds);
         if (rankings == null || rankings.isEmpty()) {
             bossMapper.insertRecord("SYSTEM", settleMark, 0, 0, serverId);
+            logger.info("联盟Boss{}排行奖励结算完成, serverId={}, allianceId={}, bossId={}, issuedCount={}",
+                    feedRank ? "喂养" : "击败", serverId, allianceId, bossId, 0);
             return;
         }
 
+        int issuedCount = 0;
         for (int i = 0; i < rankings.size(); i++) {
             Map<String, Object> row = rankings.get(i);
             if (row == null || row.get("userId") == null) continue;
@@ -716,10 +735,58 @@ public class AllianceBossService {
             String content = "恭喜主公在" + (feedRank ? "喂养排行" : "击败排行")
                     + "中获得" + rankText + "，奖励：" + formatRewards(rewards) + "。";
             mailService.sendSystemMail(userId, title, content, attachments);
+            issuedCount++;
         }
 
         bossMapper.insertRecord("SYSTEM", settleMark, 0, 0, serverId);
-        logger.info("联盟Boss{}排行奖励结算完成, serverId={}", feedRank ? "喂养" : "击败", serverId);
+        logger.info("联盟Boss{}排行奖励结算完成, serverId={}, allianceId={}, bossId={}, issuedCount={}",
+                feedRank ? "喂养" : "击败", serverId, allianceId, bossId, issuedCount);
+    }
+
+    private String buildSettleMark(boolean feedRank, long bossId, String allianceId) {
+        int hash = Objects.hash(bossId, allianceId);
+        String hex = Integer.toHexString(hash);
+        if (hex.length() > 12) {
+            hex = hex.substring(hex.length() - 12);
+        }
+        return (feedRank ? SETTLE_MARK_FEED : SETTLE_MARK_KILL) + hex;
+    }
+
+    private String resolveAllianceId(String userId) {
+        if (userId == null || userId.isEmpty()) return null;
+        String allianceId = allianceMapper.findAllianceIdByUserId(userId);
+        if (allianceId != null && !allianceId.trim().isEmpty()) return allianceId;
+        String base = normalizeBaseUserId(userId);
+        if (!base.equals(userId)) {
+            allianceId = allianceMapper.findAllianceIdByUserId(base);
+            if (allianceId != null && !allianceId.trim().isEmpty()) return allianceId;
+        }
+        return null;
+    }
+
+    private Set<String> getAllianceMemberIdSet(String allianceId) {
+        Set<String> ids = new HashSet<>();
+        if (allianceId == null || allianceId.trim().isEmpty()) return ids;
+        List<String> memberIds = allianceMapper.findMemberUserIdsByAllianceId(allianceId);
+        if (memberIds == null) return ids;
+        for (String memberId : memberIds) {
+            if (memberId == null || memberId.trim().isEmpty()) continue;
+            ids.add(normalizeBaseUserId(memberId));
+        }
+        return ids;
+    }
+
+    private List<Map<String, Object>> filterRankingsByAlliance(List<Map<String, Object>> source, Set<String> allianceMemberIds) {
+        if (source == null || source.isEmpty()) return Collections.emptyList();
+        if (allianceMemberIds == null || allianceMemberIds.isEmpty()) return Collections.emptyList();
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (Map<String, Object> row : source) {
+            if (row == null || row.get("userId") == null) continue;
+            String uid = String.valueOf(row.get("userId"));
+            if (!allianceMemberIds.contains(normalizeBaseUserId(uid))) continue;
+            out.add(row);
+        }
+        return out;
     }
 
     private List<Map<String, Object>> buildRankRewardAttachments(List<Map<String, Object>> rewards) {

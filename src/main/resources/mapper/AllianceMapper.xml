@@ -121,6 +121,10 @@
         DELETE FROM alliance_member WHERE alliance_id = #{allianceId} AND user_id = #{userId}
     </delete>
 
+    <select id="findMemberUserIdsByAllianceId" resultType="java.lang.String">
+        SELECT user_id FROM alliance_member WHERE alliance_id = #{allianceId}
+    </select>
+
     <!-- 用户联盟映射 -->
     <select id="findAllianceIdByUserId" resultType="java.lang.String">
         SELECT alliance_id FROM user_alliance WHERE od_user_id = #{userId}
