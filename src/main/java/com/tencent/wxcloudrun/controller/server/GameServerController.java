@@ -22,6 +22,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.*;
 
 @RestController
@@ -29,6 +31,11 @@ import java.util.*;
 public class GameServerController {
 
     private static final Logger logger = LoggerFactory.getLogger(GameServerController.class);
+    private static final ZoneId SERVER_ZONE = ZoneId.of("Asia/Shanghai");
+    private static final long SERVER_VISIBILITY_CUTOFF_MS =
+            LocalDate.of(2026, 6, 10).atStartOfDay(SERVER_ZONE).toInstant().toEpochMilli();
+    private static final int OLD_USER_MIN_SERVER_ID = 11;
+    private static final int NEW_USER_MIN_SERVER_ID = 20;
 
     @Autowired
     private GameServerMapper serverMapper;
@@ -85,9 +92,8 @@ public class GameServerController {
         List<Map<String, Object>> announcements = chatMapper.findActiveAnnouncements(System.currentTimeMillis());
 
         boolean isAdmin = "1".equals(userId);
-        if (!isAdmin) {
-            servers.removeIf(s -> ((Number) s.get("id")).intValue() <= 10);
-        }
+        int minServerId = resolveMinVisibleServerId(userId, isAdmin);
+        servers.removeIf(s -> ((Number) s.get("id")).intValue() < minServerId);
 
         Map<Integer, Map<String, Object>> playerMap = new HashMap<>();
         for (Map<String, Object> ps : playerServers) {
@@ -116,6 +122,10 @@ public class GameServerController {
                                                     @RequestBody Map<String, Object> body) {
         String userId = getUserId(request);
         int serverId = body.get("serverId") instanceof Number ? ((Number) body.get("serverId")).intValue() : 0;
+        int minServerId = resolveMinVisibleServerId(userId, "1".equals(userId));
+        if (serverId < minServerId) {
+            return ApiResponse.error(400, "该区服暂未开放");
+        }
 
         Map<String, Object> server = serverMapper.findServerById(serverId);
         if (server == null) return ApiResponse.error(400, "区服不存在");
@@ -150,6 +160,10 @@ public class GameServerController {
         String userId = getUserId(request);
         int serverId = body.get("serverId") instanceof Number ? ((Number) body.get("serverId")).intValue() : 0;
         String lordName = body.get("lordName") != null ? body.get("lordName").toString().trim() : null;
+        int minServerId = resolveMinVisibleServerId(userId, "1".equals(userId));
+        if (serverId < minServerId) {
+            return ApiResponse.error(400, "该区服暂未开放");
+        }
 
         // 校验区服
         Map<String, Object> server = serverMapper.findServerById(serverId);
@@ -590,6 +604,20 @@ public class GameServerController {
 
     private String getUserId(HttpServletRequest request) {
         return String.valueOf(request.getAttribute("rawUserId"));
+    }
+
+    private int resolveMinVisibleServerId(String userId, boolean isAdmin) {
+        if (isAdmin) {
+            return 1;
+        }
+        if (userId == null || userId.trim().isEmpty() || "null".equalsIgnoreCase(userId)) {
+            return NEW_USER_MIN_SERVER_ID;
+        }
+        Long firstCreateTime = serverMapper.findFirstRoleCreateTimeByUserId(userId);
+        if (firstCreateTime != null && firstCreateTime > 0 && firstCreateTime < SERVER_VISIBILITY_CUTOFF_MS) {
+            return OLD_USER_MIN_SERVER_ID;
+        }
+        return NEW_USER_MIN_SERVER_ID;
     }
 
     private Map<Integer, Double> parseServerWeights(Map<?, ?> rawMap) {

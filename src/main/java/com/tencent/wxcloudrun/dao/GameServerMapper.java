@@ -16,6 +16,8 @@ public interface GameServerMapper {
 
     Map<String, Object> findPlayerServer(@Param("userId") String userId, @Param("serverId") int serverId);
 
+    Long findFirstRoleCreateTimeByUserId(@Param("userId") String userId);
+
     int isNameTaken(@Param("serverId") int serverId, @Param("lordName") String lordName);
 
     void insertPlayerServer(@Param("userId") String userId,

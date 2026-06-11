@@ -33,6 +33,12 @@
         WHERE us.user_id = #{userId} AND us.server_id = #{serverId}
     </select>
 
+    <select id="findFirstRoleCreateTimeByUserId" resultType="java.lang.Long">
+        SELECT MIN(create_time)
+        FROM user_server
+        WHERE user_id = #{userId}
+    </select>
+
     <select id="isNameTaken" resultType="int">
         SELECT COUNT(1) FROM user_server
         WHERE server_id = #{serverId} AND lord_name = #{lordName}
