@@ -78,6 +78,12 @@
         WHERE action_type = 'attack'
           AND server_id = #{serverId}
           AND cycle_id = #{cycleId}
+          AND created_at > IFNULL((
+              SELECT MAX(created_at)
+              FROM alliance_boss_record
+              WHERE server_id = #{serverId}
+                AND action_type = 'boss_cycle_reset'
+          ), '1970-01-01 00:00:00')
         GROUP BY user_id
         ORDER BY totalDamage DESC
         LIMIT #{limit}
@@ -90,6 +96,12 @@
         WHERE action_type IN ('feed', 'feed_equip')
           AND server_id = #{serverId}
           AND cycle_id = #{cycleId}
+          AND created_at > IFNULL((
+              SELECT MAX(created_at)
+              FROM alliance_boss_record
+              WHERE server_id = #{serverId}
+                AND action_type = 'boss_cycle_reset'
+          ), '1970-01-01 00:00:00')
         GROUP BY user_id
         ORDER BY totalFeed DESC
         LIMIT #{limit}
@@ -110,6 +122,12 @@
           AND server_id = #{serverId}
           AND cycle_id = #{cycleId}
           AND action_type = 'attack'
+          AND created_at > IFNULL((
+              SELECT MAX(created_at)
+              FROM alliance_boss_record
+              WHERE server_id = #{serverId}
+                AND action_type = 'boss_cycle_reset'
+          ), '1970-01-01 00:00:00')
     </select>
 
 </mapper>
