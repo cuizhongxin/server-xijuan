@@ -471,9 +471,9 @@ public class ProductionService {
         Random random = new Random();
         String equipId = recipe.getResultId();
 
-        // 1. 按APK概率随机品质（虎啸套装强制完美）
+        // 1. 按APK概率随机品质（虎啸套装固定为紫色）
         boolean isTigerRoar = recipe.getResultName() != null && recipe.getResultName().contains("虎啸");
-        int qualityLevel = isTigerRoar ? 5 : rollEquipQuality(random);
+        int qualityLevel = isTigerRoar ? 4 : rollEquipQuality(random);
         String qualityPrefix = QUALITY_NAMES[qualityLevel];
         int attrRate = QUALITY_ATTR_RATE[qualityLevel]; // 万分比
 

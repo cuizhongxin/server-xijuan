@@ -106,6 +106,7 @@ public class AllianceBossService {
 
     private final Random random = new Random();
     private final Map<Integer, ConcurrentLinkedQueue<int[]>> woundedPools = new ConcurrentHashMap<>();
+    private final Map<String, Long> cooldownUntilByUser = new ConcurrentHashMap<>();
 
     @Autowired private AllianceBossMapper bossMapper;
     @Autowired private AllianceMapper allianceMapper;
@@ -185,6 +186,7 @@ public class AllianceBossService {
         boss.put("attacksLeft", -1);
         boss.put("feedPrize", buildRankPrizePayload("喂养排行奖励"));
         boss.put("killPrize", buildRankPrizePayload("击败排行奖励"));
+        boss.put("cooldown", currentCooldownSec(userId, serverId));
         fillMyFeedStats(userId, serverId, allianceMemberIds, boss);
         fillMyAttackStats(userId, serverId, allianceMemberIds, boss);
         boss.put("topFeedRankings", buildTopRankings(serverId, allianceMemberIds, true));
@@ -329,6 +331,10 @@ public class AllianceBossService {
     @Transactional
     public Map<String, Object> attack(String userId) {
         int serverId = extractServerId(userId);
+        long cdRemain = currentCooldownSec(userId, serverId);
+        if (cdRemain > 0) {
+            throw new BusinessException(400, "正在休整中，还需等待" + cdRemain + "秒");
+        }
         Map<String, Object> boss = bossMapper.findCurrentBossByServerId(serverId);
         if (boss == null) {
             throw new BusinessException(500, "Boss数据异常");
@@ -415,6 +421,7 @@ public class AllianceBossService {
 
         int roundsUsed = report.rounds.size();
         long cooldownMs = BASE_COOLDOWN_SEC * 1000L + roundsUsed * 10_000L;
+        cooldownUntilByUser.put(cooldownKey(userId, serverId), System.currentTimeMillis() + cooldownMs);
 
         if (!squadWiped) {
             pool.offer(squadSoldiers);
@@ -463,6 +470,21 @@ public class AllianceBossService {
         }
         result.put("battleReport", report);
         return result;
+    }
+
+    private String cooldownKey(String userId, int serverId) {
+        return normalizeBaseUserId(userId) + "_" + serverId;
+    }
+
+    private long currentCooldownSec(String userId, int serverId) {
+        Long until = cooldownUntilByUser.get(cooldownKey(userId, serverId));
+        if (until == null) return 0L;
+        long remainMs = until - System.currentTimeMillis();
+        if (remainMs <= 0) {
+            cooldownUntilByUser.remove(cooldownKey(userId, serverId));
+            return 0L;
+        }
+        return (remainMs + 999) / 1000;
     }
 
     /**
@@ -805,6 +827,8 @@ public class AllianceBossService {
                 int boundGoldItemId = boundGoldItemId(count);
                 att.put("itemId", String.valueOf(boundGoldItemId));
                 att.put("itemName", count + "绑金");
+                // 绑金奖励是“1个对应面额道具”，不是发 count 个同道具
+                count = 1;
             } else if (itemId != null && !itemId.trim().isEmpty()) {
                 att.put("itemId", itemId);
             } else if (MID_RECRUIT_TOKEN_NAME.equals(itemName)) {

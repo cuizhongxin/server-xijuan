@@ -434,10 +434,10 @@ public class EquipmentService {
                 .mobility(val(pre.getArmySp()))
                 .build();
 
-        // Roll quality — 虎啸套装强制完美品质
+        // Roll quality — 虎啸套装固定为紫色品质
         int equipQualityId;
         if (suitShortName != null && "虎啸".equals(suitShortName)) {
-            equipQualityId = 5;
+            equipQualityId = 4;
         } else {
             equipQualityId = EquipmentConfig.rollEquipQuality();
         }

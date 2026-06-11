@@ -340,10 +340,10 @@ public class SecretRealmService {
         int equipPreId = getInt(eqRow, "equip_pre_id", 0);
         EquipmentPre pre = equipPreId > 0 ? equipmentPreMapper.findById(equipPreId) : null;
 
-        // 虎啸套装强制完美品质
+        // 虎啸套装固定为紫色品质
         boolean isTigerRoar = (pre != null && pre.getSuitName() != null && pre.getSuitName().contains("虎啸"))
                 || getString(eqRow, "set_name", "").contains("虎啸");
-        int qualityValueId = isTigerRoar ? 5 : com.tencent.wxcloudrun.config.EquipmentConfig.rollEquipQuality();
+        int qualityValueId = isTigerRoar ? 4 : com.tencent.wxcloudrun.config.EquipmentConfig.rollEquipQuality();
         com.tencent.wxcloudrun.config.EquipmentConfig.EquipQualityLevel ql =
                 com.tencent.wxcloudrun.config.EquipmentConfig.getEquipQualityLevel(qualityValueId);
         double attrRate = ql.attrRate / 10000.0;
