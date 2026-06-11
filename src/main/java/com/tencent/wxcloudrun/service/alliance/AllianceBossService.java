@@ -3,6 +3,7 @@ package com.tencent.wxcloudrun.service.alliance;
 import com.tencent.wxcloudrun.dao.AllianceBossMapper;
 import com.tencent.wxcloudrun.dao.AllianceMapper;
 import com.tencent.wxcloudrun.dao.EquipmentMapper;
+import com.tencent.wxcloudrun.dao.RewardIssueLogMapper;
 import com.tencent.wxcloudrun.exception.BusinessException;
 import com.tencent.wxcloudrun.model.Equipment;
 import com.tencent.wxcloudrun.model.Warehouse;
@@ -117,6 +118,7 @@ public class AllianceBossService {
     @Autowired private FormationService formationService;
     @Autowired private SuitConfigService suitConfigService;
     @Autowired private WarehouseService warehouseService;
+    @Autowired private RewardIssueLogMapper rewardIssueLogMapper;
     @Autowired @org.springframework.context.annotation.Lazy private ChatService chatService;
     @Autowired private PlayerNameResolver playerNameResolver;
     @Autowired @org.springframework.context.annotation.Lazy private MailService mailService;
@@ -167,7 +169,6 @@ public class AllianceBossService {
         int serverId = extractServerId(userId);
         String allianceId = resolveAllianceId(userId);
         Set<String> allianceMemberIds = getAllianceMemberIdSet(allianceId);
-        int dailyCount = bossMapper.findUserDailyAttackCount(userId, serverId);
         Map<String, Object> boss = bossMapper.findCurrentBossByServerId(serverId);
         if (boss == null) {
             ensureBossExists(serverId);
@@ -176,6 +177,8 @@ public class AllianceBossService {
         if (boss == null) {
             throw new BusinessException(500, "Boss数据异常");
         }
+        int cycleId = getCycleId(boss);
+        int dailyCount = bossMapper.findUserDailyAttackCount(userId, serverId, cycleId);
         reconcileBossHpConfig(boss);
         boss.put("summonTime", String.format("%02d:%02d-%02d:%02d",
                 SUMMON_MIN_HOUR, SUMMON_MIN_MINUTE, SUMMON_MAX_HOUR, SUMMON_MAX_MINUTE));
@@ -190,10 +193,10 @@ public class AllianceBossService {
         boss.put("normalFeedCostGold", FEED_COST_GOLD);
         boss.put("normalFeedAddValue", FEED_ADD_VALUE_PER_ACTION);
         boss.put("cooldown", currentCooldownSec(userId, serverId));
-        fillMyFeedStats(userId, serverId, allianceMemberIds, boss);
-        fillMyAttackStats(userId, serverId, allianceMemberIds, boss);
-        boss.put("topFeedRankings", buildTopRankings(serverId, allianceMemberIds, true));
-        boss.put("topAttackRankings", buildTopRankings(serverId, allianceMemberIds, false));
+        fillMyFeedStats(userId, serverId, cycleId, allianceMemberIds, boss);
+        fillMyAttackStats(userId, serverId, cycleId, allianceMemberIds, boss);
+        boss.put("topFeedRankings", buildTopRankings(serverId, cycleId, allianceMemberIds, true));
+        boss.put("topAttackRankings", buildTopRankings(serverId, cycleId, allianceMemberIds, false));
         return boss;
     }
 
@@ -214,6 +217,7 @@ public class AllianceBossService {
         }
 
         long bossId = ((Number) boss.get("id")).longValue();
+        int cycleId = getCycleId(boss);
         String status = (String) boss.get("status");
 
         if ("active".equals(status) || "fighting".equals(status)) {
@@ -222,7 +226,7 @@ public class AllianceBossService {
 
         int addValue = amount * FEED_ADD_VALUE_PER_ACTION;
         bossMapper.incrementFeed(bossId, addValue);
-        bossMapper.insertRecord(userId, "feed", 0, addValue, serverId);
+        bossMapper.insertRecord(userId, "feed", 0, addValue, serverId, cycleId);
 
         int feedCount = ((Number) boss.get("feedCount")).intValue() + addValue;
         int feedTarget = ((Number) boss.get("feedTarget")).intValue();
@@ -255,6 +259,7 @@ public class AllianceBossService {
         }
 
         long bossId = ((Number) boss.get("id")).longValue();
+        int cycleId = getCycleId(boss);
         String status = (String) boss.get("status");
         if ("active".equals(status) || "fighting".equals(status)) {
             throw new BusinessException(400, "Boss已激活，无需继续投喂");
@@ -280,7 +285,7 @@ public class AllianceBossService {
         }
 
         bossMapper.incrementFeed(bossId, totalValue);
-        bossMapper.insertRecord(userId, "feed_equip", 0, totalValue, serverId);
+        bossMapper.insertRecord(userId, "feed_equip", 0, totalValue, serverId, cycleId);
 
         int feedCount = ((Number) boss.get("feedCount")).intValue() + totalValue;
         int feedTarget = ((Number) boss.get("feedTarget")).intValue();
@@ -333,6 +338,14 @@ public class AllianceBossService {
         return woundedPools.computeIfAbsent(serverId, k -> new ConcurrentLinkedQueue<>());
     }
 
+    private int getCycleId(Map<String, Object> boss) {
+        if (boss == null) return 1;
+        Object cycleObj = boss.get("cycleId");
+        if (!(cycleObj instanceof Number)) return 1;
+        int cycleId = ((Number) cycleObj).intValue();
+        return cycleId > 0 ? cycleId : 1;
+    }
+
     @Transactional
     public Map<String, Object> attack(String userId) {
         int serverId = extractServerId(userId);
@@ -351,7 +364,8 @@ public class AllianceBossService {
             throw new BusinessException(400, "Boss未处于战斗状态，请先召唤");
         }
 
-        int dailyCount = bossMapper.findUserDailyAttackCount(userId, serverId);
+        int cycleId = getCycleId(boss);
+        int dailyCount = bossMapper.findUserDailyAttackCount(userId, serverId, cycleId);
 
         long bossId = ((Number) boss.get("id")).longValue();
         long currentHp = ((Number) boss.get("currentHp")).longValue();
@@ -422,7 +436,7 @@ public class AllianceBossService {
 
         long newHp = Math.max(0, currentHp - hpDamage);
         bossMapper.updateBossHp(bossId, newHp);
-        bossMapper.insertRecord(userId, "attack", hpDamage, 0, serverId);
+        bossMapper.insertRecord(userId, "attack", hpDamage, 0, serverId, cycleId);
 
         int roundsUsed = report.rounds.size();
         long cooldownMs = BASE_COOLDOWN_SEC * 1000L + roundsUsed * 10_000L;
@@ -439,8 +453,8 @@ public class AllianceBossService {
         if (killed) {
             pool.clear();
             String allianceId = resolveAllianceId(userId);
-            settleRankRewards(serverId, bossId, allianceId);
-            bossMapper.insertRecord("SYSTEM", CYCLE_RESET_MARK, 0, 0, serverId);
+            settleRankRewards(serverId, cycleId, bossId, allianceId);
+            bossMapper.insertRecord("SYSTEM", CYCLE_RESET_MARK, 0, 0, serverId, cycleId);
 
             int nextLevel = Math.min(bossLevel + 1, BOSS_TABLE.length);
             int idx = nextLevel - 1;
@@ -595,9 +609,11 @@ public class AllianceBossService {
 
     public List<Map<String, Object>> getRankings(String userId) {
         int serverId = extractServerId(userId);
+        Map<String, Object> boss = bossMapper.findCurrentBossByServerId(serverId);
+        int cycleId = getCycleId(boss);
         String allianceId = resolveAllianceId(userId);
         Set<String> allianceMemberIds = getAllianceMemberIdSet(allianceId);
-        List<Map<String, Object>> all = bossMapper.findDailyAttackRankingsByServerId(serverId, 5000);
+        List<Map<String, Object>> all = bossMapper.findDailyAttackRankingsByServerId(serverId, cycleId, 5000);
         List<Map<String, Object>> filtered = filterRankingsByAlliance(all, allianceMemberIds);
         if (filtered.size() > 20) return filtered.subList(0, 20);
         return filtered;
@@ -648,10 +664,10 @@ public class AllianceBossService {
         return sb.toString();
     }
 
-    private void fillMyFeedStats(String userId, int serverId, Set<String> allianceMemberIds, Map<String, Object> boss) {
+    private void fillMyFeedStats(String userId, int serverId, int cycleId, Set<String> allianceMemberIds, Map<String, Object> boss) {
         long myFeedValue = 0L;
         int myFeedRank = 0;
-        List<Map<String, Object>> rankings = bossMapper.findDailyFeedRankingsByServerId(serverId, 5000);
+        List<Map<String, Object>> rankings = bossMapper.findDailyFeedRankingsByServerId(serverId, cycleId, 5000);
         rankings = filterRankingsByAlliance(rankings, allianceMemberIds);
         if (rankings != null) {
             for (int i = 0; i < rankings.size(); i++) {
@@ -670,10 +686,10 @@ public class AllianceBossService {
         boss.put("myFeedRank", myFeedRank > 0 ? myFeedRank : "-");
     }
 
-    private void fillMyAttackStats(String userId, int serverId, Set<String> allianceMemberIds, Map<String, Object> boss) {
+    private void fillMyAttackStats(String userId, int serverId, int cycleId, Set<String> allianceMemberIds, Map<String, Object> boss) {
         long myDamage = 0L;
         int myRank = 0;
-        List<Map<String, Object>> rankings = bossMapper.findDailyAttackRankingsByServerId(serverId, 5000);
+        List<Map<String, Object>> rankings = bossMapper.findDailyAttackRankingsByServerId(serverId, cycleId, 5000);
         rankings = filterRankingsByAlliance(rankings, allianceMemberIds);
         if (rankings != null) {
             for (int i = 0; i < rankings.size(); i++) {
@@ -692,10 +708,10 @@ public class AllianceBossService {
         boss.put("myRank", myRank > 0 ? myRank : "-");
     }
 
-    private List<Map<String, Object>> buildTopRankings(int serverId, Set<String> allianceMemberIds, boolean feedRank) {
+    private List<Map<String, Object>> buildTopRankings(int serverId, int cycleId, Set<String> allianceMemberIds, boolean feedRank) {
         List<Map<String, Object>> source = feedRank
-                ? bossMapper.findDailyFeedRankingsByServerId(serverId, 5000)
-                : bossMapper.findDailyAttackRankingsByServerId(serverId, 5000);
+                ? bossMapper.findDailyFeedRankingsByServerId(serverId, cycleId, 5000)
+                : bossMapper.findDailyAttackRankingsByServerId(serverId, cycleId, 5000);
         source = filterRankingsByAlliance(source, allianceMemberIds);
         List<Map<String, Object>> out = new ArrayList<>();
         if (source == null) return out;
@@ -719,40 +735,45 @@ public class AllianceBossService {
         return out;
     }
 
-    private void settleRankRewards(int serverId, long bossId, String allianceId) {
+    private void settleRankRewards(int serverId, int cycleId, long bossId, String allianceId) {
         try {
-            settleOneRanking(serverId, bossId, allianceId, true);
-            settleOneRanking(serverId, bossId, allianceId, false);
+            settleOneRanking(serverId, cycleId, bossId, allianceId, true);
+            settleOneRanking(serverId, cycleId, bossId, allianceId, false);
         } catch (Exception e) {
             logger.warn("联盟Boss排行结算异常, serverId={}", serverId, e);
         }
     }
 
-    private void settleOneRanking(int serverId, long bossId, String allianceId, boolean feedRank) {
+    private void settleOneRanking(int serverId, int cycleId, long bossId, String allianceId, boolean feedRank) {
         if (allianceId == null || allianceId.trim().isEmpty()) return;
         String settleMark = buildSettleMark(feedRank, bossId, allianceId);
-        if (bossMapper.countActionByServerIdToday(serverId, settleMark) > 0) {
+        if (bossMapper.countActionByServerIdAndCycleId(serverId, cycleId, settleMark) > 0) {
             return;
         }
 
         Set<String> allianceMemberIds = getAllianceMemberIdSet(allianceId);
         List<Map<String, Object>> rankings = feedRank
-                ? bossMapper.findDailyFeedRankingsByServerId(serverId, 5000)
-                : bossMapper.findDailyAttackRankingsByServerId(serverId, 5000);
+                ? bossMapper.findDailyFeedRankingsByServerId(serverId, cycleId, 5000)
+                : bossMapper.findDailyAttackRankingsByServerId(serverId, cycleId, 5000);
         rankings = filterRankingsByAlliance(rankings, allianceMemberIds);
         if (rankings == null || rankings.isEmpty()) {
-            bossMapper.insertRecord("SYSTEM", settleMark, 0, 0, serverId);
+            bossMapper.insertRecord("SYSTEM", settleMark, 0, 0, serverId, cycleId);
             logger.info("联盟Boss{}排行奖励结算完成, serverId={}, allianceId={}, bossId={}, issuedCount={}",
                     feedRank ? "喂养" : "击败", serverId, allianceId, bossId, 0);
             return;
         }
 
         int issuedCount = 0;
+        String bizType = feedRank ? "ALLIANCE_BOSS_FEED_RANK" : "ALLIANCE_BOSS_ATTACK_RANK";
+        String bizId = serverId + "_" + cycleId + "_" + bossId;
         for (int i = 0; i < rankings.size(); i++) {
             Map<String, Object> row = rankings.get(i);
             if (row == null || row.get("userId") == null) continue;
             String userId = String.valueOf(row.get("userId"));
             int rank = i + 1;
+            if (!tryMarkIssued(bizType, bizId, userId, serverId, "rank=" + rank + ",allianceId=" + allianceId)) {
+                continue;
+            }
             Map<String, Object> tier = resolveRankTier(rank);
             String rankText = String.valueOf(tier.get("rankText"));
             List<Map<String, Object>> rewards = extractTierRewards(tier);
@@ -761,13 +782,35 @@ public class AllianceBossService {
             String title = feedRank ? "联盟Boss喂养排行奖励" : "联盟Boss击败排行奖励";
             String content = "恭喜主公在" + (feedRank ? "喂养排行" : "击败排行")
                     + "中获得" + rankText + "，奖励：" + formatRewards(rewards) + "。";
-            mailService.sendSystemMail(userId, title, content, attachments);
-            issuedCount++;
+            try {
+                mailService.sendSystemMail(userId, title, content, attachments);
+                issuedCount++;
+            } catch (Exception e) {
+                logger.error("联盟Boss排行奖励发放失败: serverId={}, cycleId={}, bossId={}, userId={}, rank={}",
+                        serverId, cycleId, bossId, userId, rank, e);
+            }
         }
 
-        bossMapper.insertRecord("SYSTEM", settleMark, 0, 0, serverId);
+        bossMapper.insertRecord("SYSTEM", settleMark, 0, 0, serverId, cycleId);
         logger.info("联盟Boss{}排行奖励结算完成, serverId={}, allianceId={}, bossId={}, issuedCount={}",
                 feedRank ? "喂养" : "击败", serverId, allianceId, bossId, issuedCount);
+    }
+
+    private boolean tryMarkIssued(String bizType, String bizId, String targetId, int serverId, String extra) {
+        try {
+            return rewardIssueLogMapper.insertIgnore(
+                    bizType,
+                    bizId,
+                    targetId != null ? targetId : "NULL_TARGET",
+                    serverId,
+                    extra,
+                    System.currentTimeMillis()
+            ) > 0;
+        } catch (Exception e) {
+            logger.warn("联盟Boss奖励幂等日志写入失败，降级继续发放 bizType={}, bizId={}, targetId={}",
+                    bizType, bizId, targetId, e);
+            return true;
+        }
     }
 
     private String buildSettleMark(boolean feedRank, long bossId, String allianceId) {

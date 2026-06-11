@@ -36,7 +36,8 @@ public interface AllianceBossMapper {
                       @Param("actionType") String actionType,
                       @Param("damage") long damage,
                       @Param("feedAmount") int feedAmount,
-                      @Param("serverId") int serverId);
+                      @Param("serverId") int serverId,
+                      @Param("cycleId") int cycleId);
 
     List<Map<String, Object>> findRecordsByServerId(@Param("serverId") int serverId,
                                                     @Param("limit") int limit);
@@ -45,14 +46,18 @@ public interface AllianceBossMapper {
                                                      @Param("limit") int limit);
 
     List<Map<String, Object>> findDailyAttackRankingsByServerId(@Param("serverId") int serverId,
+                                                                @Param("cycleId") int cycleId,
                                                                 @Param("limit") int limit);
 
     List<Map<String, Object>> findDailyFeedRankingsByServerId(@Param("serverId") int serverId,
+                                                              @Param("cycleId") int cycleId,
                                                               @Param("limit") int limit);
 
-    int countActionByServerIdToday(@Param("serverId") int serverId,
-                                   @Param("actionType") String actionType);
+    int countActionByServerIdAndCycleId(@Param("serverId") int serverId,
+                                        @Param("cycleId") int cycleId,
+                                        @Param("actionType") String actionType);
 
     int findUserDailyAttackCount(@Param("userId") String userId,
-                                 @Param("serverId") int serverId);
+                                 @Param("serverId") int serverId,
+                                 @Param("cycleId") int cycleId);
 }

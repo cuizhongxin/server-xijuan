@@ -5,13 +5,17 @@ import com.tencent.wxcloudrun.exception.BusinessException;
 import com.tencent.wxcloudrun.model.Warehouse;
 import com.tencent.wxcloudrun.service.UserResourceService;
 import com.tencent.wxcloudrun.service.warehouse.WarehouseService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 
 @Service
 public class MailService {
+    private static final Logger logger = LoggerFactory.getLogger(MailService.class);
 
     @Autowired private MailMapper mailMapper;
     @Autowired private WarehouseService warehouseService;
@@ -61,6 +65,7 @@ public class MailService {
     /**
      * 领取附件
      */
+    @Transactional
     public Map<String, Object> claimAttachment(String userId, long mailId) {
         Map<String, Object> mail = mailMapper.findById(mailId);
         if (mail == null) throw new BusinessException("邮件不存在");
@@ -75,7 +80,12 @@ public class MailService {
         }
 
         List<Map<String, Object>> attachments = mailMapper.findAttachments(mailId);
+        if (attachments == null || attachments.isEmpty()) {
+            logger.error("邮件附件领取失败: 附件为空, userId={}, mailId={}", userId, mailId);
+            throw new BusinessException("邮件附件为空，无法领取");
+        }
         List<String> rewards = new ArrayList<>();
+        int grantedCount = 0;
 
         for (Map<String, Object> att : attachments) {
             String itemType = String.valueOf(att.get("item_type"));
@@ -114,10 +124,21 @@ public class MailService {
                             .icon(itemIcon)
                             .quality(quality).count(count).maxStack(9999)
                             .usable(!"equipment".equals(itemType)).build();
-                    warehouseService.addItem(userId, item);
+                    boolean added = warehouseService.addItem(userId, item);
+                    if (!added) {
+                        logger.error("邮件附件领取失败: 仓库入库失败, userId={}, mailId={}, itemId={}, itemType={}, count={}",
+                                userId, mailId, itemId, itemType, count);
+                        throw new BusinessException("附件发放失败，请重试");
+                    }
                     break;
             }
+            grantedCount++;
             rewards.add(itemName + " x" + count);
+        }
+
+        if (grantedCount <= 0) {
+            logger.error("邮件附件领取失败: 没有实际发放任何奖励, userId={}, mailId={}", userId, mailId);
+            throw new BusinessException("附件发放失败，请稍后重试");
         }
 
         mailMapper.markAttachmentClaimed(mailId);
@@ -210,13 +231,23 @@ public class MailService {
         mailMapper.insertMail(mail);
 
         long mailId = Long.parseLong(String.valueOf(mail.get("id")));
+        int expectedAttachmentCount = attachments == null ? 0 : attachments.size();
+        int insertedAttachmentCount = 0;
 
         if (attachments != null) {
             for (Map<String, Object> att : attachments) {
                 att.put("mailId", mailId);
-                mailMapper.insertAttachment(att);
+                int rows = mailMapper.insertAttachment(att);
+                if (rows <= 0) {
+                    logger.error("系统邮件附件写入失败: receiverId={}, mailId={}, title={}, att={}",
+                            receiverId, mailId, title, att);
+                    throw new BusinessException("系统邮件附件写入失败");
+                }
+                insertedAttachmentCount += rows;
             }
         }
+        logger.info("系统邮件发送成功: receiverId={}, mailId={}, title={}, attachmentCount={}/{}",
+                receiverId, mailId, title, insertedAttachmentCount, expectedAttachmentCount);
     }
 
     /**

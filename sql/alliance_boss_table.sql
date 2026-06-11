@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS alliance_boss (
     status VARCHAR(16) DEFAULT 'idle',
     feed_count INT DEFAULT 0,
     feed_target INT DEFAULT 100,
+    cycle_id INT NOT NULL DEFAULT 1 COMMENT 'Boss轮次ID',
     last_reset_date DATE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -18,7 +19,9 @@ CREATE TABLE IF NOT EXISTS alliance_boss_record (
     action_type VARCHAR(16) NOT NULL,
     damage BIGINT DEFAULT 0,
     feed_amount INT DEFAULT 0,
+    cycle_id INT NOT NULL DEFAULT 1 COMMENT '所属Boss轮次',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_user_id (user_id),
-    INDEX idx_created (created_at)
+    INDEX idx_created (created_at),
+    INDEX idx_cycle (cycle_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
