@@ -111,6 +111,5 @@
           AND cycle_id = #{cycleId}
           AND action_type = 'attack'
     </select>
-    </delete>
 
 </mapper>
