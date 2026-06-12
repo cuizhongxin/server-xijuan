@@ -540,7 +540,7 @@ public class SecretRealmService {
         public void setPityLimit(int pityLimit) { this.pityLimit = pityLimit; }
     }
 
-    private static final Set<String> ANNOUNCE_SET_NAMES = new HashSet<>(Arrays.asList("鹰扬", "虎啸"));
+    private static final Set<String> ANNOUNCE_SET_NAMES = new HashSet<>(Arrays.asList("鹰扬", "虎啸", "凤鸣", "龙吟"));
 
     private void tryAnnounceSecretRealmEquip(String userId, Equipment eq) {
         try {

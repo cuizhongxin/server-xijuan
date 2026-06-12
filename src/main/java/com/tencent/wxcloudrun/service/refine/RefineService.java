@@ -356,6 +356,8 @@ public class RefineService {
         SUIT_PATH.put("战神", new int[]{25111,25112,25113,25114,25115,25116}); SUIT_COLOR.put("战神", 5);
         SUIT_PATH.put("鹰扬", new int[]{23121,23122,23123,23124,23125,23126}); SUIT_COLOR.put("鹰扬", 3);
         SUIT_PATH.put("虎啸", new int[]{24131,24132,24133,24134,24135,24136}); SUIT_COLOR.put("虎啸", 4);
+        SUIT_PATH.put("凤鸣", new int[]{25221,25222,25223,25224,25225,25226}); SUIT_COLOR.put("凤鸣", 5);
+        SUIT_PATH.put("龙吟", new int[]{25231,25232,25233,25234,25235,25236}); SUIT_COLOR.put("龙吟", 5);
         SUIT_PATH.put("地煞", new int[]{24141,24142,24143,24144,24145,24146}); SUIT_COLOR.put("地煞", 4);
         SUIT_PATH.put("天诛", new int[]{24151,24152,24153,24154,24155,24156}); SUIT_COLOR.put("天诛", 4);
         SUIT_PATH.put("幽冥", new int[]{24161,24162,24163,24164,24165,24166}); SUIT_COLOR.put("幽冥", 4);

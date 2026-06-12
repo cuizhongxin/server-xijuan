@@ -77,7 +77,9 @@ CREATE TABLE `secret_realm_pity` (
 
 INSERT INTO `secret_realm_config` (`id`, `name`, `description`, `min_level`, `cost_gold`, `equip_set_name`, `equip_base_rate`, `pity_count`, `daily_limit`, `sort_order`, `status`) VALUES
 ('penglai', '蓬莱秘宝', '东海之中一座传说，这里蕴藏着无尽的灵气和极大宝藏，让在此进行探索的人满载而归。', 40, 10, '鹰扬', 0.0800, 50, 0, 1, 1),
-('kunlun', '昆仑秘宝', '昆仑仙山，瑶草遍地，隐藏上古宝藏，传说中的不死之药就在此处。',         60, 20, '虎啸', 0.1000, 40, 0, 2, 1);
+('kunlun', '昆仑秘宝', '昆仑仙山，瑶草遍地，隐藏上古宝藏，传说中的不死之药就在此处。',         60, 20, '虎啸', 0.1000, 40, 0, 2, 1),
+('yaochi', '瑶池秘宝', '瑶池仙境，灵蕴深厚，云雾缭绕，传闻蟠桃盛会曾在此举行。',                   80, 40, '凤鸣', 0.1200, 35, 0, 3, 1),
+('jiutian', '九天秘宝', '九天神阙，天罡流转，神兵异宝隐于云海深处，待有缘者得之。',                   100, 80, '龙吟', 0.1500, 30, 0, 4, 1);
 
 
 -- =====================================================
@@ -127,5 +129,40 @@ INSERT INTO `secret_realm_reward` (`realm_id`,`reward_type`,`item_id`,`name`,`ic
 ('kunlun','item','item_5', '精炼石',      'images/item/14031.jpg','material',   3, 200, 0,  5, '用于精炼装备，提升装备品质等级',                 11),
 ('kunlun','item','item_24','中级精力丹',  'images/item/11101.jpg','consumable', 3, 250, 0, 24, '使用后恢复中等精力值',                           12);
 
+-- =====================================================
+-- 瑶池秘宝(Lv.80) - 凤鸣套装备(6件, 橙色) + 道具(6件)
+-- =====================================================
+INSERT INTO `secret_realm_reward` (`realm_id`,`reward_type`,`item_id`,`name`,`icon`,`item_sub_type`,`quality`,`drop_weight`,`equip_pre_id`,`item_pre_id`,`position`,`set_name`,`set_effect_3`,`set_effect_6`,`attack`,`defense`,`soldier_hp`,`mobility`,`description`,`sort_order`) VALUES
+('yaochi','equipment','equip_25221','凤鸣神剑','images/equip/25221.jpg',NULL,6,100,25221,0,'武器','凤鸣','防御+1200','统御+100，士兵生命+500',760,0,0,0,'凤鸣套·武器，瑶池秘宝专属产出',1),
+('yaochi','equipment','equip_25222','凤鸣戒指','images/equip/25222.jpg',NULL,6,100,25222,0,'戒指','凤鸣','防御+1200','统御+100，士兵生命+500',250,0,0,0,'凤鸣套·戒指，瑶池秘宝专属产出',2),
+('yaochi','equipment','equip_25224','凤鸣护甲','images/equip/25224.jpg',NULL,6,100,25224,0,'铠甲','凤鸣','防御+1200','统御+100，士兵生命+500',0,980,0,0,'凤鸣套·铠甲，瑶池秘宝专属产出',3),
+('yaochi','equipment','equip_25223','凤鸣项链','images/equip/25223.jpg',NULL,6,100,25223,0,'项链','凤鸣','防御+1200','统御+100，士兵生命+500',0,0,2500,0,'凤鸣套·项链，瑶池秘宝专属产出',4),
+('yaochi','equipment','equip_25225','凤鸣头盔','images/equip/25225.jpg',NULL,6,100,25225,0,'头盔','凤鸣','防御+1200','统御+100，士兵生命+500',0,320,0,0,'凤鸣套·头盔，瑶池秘宝专属产出',5),
+('yaochi','equipment','equip_25226','凤鸣战靴','images/equip/25226.jpg',NULL,6,100,25226,0,'鞋子','凤鸣','防御+1200','统御+100，士兵生命+500',0,0,0,240,'凤鸣套·鞋子，瑶池秘宝专属产出',6);
 
--- 瑶池秘宝和九天秘宝暂未开放
+INSERT INTO `secret_realm_reward` (`realm_id`,`reward_type`,`item_id`,`name`,`icon`,`item_sub_type`,`quality`,`drop_weight`,`equip_pre_id`,`item_pre_id`,`description`,`sort_order`) VALUES
+('yaochi','item','item_13','银砖',       'images/item/11013.jpg','material',   5, 120, 0, 13, '高级金属材料，可用于高级制作',                    7),
+('yaochi','item','item_6', '6级强化石',  'images/item/14006.jpg','material',   4, 180, 0,  6, '用于强化高阶装备',                                8),
+('yaochi','item','item_29','经验丹(中)', 'images/item/11043.jpg','consumable', 3, 240, 0, 29, '使用后可获得中等经验值',                          9),
+('yaochi','item','15013',  '高级招贤令', 'images/item/15013.jpg','consumable', 5,  80, 0, 15013, '用于招募武将，有概率获得高品质武将',            10),
+('yaochi','item','14034',  '4阶品质石',  'images/item/14034.jpg','material',   4, 200, 0, 0, '用于提升装备品质',                                 11),
+('yaochi','item','item_42','特训符',     'images/item/15042.jpg','consumable', 3, 180, 0, 42, '用于武将特训，提升武将属性',                      12);
+
+-- =====================================================
+-- 九天秘宝(Lv.100) - 龙吟套装备(6件, 橙色) + 道具(6件)
+-- =====================================================
+INSERT INTO `secret_realm_reward` (`realm_id`,`reward_type`,`item_id`,`name`,`icon`,`item_sub_type`,`quality`,`drop_weight`,`equip_pre_id`,`item_pre_id`,`position`,`set_name`,`set_effect_3`,`set_effect_6`,`attack`,`defense`,`soldier_hp`,`mobility`,`description`,`sort_order`) VALUES
+('jiutian','equipment','equip_25231','龙吟神剑','images/equip/25231.jpg',NULL,6,100,25231,0,'武器','龙吟','防御+2000','统御+200，闪避+30%，士兵生命+1000',1320,0,0,0,'龙吟套·武器，九天秘宝专属产出',1),
+('jiutian','equipment','equip_25232','龙吟戒指','images/equip/25232.jpg',NULL,6,100,25232,0,'戒指','龙吟','防御+2000','统御+200，闪避+30%，士兵生命+1000',435,0,0,0,'龙吟套·戒指，九天秘宝专属产出',2),
+('jiutian','equipment','equip_25234','龙吟护甲','images/equip/25234.jpg',NULL,6,100,25234,0,'铠甲','龙吟','防御+2000','统御+200，闪避+30%，士兵生命+1000',0,1720,0,0,'龙吟套·铠甲，九天秘宝专属产出',3),
+('jiutian','equipment','equip_25233','龙吟项链','images/equip/25233.jpg',NULL,6,100,25233,0,'项链','龙吟','防御+2000','统御+200，闪避+30%，士兵生命+1000',0,0,4300,0,'龙吟套·项链，九天秘宝专属产出',4),
+('jiutian','equipment','equip_25235','龙吟头盔','images/equip/25235.jpg',NULL,6,100,25235,0,'头盔','龙吟','防御+2000','统御+200，闪避+30%，士兵生命+1000',0,560,0,0,'龙吟套·头盔，九天秘宝专属产出',5),
+('jiutian','equipment','equip_25236','龙吟战靴','images/equip/25236.jpg',NULL,6,100,25236,0,'鞋子','龙吟','防御+2000','统御+200，闪避+30%，士兵生命+1000',0,0,0,460,'龙吟套·鞋子，九天秘宝专属产出',6);
+
+INSERT INTO `secret_realm_reward` (`realm_id`,`reward_type`,`item_id`,`name`,`icon`,`item_sub_type`,`quality`,`drop_weight`,`equip_pre_id`,`item_pre_id`,`description`,`sort_order`) VALUES
+('jiutian','item','item_14','金砖',       'images/item/11014.jpg','material',   6, 100, 0, 14, '顶级贵重材料，可用于高阶合成',                   7),
+('jiutian','item','item_7', '7级强化石',  'images/item/14007.jpg','material',   5, 170, 0,  7, '用于强化顶级装备',                               8),
+('jiutian','item','item_30','经验丹(大)', 'images/item/11044.jpg','consumable', 4, 220, 0, 30, '使用后可获得大量经验值',                         9),
+('jiutian','item','15013',  '高级招贤令', 'images/item/15013.jpg','consumable', 5,  90, 0, 15013, '用于招募武将，有概率获得高品质武将',           10),
+('jiutian','item','14035',  '5阶品质石',  'images/item/14035.jpg','material',   5, 200, 0, 0, '用于提升装备品质',                                11),
+('jiutian','item','15052',  '军需令',     'images/item/15052.jpg','consumable', 4, 220, 0, 15052, '用于军需系统的稀有消耗道具',                  12);

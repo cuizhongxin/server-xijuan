@@ -121,6 +121,12 @@ public class EquipmentConfig {
         equipmentSets.put("虎啸", Equipment.SetInfo.builder().setId("虎啸").setName("虎啸套装").setLevel(85)
             .threeSetEffect("防御+400").threeSetBonus(Equipment.Attributes.builder().defense(400).build())
             .sixSetEffect("统帅+20, 闪避+10").sixSetBonus(Equipment.Attributes.builder().command(20).dodge(10.0).build()).build());
+        equipmentSets.put("凤鸣", Equipment.SetInfo.builder().setId("凤鸣").setName("凤鸣套装").setLevel(80)
+            .threeSetEffect("防御+1200").threeSetBonus(Equipment.Attributes.builder().defense(1200).build())
+            .sixSetEffect("统帅+100, 士兵生命+500").sixSetBonus(Equipment.Attributes.builder().command(100).hp(500).build()).build());
+        equipmentSets.put("龙吟", Equipment.SetInfo.builder().setId("龙吟").setName("龙吟套装").setLevel(100)
+            .threeSetEffect("防御+2000").threeSetBonus(Equipment.Attributes.builder().defense(2000).build())
+            .sixSetEffect("统帅+200, 闪避+30, 士兵生命+1000").sixSetBonus(Equipment.Attributes.builder().command(200).dodge(30.0).hp(1000).build()).build());
         equipmentSets.put("地煞", Equipment.SetInfo.builder().setId("地煞").setName("地煞套装").setLevel(82)
             .threeSetEffect("攻击+200, 防御+240").threeSetBonus(Equipment.Attributes.builder().attack(200).defense(240).build())
             .sixSetEffect("闪避+5").sixSetBonus(Equipment.Attributes.builder().dodge(5.0).build()).build());

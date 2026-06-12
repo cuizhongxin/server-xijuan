@@ -500,6 +500,7 @@ public class EquipmentService {
         SUIT_PRE_IDS.put("狂战", new int[]{23071,23072,23073,23074,23075,23076});
         SUIT_PRE_IDS.put("天狼", new int[]{23081,23082,23083,23084,23085,23086});
         SUIT_PRE_IDS.put("征戎", new int[]{23091,23092,23093,23094,23095,23096});
+        SUIT_PRE_IDS.put("凤鸣", new int[]{25221,25222,25223,25224,25225,25226});
         SUIT_PRE_IDS.put("破军", new int[]{24091,24092,24093,24094,24095,24096});
         SUIT_PRE_IDS.put("龙威", new int[]{24101,24102,24103,24104,24105,24106});
         SUIT_PRE_IDS.put("战神", new int[]{25111,25112,25113,25114,25115,25116});
@@ -509,6 +510,7 @@ public class EquipmentService {
         SUIT_PRE_IDS.put("天诛", new int[]{24151,24152,24153,24154,24155,24156});
         SUIT_PRE_IDS.put("幽冥", new int[]{24161,24162,24163,24164,24165,24166});
         SUIT_PRE_IDS.put("诛邪", new int[]{25181,25182,25183,25184,25185,25186});
+        SUIT_PRE_IDS.put("龙吟", new int[]{25231,25232,25233,25234,25235,25236});
     }
 
     private static int resolveSlotIndex(String partName) {
