@@ -415,9 +415,9 @@ public class RefineService {
 
         Random rng = new Random();
         Equipment donor = equipments.get(rng.nextInt(3));
-        // 虎啸套装融合结果强制完美品质
+        // 虎啸/凤鸣/龙吟套装融合结果强制完美品质
         int qualityValueId;
-        if ("虎啸".equals(setId)) {
+        if ("虎啸".equals(setId) || "凤鸣".equals(setId) || "龙吟".equals(setId)) {
             qualityValueId = 5;
         } else {
             qualityValueId = donor.getQualityValue() != null && donor.getQualityValue() > 0

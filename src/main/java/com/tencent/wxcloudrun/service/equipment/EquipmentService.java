@@ -439,8 +439,10 @@ public class EquipmentService {
         }
         Equipment.Quality quality = equipmentConfig.getQuality(qualityId);
 
-        int equipQualityId = (suitShortName != null && "虎啸".equals(suitShortName))
-                ? 5 : EquipmentConfig.rollEquipQuality();
+        // 虎啸/凤鸣/龙吟固定完美品质（凤鸣/龙吟保持橙色）
+        boolean fixedPerfect = suitShortName != null
+                && ("虎啸".equals(suitShortName) || "凤鸣".equals(suitShortName) || "龙吟".equals(suitShortName));
+        int equipQualityId = fixedPerfect ? 5 : EquipmentConfig.rollEquipQuality();
         EquipmentConfig.EquipQualityLevel ql = EquipmentConfig.getEquipQualityLevel(equipQualityId);
         double rate = ql.attrRate / 10000.0;
 

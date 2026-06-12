@@ -343,7 +343,9 @@ public class SecretRealmService {
         // 虎啸固定完美，但颜色按紫色显示（联盟Boss喂养按紫色档计算）
         boolean isTigerRoar = (pre != null && pre.getSuitName() != null && pre.getSuitName().contains("虎啸"))
                 || getString(eqRow, "set_name", "").contains("虎啸");
-        int qualityValueId = isTigerRoar ? 5 : com.tencent.wxcloudrun.config.EquipmentConfig.rollEquipQuality();
+        // 凤鸣/龙吟（秘境橙装）固定完美品质
+        boolean isFixedPerfect = isTigerRoar || isFixedPerfectSet(pre, eqRow);
+        int qualityValueId = isFixedPerfect ? 5 : com.tencent.wxcloudrun.config.EquipmentConfig.rollEquipQuality();
         com.tencent.wxcloudrun.config.EquipmentConfig.EquipQualityLevel ql =
                 com.tencent.wxcloudrun.config.EquipmentConfig.getEquipQualityLevel(qualityValueId);
         double attrRate = ql.attrRate / 10000.0;
@@ -424,6 +426,17 @@ public class SecretRealmService {
         equipment.setBound(true);
 
         return equipment;
+    }
+
+    private static final Set<String> FIXED_PERFECT_SET_NAMES = new HashSet<>(Arrays.asList("凤鸣", "龙吟"));
+
+    private boolean isFixedPerfectSet(EquipmentPre pre, Map<String, Object> eqRow) {
+        String suitName = pre != null && pre.getSuitName() != null ? pre.getSuitName() : "";
+        String rowSetName = getString(eqRow, "set_name", "");
+        for (String s : FIXED_PERFECT_SET_NAMES) {
+            if (suitName.contains(s) || rowSetName.contains(s)) return true;
+        }
+        return false;
     }
 
     private static int val(Integer v) { return v != null ? v : 0; }
