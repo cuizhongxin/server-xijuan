@@ -9,6 +9,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpServletRequest;
+import java.util.Map;
+
 /**
  * 认证控制器
  */
@@ -29,6 +32,15 @@ public class AuthController {
         logger.info("收到登录请求: {}", request);
         LoginResponse response = authService.login(request);
         return ApiResponse.success(response);
+    }
+
+    /**
+     * 邀请进度信息（需登录）
+     */
+    @GetMapping("/invite-progress")
+    public ApiResponse<Map<String, Object>> inviteProgress(HttpServletRequest request) {
+        String userId = String.valueOf(request.getAttribute("userId"));
+        return ApiResponse.success(authService.getInviteProgress(userId));
     }
 }
 

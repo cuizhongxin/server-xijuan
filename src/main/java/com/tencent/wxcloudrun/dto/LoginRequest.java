@@ -31,6 +31,11 @@ public class LoginRequest {
      * 用户头像URL
      */
     private String avatarUrl;
+
+    /**
+     * 邀请人用户ID（来自分享链接 query.inviter）
+     */
+    private String inviterUserId;
 }
 
 

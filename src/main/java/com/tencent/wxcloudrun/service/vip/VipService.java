@@ -50,6 +50,8 @@ public class VipService {
     private static final String[] YINGYANG_PARTS = {"鹰扬武器", "鹰扬戒指", "鹰扬铠甲", "鹰扬项链", "鹰扬头盔", "鹰扬鞋子"};
     private static final String[] HUXIAO_PARTS   = {"虎啸武器", "虎啸戒指", "虎啸铠甲", "虎啸项链", "虎啸头盔", "虎啸鞋子"};
     private static final String[] TIANLANG_PARTS = {"天狼武器", "天狼戒指", "天狼铠甲", "天狼项链", "天狼头盔", "天狼鞋子"};
+    private static final String[] FENGMING_PARTS = {"凤鸣武器", "凤鸣戒指", "凤鸣铠甲", "凤鸣项链", "凤鸣头盔", "凤鸣鞋子"};
+    private static final String[] LONGYIN_PARTS  = {"龙吟武器", "龙吟戒指", "龙吟铠甲", "龙吟项链", "龙吟头盔", "龙吟鞋子"};
 
     // ── 道具ID（与数据库item表一致）──
     private static final String ID_XUANWU_CHEST  = "11093";  // 宣武宝箱
@@ -60,6 +62,7 @@ public class VipService {
     private static final String ID_SELECT_YINGYANG = "16001"; // 指定鹰扬装
     private static final String ID_SELECT_HUXIAO   = "16002"; // 指定虎啸装
     private static final String ID_SELECT_TIANLANG = "16003"; // 指定天狼装
+    private static final String ID_SELECT_INVITE_SUIT = "16010"; // 邀请20人四套装通用自选券
 
     // ═══════════════════════════════════════════
     //  获取VIP信息（含礼包物品 + 特权描述）
@@ -154,11 +157,13 @@ public class VipService {
 
     public Map<String, Object> selectEquipment(String userId, String setName, String partName) {
         String[] parts;
-        String selectItemId;
+        String primarySelectItemId;
         switch (setName) {
-            case "鹰扬": parts = YINGYANG_PARTS; selectItemId = ID_SELECT_YINGYANG; break;
-            case "虎啸": parts = HUXIAO_PARTS;   selectItemId = ID_SELECT_HUXIAO; break;
-            case "天狼": parts = TIANLANG_PARTS; selectItemId = ID_SELECT_TIANLANG; break;
+            case "鹰扬": parts = YINGYANG_PARTS; primarySelectItemId = ID_SELECT_YINGYANG; break;
+            case "虎啸": parts = HUXIAO_PARTS;   primarySelectItemId = ID_SELECT_HUXIAO; break;
+            case "天狼": parts = TIANLANG_PARTS; primarySelectItemId = ID_SELECT_TIANLANG; break;
+            case "凤鸣": parts = FENGMING_PARTS; primarySelectItemId = null; break;
+            case "龙吟": parts = LONGYIN_PARTS;  primarySelectItemId = null; break;
             default: throw new BusinessException("无效的套装");
         }
 
@@ -168,7 +173,15 @@ public class VipService {
         }
         if (!validPart) throw new BusinessException("无效的部件名称");
 
-        if (!warehouseService.removeItem(userId, selectItemId, 1)) {
+        // 优先消耗套装专属自选券；若没有则尝试消耗“邀请20人四选一”通用券
+        boolean consumed = false;
+        if (primarySelectItemId != null) {
+            consumed = warehouseService.removeItem(userId, primarySelectItemId, 1);
+        }
+        if (!consumed) {
+            consumed = warehouseService.removeItem(userId, ID_SELECT_INVITE_SUIT, 1);
+        }
+        if (!consumed) {
             throw new BusinessException("自选券不足");
         }
 

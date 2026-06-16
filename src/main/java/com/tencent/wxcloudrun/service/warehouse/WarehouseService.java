@@ -519,14 +519,19 @@ public class WarehouseService {
                 break;
 
             // ═══════ 指定套装选择券（需前端弹出部位选择） ═══════
-            case 16001: case 16002: case 16003: {
-                String selectSet = id == 16001 ? "鹰扬" : (id == 16002 ? "虎啸" : "天狼");
+            case 16001: case 16002: case 16003: case 16010: {
+                String selectSet = id == 16001 ? "鹰扬" : (id == 16002 ? "虎啸" : (id == 16003 ? "天狼" : ""));
                 effect.put("type", "selectRequired");
-                effect.put("setName", selectSet);
-                effect.put("parts", Arrays.asList(
-                        selectSet + "武器", selectSet + "戒指", selectSet + "铠甲",
-                        selectSet + "项链", selectSet + "头盔", selectSet + "鞋子"));
-                effect.put("message", "请选择" + selectSet + "套装部位");
+                if (id == 16010) {
+                    effect.put("setOptions", Arrays.asList("鹰扬", "虎啸", "凤鸣", "龙吟"));
+                    effect.put("message", "请选择套装与部位（鹰扬/虎啸/凤鸣/龙吟）");
+                } else {
+                    effect.put("setName", selectSet);
+                    effect.put("parts", Arrays.asList(
+                            selectSet + "武器", selectSet + "戒指", selectSet + "铠甲",
+                            selectSet + "项链", selectSet + "头盔", selectSet + "鞋子"));
+                    effect.put("message", "请选择" + selectSet + "套装部位");
+                }
                 effect.put("_skipRemoval", true);
                 break;
             }

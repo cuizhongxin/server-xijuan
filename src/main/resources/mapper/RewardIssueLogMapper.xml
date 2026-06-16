@@ -11,4 +11,12 @@
         )
     </insert>
 
+    <select id="countByBiz" resultType="int">
+        SELECT COUNT(*)
+        FROM reward_issue_log
+        WHERE biz_type = #{bizType}
+          AND biz_id = #{bizId}
+          AND target_id = #{targetId}
+    </select>
+
 </mapper>

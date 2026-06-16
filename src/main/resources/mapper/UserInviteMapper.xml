@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.dao.UserInviteMapper">
+
+    <insert id="insertIgnore">
+        INSERT IGNORE INTO user_invite (
+            inviter_user_id, invitee_user_id, create_time
+        )
+        VALUES (
+            #{inviterUserId}, #{inviteeUserId}, #{createTime}
+        )
+    </insert>
+
+    <select id="countInviteesByInviter" resultType="long">
+        SELECT COUNT(1)
+        FROM user_invite
+        WHERE inviter_user_id = #{inviterUserId}
+    </select>
+
+</mapper>
+

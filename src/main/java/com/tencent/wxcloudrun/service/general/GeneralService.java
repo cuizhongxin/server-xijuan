@@ -568,6 +568,9 @@ public class GeneralService {
         result.put("type", "general");
         result.put("levelUp", expResult.get("levelUp"));
         result.put("newLevel", expResult.get("newLevel"));
+        result.put("generalLevel", expResult.get("newLevel"));
+        result.put("generalExp", expResult.get("currentExp"));
+        result.put("generalMaxExp", expResult.get("maxExp"));
         return result;
     }
 

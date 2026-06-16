@@ -12,4 +12,8 @@ public interface RewardIssueLogMapper {
                      @Param("serverId") Integer serverId,
                      @Param("extra") String extra,
                      @Param("createTime") Long createTime);
+
+    int countByBiz(@Param("bizType") String bizType,
+                   @Param("bizId") String bizId,
+                   @Param("targetId") String targetId);
 }
