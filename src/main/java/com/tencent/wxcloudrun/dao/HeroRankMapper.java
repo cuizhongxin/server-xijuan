@@ -10,6 +10,8 @@ public interface HeroRankMapper {
 
     Map<String, Object> findByUserId(@Param("userId") String userId);
 
+    Map<String, Object> findByUserIdForUpdate(@Param("userId") String userId);
+
     void upsert(@Param("userId") String userId,
                 @Param("userName") String userName,
                 @Param("level") int level,

@@ -125,10 +125,7 @@ public class AuthService {
     }
 
     public Map<String, Object> getInviteProgress(String requesterUserIdRaw) {
-        Long inviterUserId = parsePositiveLong(requesterUserIdRaw);
-        if (inviterUserId == null) {
-            inviterUserId = parsePositiveLong(splitBaseUserId(requesterUserIdRaw));
-        }
+        Long inviterUserId = resolveRawUserId(requesterUserIdRaw);
         if (inviterUserId == null) {
             throw new BusinessException("无效用户ID");
         }
@@ -141,17 +138,20 @@ public class AuthService {
             int tier = INVITE_REWARD_TIERS[i];
             int rewardGold = INVITE_REWARD_GOLD[i];
             boolean reached = inviteCount >= tier;
-            boolean issued = rewardIssueLogMapper.countByBiz(
+            boolean claimed = rewardIssueLogMapper.countByBiz(
                     SHARE_INVITE_BIZ_TYPE,
                     "tier_" + tier,
                     String.valueOf(inviterUserId)
             ) > 0;
+            boolean claimable = reached && !claimed;
 
             Map<String, Object> oneTier = new LinkedHashMap<>();
             oneTier.put("tier", tier);
             oneTier.put("rewardGold", rewardGold);
             oneTier.put("reached", reached);
-            oneTier.put("issued", issued);
+            oneTier.put("issued", claimed); // 兼容旧前端字段
+            oneTier.put("claimed", claimed);
+            oneTier.put("claimable", claimable);
             oneTier.put("remaining", Math.max(0, tier - inviteCount));
             tiers.add(oneTier);
 
@@ -165,6 +165,54 @@ public class AuthService {
         result.put("tiers", tiers);
         result.put("nextTier", nextTier);
         result.put("nextRemaining", nextTier == null ? 0 : (nextTier - inviteCount));
+        return result;
+    }
+
+    public Map<String, Object> claimInviteReward(String requesterUserIdRaw, Integer tierRaw) {
+        Long inviterUserId = resolveRawUserId(requesterUserIdRaw);
+        if (inviterUserId == null) {
+            throw new BusinessException(400, "无效用户ID");
+        }
+        if (tierRaw == null) {
+            throw new BusinessException(400, "档位不能为空");
+        }
+
+        int tier = tierRaw;
+        int rewardGold = getInviteRewardGoldByTier(tier);
+        if (rewardGold <= 0) {
+            throw new BusinessException(400, "无效档位");
+        }
+
+        long inviteCount = userInviteMapper.countInviteesByInviter(inviterUserId);
+        if (inviteCount < tier) {
+            throw new BusinessException(400, "邀请人数未达成，无法领取");
+        }
+
+        String bizId = "tier_" + tier;
+        String targetId = String.valueOf(inviterUserId);
+        if (rewardIssueLogMapper.countByBiz(SHARE_INVITE_BIZ_TYPE, bizId, targetId) > 0) {
+            throw new BusinessException(400, "该档奖励已领取");
+        }
+
+        long now = System.currentTimeMillis();
+        int issue = rewardIssueLogMapper.insertIgnore(
+                SHARE_INVITE_BIZ_TYPE,
+                bizId,
+                targetId,
+                0,
+                "inviteCount=" + inviteCount,
+                now
+        );
+        if (issue <= 0) {
+            throw new BusinessException(400, "该档奖励已领取");
+        }
+
+        grantInviteReward(inviterUserId, rewardGold, tier, inviteCount);
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("tier", tier);
+        result.put("rewardGold", rewardGold);
+        result.put("inviteCount", inviteCount);
         return result;
     }
 
@@ -183,24 +231,7 @@ public class AuthService {
 
         long inviteCount = userInviteMapper.countInviteesByInviter(inviterUserId);
         logger.info("邀请关系新增: inviter={}, invitee={}, count={}", inviterUserId, inviteeUserId, inviteCount);
-
-        for (int i = 0; i < INVITE_REWARD_TIERS.length; i++) {
-            int tier = INVITE_REWARD_TIERS[i];
-            int rewardGold = INVITE_REWARD_GOLD[i];
-            if (inviteCount < tier) continue;
-
-            int issue = rewardIssueLogMapper.insertIgnore(
-                    SHARE_INVITE_BIZ_TYPE,
-                    "tier_" + tier,
-                    String.valueOf(inviterUserId),
-                    0,
-                    "inviteCount=" + inviteCount,
-                    now
-            );
-            if (issue > 0) {
-                grantInviteReward(inviterUserId, rewardGold, tier, inviteCount);
-            }
-        }
+        logger.info("邀请奖励改为手动领取: inviter={}, invitee={}, count={}", inviterUserId, inviteeUserId, inviteCount);
     }
 
     private void grantInviteReward(Long inviterUserId, int rewardGold, int tier, long inviteCount) {
@@ -247,6 +278,23 @@ public class AuthService {
         } catch (Exception ignore) {
             return null;
         }
+    }
+
+    private Long resolveRawUserId(String requesterUserIdRaw) {
+        Long userId = parsePositiveLong(requesterUserIdRaw);
+        if (userId != null) {
+            return userId;
+        }
+        return parsePositiveLong(splitBaseUserId(requesterUserIdRaw));
+    }
+
+    private int getInviteRewardGoldByTier(int tier) {
+        for (int i = 0; i < INVITE_REWARD_TIERS.length; i++) {
+            if (INVITE_REWARD_TIERS[i] == tier) {
+                return INVITE_REWARD_GOLD[i];
+            }
+        }
+        return -1;
     }
 
     private String splitBaseUserId(String raw) {

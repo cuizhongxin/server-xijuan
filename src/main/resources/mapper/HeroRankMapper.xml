@@ -15,6 +15,19 @@
         FROM hero_rank WHERE user_id = #{userId} LIMIT 1
     </select>
 
+    <select id="findByUserIdForUpdate" resultType="java.util.HashMap">
+        SELECT user_id AS userId, user_name AS userName, level, power, fame,
+               rank_name AS rankName, ranking, nation,
+               today_challenge AS todayChallenge, today_wins AS todayWins,
+               today_purchased AS todayPurchased, last_reset_date AS lastResetDate,
+               last_challenge_time AS lastChallengeTime,
+               pending_fame AS pendingFame, pending_silver AS pendingSilver,
+               pending_exp AS pendingExp, reward_claimed AS rewardClaimed,
+               settle_date AS settleDate, update_time AS updateTime
+        FROM hero_rank WHERE user_id = #{userId} LIMIT 1
+        FOR UPDATE
+    </select>
+
     <insert id="upsert">
         INSERT INTO hero_rank (user_id, user_name, level, power, fame, rank_name, ranking, rank_position, nation,
                                today_challenge, today_wins, today_purchased,

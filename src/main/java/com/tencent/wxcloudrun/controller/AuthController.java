@@ -42,6 +42,31 @@ public class AuthController {
         String userId = String.valueOf(request.getAttribute("userId"));
         return ApiResponse.success(authService.getInviteProgress(userId));
     }
+
+    /**
+     * 邀请奖励领取（需登录）
+     */
+    @PostMapping("/invite-claim")
+    public ApiResponse<Map<String, Object>> claimInviteReward(
+            HttpServletRequest request,
+            @RequestBody Map<String, Object> body
+    ) {
+        String userId = String.valueOf(request.getAttribute("userId"));
+        Integer tier = null;
+        if (body != null) {
+            Object tierObj = body.get("tier");
+            if (tierObj instanceof Number) {
+                tier = ((Number) tierObj).intValue();
+            } else if (tierObj != null) {
+                try {
+                    tier = Integer.parseInt(String.valueOf(tierObj));
+                } catch (Exception ignore) {
+                    tier = null;
+                }
+            }
+        }
+        return ApiResponse.success(authService.claimInviteReward(userId, tier));
+    }
 }
 
 

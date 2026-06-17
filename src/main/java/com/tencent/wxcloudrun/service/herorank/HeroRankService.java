@@ -22,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -198,13 +199,14 @@ public class HeroRankService {
 
     // ==================== 挑战（排名互换制） ====================
 
+    @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> challenge(String userId, String targetId) {
         if (userId.equals(targetId)) throw new RuntimeException("不能挑战自己");
 
         ensurePlayerEntry(userId);
         resetIfNewDay(userId);
 
-        Map<String, Object> me = heroRankMapper.findByUserId(userId);
+        Map<String, Object> me = heroRankMapper.findByUserIdForUpdate(userId);
         Map<String, Object> target = heroRankMapper.findByUserId(targetId);
         if (target == null) throw new RuntimeException("对手不存在");
         String meName = resolveDisplayName(userId, str(me, "userName"));
@@ -256,6 +258,9 @@ public class HeroRankService {
 
             int[] dailyReward = getRewardForRank(myNewRank);
             fameGain = Math.max(50, dailyReward[0] / 10);
+            if (!userId.startsWith("npc_hero_") && fameGain > 0) {
+                userResourceService.addFame(userId, fameGain);
+            }
 
             long currentFame = getLong(me, "fame") + fameGain;
             String newPeerage = calcPeerage(currentFame, getInt(me, "level"));
@@ -350,8 +355,9 @@ public class HeroRankService {
 
     // ==================== 领取奖励 ====================
 
+    @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> claimReward(String userId) {
-        Map<String, Object> me = heroRankMapper.findByUserId(userId);
+        Map<String, Object> me = heroRankMapper.findByUserIdForUpdate(userId);
         if (me == null) throw new RuntimeException("未加入英雄榜");
         if (getInt(me, "rewardClaimed") == 1) throw new RuntimeException("奖励已领取");
         String meName = resolveDisplayName(userId, str(me, "userName"));
@@ -359,10 +365,30 @@ public class HeroRankService {
         long fame = getLong(me, "pendingFame");
         long silver = getLong(me, "pendingSilver");
         long exp = getLong(me, "pendingExp");
+        if (fame <= 0 && silver <= 0 && exp <= 0) {
+            throw new RuntimeException("暂无可领取奖励");
+        }
 
-        UserResource res = userResourceService.getUserResource(userId);
-        res.setSilver(res.getSilver() + silver);
-        userResourceService.saveUserResource(res);
+        String settleDate = str(me, "settleDate");
+        if (settleDate == null || settleDate.isEmpty()) {
+            settleDate = new SimpleDateFormat("yyyyMMdd").format(new Date());
+        }
+        int serverId = extractServerId(userId);
+        if (!tryMarkIssued("HERO_RANK_DAILY_CLAIM", settleDate, userId, serverId,
+            "fame=" + fame + ",silver=" + silver + ",exp=" + exp)) {
+            throw new RuntimeException("奖励已领取");
+        }
+
+        if (silver > 0) {
+            userResourceService.addSilver(userId, silver);
+        }
+        if (fame > 0) {
+            userResourceService.addFame(userId, fame);
+        }
+        Map<String, Object> expResult = null;
+        if (exp > 0) {
+            expResult = levelService.addExp(userId, exp, "英雄榜每日排名奖励");
+        }
 
         long newFame = getLong(me, "fame") + fame;
         String newPeerage = calcPeerage(newFame, getInt(me, "level"));
@@ -372,8 +398,10 @@ public class HeroRankService {
             getInt(me, "todayChallenge"), getInt(me, "todayWins"),
             getInt(me, "todayPurchased"), str(me, "lastResetDate"),
             getLong(me, "lastChallengeTime"),
-            0, 0, 0, 1, str(me, "settleDate"),
-            System.currentTimeMillis(), extractServerId(userId));
+            0, 0, 0, 1, settleDate,
+            System.currentTimeMillis(), serverId);
+
+        UserResource latestRes = userResourceService.getUserResource(userId);
 
         Map<String, Object> result = new HashMap<>();
         result.put("fame", fame);
@@ -381,6 +409,13 @@ public class HeroRankService {
         result.put("exp", exp);
         result.put("totalFame", newFame);
         result.put("peerage", newPeerage);
+        result.put("totalSilver", latestRes.getSilver());
+        if (expResult != null) {
+            result.put("currentLevel", expResult.get("currentLevel"));
+            result.put("currentLevelExp", expResult.get("currentLevelExp"));
+            result.put("expToNextLevel", expResult.get("expToNextLevel"));
+            result.put("levelUp", expResult.get("levelUp"));
+        }
         return result;
     }
 
