@@ -99,9 +99,16 @@ public class ProductionController {
         try {
             String userId = getUserId(request);
             String facilityType = (String) body.get("facilityType");
-            Map<String, Object> produceResult = productionService.produce(userId, facilityType);
-            
-            produceResult.put("message", "生产成功，获得 " + produceResult.get("output") + " 资源");
+            int count = parsePositiveInt(body.get("count"), 1);
+            Map<String, Object> produceResult = count > 1
+                    ? productionService.produceBatch(userId, facilityType, count)
+                    : productionService.produce(userId, facilityType);
+
+            if (count > 1) {
+                produceResult.put("message", "批量领取完成，成功 " + produceResult.get("successCount") + " 次");
+            } else {
+                produceResult.put("message", "生产成功，获得 " + produceResult.get("output") + " 资源");
+            }
             return ApiResponse.success(produceResult);
         } catch (Exception e) {
             log.error("生产异常", e);
@@ -119,9 +126,16 @@ public class ProductionController {
         try {
             String userId = getUserId(request);
             String facilityType = (String) body.get("facilityType");
-            Map<String, Object> upgradeResult = productionService.upgradeFacility(userId, facilityType);
-            
-            upgradeResult.put("message", "升级成功");
+            int levels = parsePositiveInt(body.get("levels"), 1);
+            Map<String, Object> upgradeResult = levels > 1
+                    ? productionService.upgradeFacilityBatch(userId, facilityType, levels)
+                    : productionService.upgradeFacility(userId, facilityType);
+
+            if (levels > 1) {
+                upgradeResult.put("message", "批量升级完成，成功 " + upgradeResult.get("successLevels") + " 级");
+            } else {
+                upgradeResult.put("message", "升级成功");
+            }
             return ApiResponse.success(upgradeResult);
         } catch (Exception e) {
             log.error("升级生产设施异常", e);
@@ -217,6 +231,16 @@ public class ProductionController {
             case "workshop": return production.getWorkshop().getLevel();
             case "academy": return production.getAcademy().getLevel();
             default: return 1;
+        }
+    }
+
+    private int parsePositiveInt(Object value, int defaultValue) {
+        if (value == null) return defaultValue;
+        try {
+            int parsed = Integer.parseInt(String.valueOf(value));
+            return parsed > 0 ? parsed : defaultValue;
+        } catch (Exception ignore) {
+            return defaultValue;
         }
     }
 }

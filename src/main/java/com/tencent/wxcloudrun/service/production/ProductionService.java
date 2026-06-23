@@ -16,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -160,72 +161,138 @@ public class ProductionService {
         productionMapper.upsert(production);
     }
     
+    @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> produce(String odUserId, String facilityType) {
+        Map<String, Object> batchResult = produceBatch(odUserId, facilityType, 1);
+        int successCount = ((Number) batchResult.get("successCount")).intValue();
+        if (successCount <= 0) {
+            throw new BusinessException(String.valueOf(batchResult.getOrDefault("stoppedReason", "今日生产次数已用完")));
+        }
+        Map<String, Object> result = new HashMap<>();
+        result.put("output", batchResult.get("outputPerTime"));
+        result.put("facilityType", facilityType);
+        result.put("remainingTimes", batchResult.get("remainingTimes"));
+        result.put("resource", batchResult.get("resource"));
+        return result;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public Map<String, Object> produceBatch(String odUserId, String facilityType, int count) {
+        if (count <= 0) {
+            throw new BusinessException("领取次数必须大于0");
+        }
         Production production = getProduction(odUserId);
         Facility facility = getFacility(production, facilityType);
         if (facility == null) { throw new BusinessException("设施不存在"); }
-        
+
         resetDailyIfNeeded(facility);
-        if (facility.getUsedToday() >= facility.getDailyLimit()) { throw new BusinessException("今日生产次数已用完"); }
-        
-        int output = facility.getOutputPerTime();
         UserResource resource = userResourceService.getUserResource(odUserId);
-        switch (facilityType) {
-            case "silver": resource.setSilver(resource.getSilver() + output); break;
-            case "metal": resource.setMetal(resource.getMetal() + output); break;
-            case "food": resource.setFood(resource.getFood() + output); break;
-            case "paper": resource.setPaper(resource.getPaper() + output); break;
-            default: throw new BusinessException("未知的设施类型");
+
+        int successCount = 0;
+        long totalOutput = 0L;
+        String stoppedReason = null;
+        int outputPerTime = facility.getOutputPerTime() != null ? facility.getOutputPerTime() : 0;
+
+        for (int i = 0; i < count; i++) {
+            if (facility.getUsedToday() >= facility.getDailyLimit()) {
+                stoppedReason = "今日生产次数已用完";
+                break;
+            }
+            addProducedResource(resource, facilityType, outputPerTime);
+            facility.setUsedToday(facility.getUsedToday() + 1);
+            successCount++;
+            totalOutput += outputPerTime;
         }
-        
-        facility.setUsedToday(facility.getUsedToday() + 1);
+
         saveProduction(odUserId, production);
         userResourceService.saveUserResource(resource);
-        
-        log.info("用户 {} 使用 {} 生产了 {} 资源", odUserId, facility.getName(), output);
-        dailyTaskService.incrementTask(odUserId, "produce");
-        
+
+        for (int i = 0; i < successCount; i++) {
+            dailyTaskService.incrementTask(odUserId, "produce");
+        }
+
+        log.info("用户 {} 使用 {} 生产 {} 次，总产出 {}", odUserId, facility.getName(), successCount, totalOutput);
+
         Map<String, Object> result = new HashMap<>();
-        result.put("output", output);
         result.put("facilityType", facilityType);
+        result.put("requestedCount", count);
+        result.put("successCount", successCount);
+        result.put("outputPerTime", outputPerTime);
+        result.put("totalOutput", totalOutput);
         result.put("remainingTimes", facility.getDailyLimit() - facility.getUsedToday());
+        result.put("gains", Collections.singletonMap(facilityType, totalOutput));
+        result.put("stoppedReason", stoppedReason);
         result.put("resource", resource);
         return result;
     }
-    
+
+    @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> upgradeFacility(String odUserId, String facilityType) {
+        Map<String, Object> batchResult = upgradeFacilityBatch(odUserId, facilityType, 1);
+        int successLevels = ((Number) batchResult.get("successLevels")).intValue();
+        if (successLevels <= 0) {
+            throw new BusinessException(String.valueOf(batchResult.getOrDefault("stoppedReason", "资源不足")));
+        }
+        Map<String, Object> result = new HashMap<>();
+        result.put("facility", batchResult.get("facility"));
+        result.put("resource", batchResult.get("resource"));
+        return result;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public Map<String, Object> upgradeFacilityBatch(String odUserId, String facilityType, int levels) {
+        if (levels <= 0) {
+            throw new BusinessException("升级级数必须大于0");
+        }
         Production production = getProduction(odUserId);
         Facility facility = getFacility(production, facilityType);
         if (facility == null) { throw new BusinessException("设施不存在"); }
-        if (facility.getLevel() >= facility.getMaxLevel()) { throw new BusinessException("设施已达最大等级"); }
-        
+
         UserResource resource = userResourceService.getUserResource(odUserId);
-        if (resource.getSilver() < facility.getUpgradeSilver() || resource.getMetal() < facility.getUpgradeMetal() ||
-            resource.getFood() < facility.getUpgradeFood() || resource.getPaper() < facility.getUpgradePaper()) {
-            throw new BusinessException("资源不足");
+
+        int successLevels = 0;
+        long totalSilverCost = 0L;
+        long totalMetalCost = 0L;
+        long totalFoodCost = 0L;
+        long totalPaperCost = 0L;
+        String stoppedReason = null;
+
+        for (int i = 0; i < levels; i++) {
+            if (facility.getLevel() >= facility.getMaxLevel()) {
+                stoppedReason = "设施已达最大等级";
+                break;
+            }
+            if (!hasEnoughUpgradeResource(resource, facility)) {
+                stoppedReason = "资源不足";
+                break;
+            }
+            totalSilverCost += facility.getUpgradeSilver();
+            totalMetalCost += facility.getUpgradeMetal();
+            totalFoodCost += facility.getUpgradeFood();
+            totalPaperCost += facility.getUpgradePaper();
+            consumeUpgradeResource(resource, facility);
+            applyFacilityUpgrade(facility, facilityType);
+            successLevels++;
         }
-        
-        resource.setSilver(resource.getSilver() - facility.getUpgradeSilver());
-        resource.setMetal(resource.getMetal() - facility.getUpgradeMetal());
-        resource.setFood(resource.getFood() - facility.getUpgradeFood());
-        resource.setPaper(resource.getPaper() - facility.getUpgradePaper());
-        
-        int newLevel = facility.getLevel() + 1;
-        facility.setLevel(newLevel);
-        int baseOutput = getBaseOutput(facilityType);
-        int baseLimit = getBaseLimit(facilityType);
-        facility.setOutputPerTime(baseOutput + newLevel * 20);
-        facility.setDailyLimit(baseLimit + newLevel * 10);
-        facility.setUpgradeSilver(1000L * newLevel * newLevel);
-        facility.setUpgradeMetal(500L * newLevel * newLevel);
-        facility.setUpgradeFood(500L * newLevel * newLevel);
-        facility.setUpgradePaper(200L * newLevel * newLevel);
-        
+
         saveProduction(odUserId, production);
         userResourceService.saveUserResource(resource);
-        log.info("用户 {} 升级 {} 到 {} 级", odUserId, facility.getName(), newLevel);
-        
+
+        log.info("用户 {} 升级 {} {} 次，当前等级 {}", odUserId, facility.getName(), successLevels, facility.getLevel());
+
         Map<String, Object> result = new HashMap<>();
+        result.put("facilityType", facilityType);
+        result.put("requestedLevels", levels);
+        result.put("successLevels", successLevels);
+        result.put("currentLevel", facility.getLevel());
+        result.put("maxLevel", facility.getMaxLevel());
+        Map<String, Long> totalCost = new HashMap<>();
+        totalCost.put("silver", totalSilverCost);
+        totalCost.put("metal", totalMetalCost);
+        totalCost.put("food", totalFoodCost);
+        totalCost.put("paper", totalPaperCost);
+        result.put("totalCost", totalCost);
+        result.put("stoppedReason", stoppedReason);
         result.put("facility", facility);
         result.put("resource", resource);
         return result;
@@ -404,6 +471,52 @@ public class ProductionService {
 
     private String getResourceName(String type) {
         switch (type) { case "metal": return "金属"; case "food": return "粮食"; case "paper": return "纸张"; default: return type; }
+    }
+
+    private void addProducedResource(UserResource resource, String facilityType, long output) {
+        switch (facilityType) {
+            case "silver":
+                resource.setSilver(resource.getSilver() + output);
+                break;
+            case "metal":
+                resource.setMetal(resource.getMetal() + output);
+                break;
+            case "food":
+                resource.setFood(resource.getFood() + output);
+                break;
+            case "paper":
+                resource.setPaper(resource.getPaper() + output);
+                break;
+            default:
+                throw new BusinessException("未知的设施类型");
+        }
+    }
+
+    private boolean hasEnoughUpgradeResource(UserResource resource, Facility facility) {
+        return resource.getSilver() >= facility.getUpgradeSilver()
+                && resource.getMetal() >= facility.getUpgradeMetal()
+                && resource.getFood() >= facility.getUpgradeFood()
+                && resource.getPaper() >= facility.getUpgradePaper();
+    }
+
+    private void consumeUpgradeResource(UserResource resource, Facility facility) {
+        resource.setSilver(resource.getSilver() - facility.getUpgradeSilver());
+        resource.setMetal(resource.getMetal() - facility.getUpgradeMetal());
+        resource.setFood(resource.getFood() - facility.getUpgradeFood());
+        resource.setPaper(resource.getPaper() - facility.getUpgradePaper());
+    }
+
+    private void applyFacilityUpgrade(Facility facility, String facilityType) {
+        int newLevel = facility.getLevel() + 1;
+        facility.setLevel(newLevel);
+        int baseOutput = getBaseOutput(facilityType);
+        int baseLimit = getBaseLimit(facilityType);
+        facility.setOutputPerTime(baseOutput + newLevel * 20);
+        facility.setDailyLimit(baseLimit + newLevel * 10);
+        facility.setUpgradeSilver(1000L * newLevel * newLevel);
+        facility.setUpgradeMetal(500L * newLevel * newLevel);
+        facility.setUpgradeFood(500L * newLevel * newLevel);
+        facility.setUpgradePaper(200L * newLevel * newLevel);
     }
     
     // ========== APK 装备穿戴等级 + 基础属性 (equipInfo_cfg.json) ==========

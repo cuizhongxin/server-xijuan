@@ -8,6 +8,17 @@
         WHERE user_id = #{userId} AND task_date = #{taskDate}
     </select>
 
+    <select id="countDailyTasks" resultType="int">
+        SELECT COUNT(1)
+        FROM daily_task_progress
+        WHERE user_id = #{userId} AND task_date = #{taskDate}
+    </select>
+
+    <insert id="insertIgnoreDailyTask">
+        INSERT IGNORE INTO daily_task_progress (user_id, task_date, task_type, progress, claimed)
+        VALUES (#{userId}, #{taskDate}, #{taskType}, 0, 0)
+    </insert>
+
     <insert id="upsertDailyTask">
         INSERT INTO daily_task_progress (user_id, task_date, task_type, progress, claimed)
         VALUES (#{userId}, #{taskDate}, #{taskType}, #{increment}, 0)

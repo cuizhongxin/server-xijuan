@@ -201,8 +201,8 @@ public class TrainingService {
             generalExp = expConfig[3] * count;
         }
         
-        // 增加主公经验
-        Map<String, Object> lordExpResult = levelService.addBattleExp(userId, lordExp, false);
+        // 增加主公经验（独立来源，便于与战役经验分档调参）
+        Map<String, Object> lordExpResult = levelService.addExp(userId, lordExp, "练兵训练");
         
         // 增加武将经验
         Map<String, Object> generalExpResult = generalService.addGeneralExp(generalId, generalExp);

@@ -101,15 +101,18 @@ public class PlunderConfig {
     private Map<String, Long> generateNpcResources(int level, String bonusResource) {
         ThreadLocalRandom rng = ThreadLocalRandom.current();
         Map<String, Long> res = new HashMap<>();
-        for (String type : new String[]{"silver", "wood", "metal", "paper", "food"}) {
+        // 掠夺系统已下线木头产出，兼容字段仍保留但始终为0
+        String normalizedBonus = "wood".equals(bonusResource) ? "metal" : bonusResource;
+        for (String type : new String[]{"silver", "metal", "paper", "food"}) {
             long base;
-            if (type.equals(bonusResource)) {
+            if (type.equals(normalizedBonus)) {
                 base = (long) level * 40000 + rng.nextLong(1000, 100001);
             } else {
                 base = (long) level * 10000 + rng.nextLong(1000, 100001);
             }
             res.put(type, base);
         }
+        res.put("wood", 0L);
         return res;
     }
 

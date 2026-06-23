@@ -15,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -98,6 +99,7 @@ public class DailyTaskService {
     // ═══════════════════════════════════════════
 
     public Map<String, Object> getInfo(String userId) {
+        ensureTodayDailyTasksInitialized(userId);
         Map<String, Object> result = new LinkedHashMap<>();
 
         // Tab1: 日常任务
@@ -235,6 +237,7 @@ public class DailyTaskService {
     // ═══════════════════════════════════════════
 
     public Map<String, Object> claimDailyTask(String userId, String taskType) {
+        ensureTodayDailyTasksInitialized(userId);
         String today = todayStr();
         List<Map<String, Object>> dbTasks = taskMapper.findDailyTasks(userId, today);
         Map<String, Object> row = null;
@@ -278,6 +281,7 @@ public class DailyTaskService {
     // ═══════════════════════════════════════════
 
     public Map<String, Object> claimStageReward(String userId, int stage) {
+        ensureTodayDailyTasksInitialized(userId);
         int idx = -1;
         for (int i = 0; i < STAGE_THRESHOLDS.length; i++) {
             if (STAGE_THRESHOLDS[i] == stage) { idx = i; break; }
@@ -420,6 +424,18 @@ public class DailyTaskService {
     // ═══════════════════════════════════════════
     //  工具
     // ═══════════════════════════════════════════
+
+    @Transactional(rollbackFor = Exception.class)
+    public void ensureTodayDailyTasksInitialized(String userId) {
+        String today = todayStr();
+        Integer rowCount = taskMapper.countDailyTasks(userId, today);
+        if (rowCount != null && rowCount >= DAILY_TASKS.length) {
+            return;
+        }
+        for (TaskDef def : DAILY_TASKS) {
+            taskMapper.insertIgnoreDailyTask(userId, today, def.type);
+        }
+    }
 
     private String todayStr() {
         return new SimpleDateFormat("yyyy-MM-dd").format(new Date());

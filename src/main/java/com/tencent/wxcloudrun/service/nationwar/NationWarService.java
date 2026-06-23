@@ -65,6 +65,10 @@ public class NationWarService {
     private static final String SESSION_ID_PREFIX = "SESSION_";
     private static final int DEFAULT_SWITCH_ROUNDS = 4;
     private static final int BASE_SILVER_PER_MERIT = 50;
+    private static final int SIGNUP_START_HOUR = 19;
+    private static final int SIGNUP_START_MINUTE = 45;
+    private static final int SIGNUP_END_HOUR = 20;
+    private static final int SIGNUP_END_MINUTE = 0;
 
     private static final Set<String> PLAYER_SELECTABLE_NATION_IDS =
             new HashSet<>(Arrays.asList("WEI", "SHU", "WU"));
@@ -357,9 +361,46 @@ public class NationWarService {
 
     // ==================== 会话管理 ====================
 
-    public NationWarSession getActiveSession() { return activeSession; }
+    public NationWarSession getActiveSession() {
+        ensureRegistrationSessionInitializedOnAccess();
+        return activeSession;
+    }
 
     private String todayStr() { return new SimpleDateFormat("yyyy-MM-dd").format(new Date()); }
+
+    private boolean isInRegistrationWindow() {
+        Calendar now = Calendar.getInstance();
+        int minutes = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE);
+        int start = SIGNUP_START_HOUR * 60 + SIGNUP_START_MINUTE;
+        int end = SIGNUP_END_HOUR * 60 + SIGNUP_END_MINUTE;
+        return minutes >= start && minutes < end;
+    }
+
+    private synchronized void ensureRegistrationSessionInitializedOnAccess() {
+        if (testMode || !isInRegistrationWindow()) return;
+        String today = todayStr();
+        if (activeSession != null && today.equals(activeSession.getDate())) return;
+
+        String sessionId = SESSION_ID_PREFIX + today;
+        String existing = nationWarMapper.findById(sessionId);
+        if (existing != null) {
+            activeSession = JSON.parseObject(existing, NationWarSession.class);
+            return;
+        }
+
+        if (!tryMarkScheduled("NATION_WAR_REG_LAZY_INIT", today, "SERVER_1")) {
+            String latest = nationWarMapper.findById(sessionId);
+            if (latest != null) {
+                activeSession = JSON.parseObject(latest, NationWarSession.class);
+            }
+            return;
+        }
+
+        activeSession = createSession(today);
+        killStreakMap.clear();
+        saveSession(activeSession);
+        logger.info("国战访问兜底触发报名初始化: {}", today);
+    }
 
     private void saveSession(NationWarSession session) {
         String id = SESSION_ID_PREFIX + session.getDate();
@@ -431,6 +472,7 @@ public class NationWarService {
 
     public synchronized Map<String, Object> signUpV2(String odUserId, String playerName,
                                                       Integer level, Integer power, String targetCityId) {
+        ensureRegistrationSessionInitializedOnAccess();
         if (activeSession == null || activeSession.getPhase() != SessionPhase.REGISTRATION)
             throw new BusinessException(400, "当前不是报名时间");
 
@@ -1512,6 +1554,7 @@ public class NationWarService {
     // ==================== 查询接口 ====================
 
     public Map<String, Object> getSessionOverview() {
+        ensureRegistrationSessionInitializedOnAccess();
         Map<String, Object> result = new HashMap<>();
         if (activeSession == null) {
             result.put("active", false);
@@ -1554,6 +1597,7 @@ public class NationWarService {
     }
 
     public Map<String, Object> getCityRuntimeStatus(String odUserId, String cityId) {
+        ensureRegistrationSessionInitializedOnAccess();
         Map<String, Object> result = new HashMap<>();
         City city = cities.get(cityId);
         if (city == null) throw new BusinessException(400, "城市不存在");
@@ -1630,6 +1674,7 @@ public class NationWarService {
     }
 
     public Map<String, Object> getBattleState(String odUserId) {
+        ensureRegistrationSessionInitializedOnAccess();
         Map<String, Object> result = new HashMap<>();
         if (activeSession == null) {
             result.put("active", false);

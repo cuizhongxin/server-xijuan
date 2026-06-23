@@ -22,7 +22,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 @Service
@@ -140,7 +139,8 @@ public class PlunderService {
             target.put("level", uLevel);
             target.put("isNpc", false);
             target.put("silver", parseLongSafe(u.get("silver"), 0));
-            target.put("wood", parseLongSafe(u.get("wood"), 0));
+            // 历史兼容字段：保留 wood 但不再展示/发放
+            target.put("wood", 0L);
             target.put("metal", parseLongSafe(u.get("metal"), 0));
             target.put("paper", parseLongSafe(u.get("paper"), 0));
             target.put("food", parseLongSafe(u.get("food"), 0));
@@ -162,7 +162,8 @@ public class PlunderService {
             target.put("isNpc", true);
             target.put("faction", npc.getFaction());
             target.put("silver", npc.getSilver());
-            target.put("wood", npc.getWood());
+            // 历史兼容字段：保留 wood 但不再展示/发放
+            target.put("wood", 0L);
             target.put("metal", npc.getMetal());
             target.put("paper", npc.getPaper());
             target.put("food", npc.getFood());
@@ -221,7 +222,7 @@ public class PlunderService {
         // 获取目标数据
         String targetName;
         int targetLevel;
-        long tSilver, tWood, tMetal, tPaper, tFood;
+        long tSilver, tMetal, tPaper, tFood;
         String faction = null;
 
         // 构建敌方武将列表（玩家目标优先使用真实阵型）
@@ -236,7 +237,6 @@ public class PlunderService {
             targetName = npc.getName();
             targetLevel = npc.getLevel();
             tSilver = npc.getSilver();
-            tWood = npc.getWood();
             tMetal = npc.getMetal();
             tPaper = npc.getPaper();
             tFood = npc.getFood();
@@ -258,7 +258,6 @@ public class PlunderService {
             targetName = playerNameResolver.resolve(targetId);
             targetLevel = levelService.getUserLevel(targetId).getLevel();
             tSilver = targetResource.getSilver() != null ? targetResource.getSilver() : 0;
-            tWood = targetResource.getWood() != null ? targetResource.getWood() : 0;
             tMetal = targetResource.getMetal() != null ? targetResource.getMetal() : 0;
             tPaper = targetResource.getPaper() != null ? targetResource.getPaper() : 0;
             tFood = targetResource.getFood() != null ? targetResource.getFood() : 0;
@@ -328,13 +327,12 @@ public class PlunderService {
 
         if (victory) {
             silverGain = (long) (myLevel * PlunderConfig.REWARD_BASE_MULTIPLIER + tSilver * PlunderConfig.REWARD_RESOURCE_RATIO);
-            woodGain = (long) (myLevel * PlunderConfig.REWARD_BASE_MULTIPLIER + tWood * PlunderConfig.REWARD_RESOURCE_RATIO);
+            woodGain = 0L;
             metalGain = (long) (myLevel * PlunderConfig.REWARD_BASE_MULTIPLIER + tMetal * PlunderConfig.REWARD_RESOURCE_RATIO);
             paperGain = (long) (myLevel * PlunderConfig.REWARD_BASE_MULTIPLIER + tPaper * PlunderConfig.REWARD_RESOURCE_RATIO);
             foodGain = (long) (myLevel * PlunderConfig.REWARD_BASE_MULTIPLIER + tFood * PlunderConfig.REWARD_RESOURCE_RATIO);
 
             myResource.setSilver((myResource.getSilver() != null ? myResource.getSilver() : 0) + silverGain);
-            myResource.setWood((myResource.getWood() != null ? myResource.getWood() : 0) + woodGain);
             myResource.setMetal((myResource.getMetal() != null ? myResource.getMetal() : 0) + metalGain);
             myResource.setPaper((myResource.getPaper() != null ? myResource.getPaper() : 0) + paperGain);
             myResource.setFood((myResource.getFood() != null ? myResource.getFood() : 0) + foodGain);
@@ -344,13 +342,11 @@ public class PlunderService {
                 UserResource targetResource = userResourceRepository.findByUserId(targetId);
                 if (targetResource != null) {
                     long sLoss = (long) (tSilver * PlunderConfig.VICTIM_LOSS_RATIO);
-                    long wLoss = (long) (tWood * PlunderConfig.VICTIM_LOSS_RATIO);
                     long mLoss = (long) (tMetal * PlunderConfig.VICTIM_LOSS_RATIO);
                     long pLoss = (long) (tPaper * PlunderConfig.VICTIM_LOSS_RATIO);
                     long fLoss = (long) (tFood * PlunderConfig.VICTIM_LOSS_RATIO);
 
                     targetResource.setSilver(Math.max(0, (targetResource.getSilver() != null ? targetResource.getSilver() : 0) - sLoss));
-                    targetResource.setWood(Math.max(0, (targetResource.getWood() != null ? targetResource.getWood() : 0) - wLoss));
                     targetResource.setMetal(Math.max(0, (targetResource.getMetal() != null ? targetResource.getMetal() : 0) - mLoss));
                     targetResource.setPaper(Math.max(0, (targetResource.getPaper() != null ? targetResource.getPaper() : 0) - pLoss));
                     targetResource.setFood(Math.max(0, (targetResource.getFood() != null ? targetResource.getFood() : 0) - fLoss));

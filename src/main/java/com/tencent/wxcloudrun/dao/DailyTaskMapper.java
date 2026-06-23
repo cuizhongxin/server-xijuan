@@ -12,6 +12,13 @@ public interface DailyTaskMapper {
     List<Map<String, Object>> findDailyTasks(@Param("userId") String userId,
                                               @Param("taskDate") String taskDate);
 
+    int countDailyTasks(@Param("userId") String userId,
+                        @Param("taskDate") String taskDate);
+
+    int insertIgnoreDailyTask(@Param("userId") String userId,
+                              @Param("taskDate") String taskDate,
+                              @Param("taskType") String taskType);
+
     void upsertDailyTask(@Param("userId") String userId,
                          @Param("taskDate") String taskDate,
                          @Param("taskType") String taskType,

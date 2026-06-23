@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -56,11 +57,15 @@ public class LevelService {
         
         int oldLevel = userLevel.getLevel();
         long oldTotalExp = userLevel.getTotalExp();
+
+        // 来源分档衰减：前期尽量保留体感，中后期逐段降速
+        double sourceScale = LevelConfig.getSourceExpScale(source, oldLevel);
+        long scaledBaseExp = Math.max(1L, Math.round(exp * sourceScale));
         
-        // 计算VIP加成
-        int vipBonus = LevelConfig.getVipExpBonus(userLevel.getVipLevel());
-        long bonusExp = (long)(exp * vipBonus / 100.0);
-        long totalExpGain = exp + bonusExp;
+        // 计算VIP加成（按等级分段封顶，避免与高来源叠加过高）
+        int effectiveVipBonus = LevelConfig.getEffectiveVipExpBonus(userLevel.getVipLevel(), oldLevel);
+        long bonusExp = Math.round(scaledBaseExp * effectiveVipBonus / 100.0);
+        long totalExpGain = scaledBaseExp + bonusExp;
         
         // 增加经验
         userLevel.setTotalExp(oldTotalExp + totalExpGain);
@@ -80,12 +85,14 @@ public class LevelService {
         
         userLevelRepository.save(userLevel);
         
-        logger.info("用户 {} 获得经验 {} (来源: {}, VIP加成: {}), 等级: {} -> {}", 
-                   userId, totalExpGain, source, bonusExp, oldLevel, newLevel);
+        logger.info("用户 {} 获得经验 {} (来源: {}, 原始经验: {}, 来源系数: {}, 衰减后经验: {}, VIP加成: {}%), 等级: {} -> {}",
+                   userId, totalExpGain, source, exp, sourceScale, scaledBaseExp, effectiveVipBonus, oldLevel, newLevel);
         
         // 返回结果
         Map<String, Object> result = new HashMap<>();
-        result.put("expGained", exp);
+        result.put("expGained", scaledBaseExp);
+        result.put("rawExp", exp);
+        result.put("sourceScale", sourceScale);
         result.put("bonusExp", bonusExp);
         result.put("totalExpGained", totalExpGain);
         result.put("levelUp", levelUp);
@@ -130,6 +137,15 @@ public class LevelService {
         Map<String, Object> info = new HashMap<>();
         info.put("maxLevel", LevelConfig.MAX_LEVEL);
         info.put("levelExpTable", levelConfig.getLevelExpTable());
+        info.put("milestoneComparisons", levelConfig.getMilestoneComparisons());
+        info.put("highFrequencyExpSources", Arrays.asList(
+                "战役战斗(CampaignService)",
+                "练兵训练/军事演习(TrainingService/TrainingController)",
+                "Boss战(BossWarService)",
+                "英雄榜每日奖励(HeroRankService)",
+                "使用经验符(WarehouseService)",
+                "每日登录/每日任务(LevelService)"
+        ));
         info.put("guide", levelConfig.getLevelGuide());
         return info;
     }
@@ -143,6 +159,7 @@ public class LevelService {
         userLevelRepository.save(userLevel);
         logger.info("用户 {} VIP等级设置为 {}", userId, vipLevel);
     }
+
 }
 
 
