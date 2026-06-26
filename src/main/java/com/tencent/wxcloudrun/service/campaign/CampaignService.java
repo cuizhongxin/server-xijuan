@@ -279,6 +279,48 @@ public class CampaignService {
         {11104, 15221, 15024, 15222},       // Ch8 征讨乌桓: 招财符, 征戎, 孙子兵法, 诛邪
     };
 
+    /**
+     * APK MonsterShow_cfg.json 每章节每关经验（按章节顺序）
+     * 说明：战役经验直接取 MonsterShow 对应怪物 exp，不叠加星级/次数/VIP 等额外修正。
+     */
+    private static final Map<Integer, int[]> APK_CHAPTER_STAGE_EXP = new HashMap<>();
+    static {
+        APK_CHAPTER_STAGE_EXP.put(1, new int[]{
+                300, 320, 340, 360, 380, 400, 420, 440, 460, 480,
+                500, 520, 540, 560, 580, 600, 620, 640, 660, 680
+        });
+        APK_CHAPTER_STAGE_EXP.put(2, new int[]{
+                1200, 1240, 1280, 1320, 1360, 1400, 1440, 1480, 1520, 1560,
+                1600, 1640, 1680, 1720, 1760, 1800, 1840, 1880, 1920, 1960
+        });
+        APK_CHAPTER_STAGE_EXP.put(3, new int[]{
+                2000, 2050, 2100, 2150, 2200, 2250, 2300, 2350, 2400, 2450,
+                2500, 2550, 2600, 2650, 2700, 2750, 2800, 2850, 2900, 2950
+        });
+        APK_CHAPTER_STAGE_EXP.put(4, new int[]{
+                3000, 3050, 3100, 3150, 3200, 3250, 3300, 3350, 3400, 3450,
+                3500, 3550, 3600, 3650, 3700, 3750, 3800, 3850, 3900, 3950
+        });
+        APK_CHAPTER_STAGE_EXP.put(5, new int[]{
+                4000, 4100, 4200, 4300, 4400, 4500, 4600, 4700, 4800, 4900,
+                5000, 5100, 5200, 5300, 5400, 5500, 5600, 5700, 5800, 5900
+        });
+        APK_CHAPTER_STAGE_EXP.put(6, new int[]{
+                6000, 6100, 6200, 6300, 6400, 6500, 6600, 6700, 6800, 6900,
+                7000, 7100, 7200, 7300, 7400, 7500, 7600, 7700, 7800, 7900,
+                8000, 8100, 8200, 8300, 8400
+        });
+        APK_CHAPTER_STAGE_EXP.put(7, new int[]{
+                8000, 8500, 9000, 9500, 10000, 10500, 11000, 11500, 12000, 12500,
+                13000, 13500, 14000, 15000, 16000, 17000, 18000, 19000, 20000, 21000,
+                22000, 23000, 24000, 25000, 26000
+        });
+        APK_CHAPTER_STAGE_EXP.put(8, new int[]{
+                25000, 26000, 27000, 28000, 29000, 30000, 31000, 32000, 33000, 34000,
+                35000, 36000, 37000, 38000, 39000, 40000, 41000, 42000, 43000, 44000
+        });
+    }
+
     private static int[] getEquipPreIdsForChapter(int chapterOrder) {
         if (chapterOrder < 1 || chapterOrder > APK_CHAPTER_EQUIP_IDS.length) return new int[0];
         int[] rawIds = APK_CHAPTER_EQUIP_IDS[chapterOrder - 1];
@@ -290,6 +332,13 @@ public class CampaignService {
             }
         }
         return result.stream().mapToInt(Integer::intValue).toArray();
+    }
+
+    private static int[] getStageExpForChapter(int chapterOrder, int stageCount) {
+        int[] exps = APK_CHAPTER_STAGE_EXP.get(chapterOrder);
+        if (exps == null || exps.length == 0) return new int[0];
+        if (exps.length == stageCount) return exps;
+        return Arrays.copyOf(exps, Math.min(exps.length, stageCount));
     }
 
     private static final Map<Integer, String[]> APK_PROP_INFO = new HashMap<>();
@@ -531,20 +580,25 @@ public class CampaignService {
         int[] itemIds = getItemPoolForChapter(order);
         List<Campaign.DropPreview> dropPreviews = getDropPreviewsForChapter(order);
 
-        int baseExp = calcBaseExp(lvMin, lvMax);
+        int[] stageExpRewards = getStageExpForChapter(order, stageCount);
+        int baseExp = stageExpRewards.length > 0 ? stageExpRewards[0] : calcBaseExp(lvMin, lvMax);
         long baseSilver = calcBaseSilver(lvMin, lvMax);
+        int displayMinExp = stageExpRewards.length > 0 ? stageExpRewards[0] : baseExp;
+        int displayMaxExp = stageExpRewards.length > 0
+                ? stageExpRewards[stageExpRewards.length - 1]
+                : baseExp + (lvMax - lvMin) * 30;
 
         Campaign campaign = Campaign.builder()
                 .id(id).name(name).description(desc)
                 .icon("images/battle/" + namePic)
                 .backgroundImage("images/ui/campaign/camp_bg" + order + "B.jpg")
                 .enemyLevelMin(lvMin).enemyLevelMax(lvMax)
-                .expRewardMin(baseExp).expRewardMax(baseExp + (lvMax - lvMin) * 30)
+                .expRewardMin(displayMinExp).expRewardMax(displayMaxExp)
                 .dailyLimit(dailyLimit).staminaCost(staminaCost)
                 .requiredLevel(reqLv).order(order)
                 .stages(buildStages(generals, troopTypes, id.replace("campaign_", ""),
                         lvMin, lvMax, stageCount, fullFormation, faction,
-                        baseExp, baseSilver, equipIds, itemIds, order))
+                        baseExp, baseSilver, equipIds, itemIds, order, stageExpRewards))
                 .dropPreviews(dropPreviews)
                 .build();
         campaignConfigs.put(id, campaign);
@@ -582,7 +636,7 @@ public class CampaignService {
             int baseExp, long baseSilver,
             int[] equipPreIds, int[] itemDropIds) {
         return buildStages(generals, troopTypes, prefix, minLv, maxLv, stageCount,
-                fullFormation, faction, baseExp, baseSilver, equipPreIds, itemDropIds, 0);
+                fullFormation, faction, baseExp, baseSilver, equipPreIds, itemDropIds, 0, new int[0]);
     }
 
     private List<Campaign.Stage> buildStages(
@@ -591,7 +645,7 @@ public class CampaignService {
             boolean fullFormation, String faction,
             int baseExp, long baseSilver,
             int[] equipPreIds, int[] itemDropIds,
-            int chapterOrder) {
+            int chapterOrder, int[] stageExpRewards) {
 
         List<Campaign.Stage> stages = new ArrayList<>();
         int levelRange = maxLv - minLv;
@@ -735,7 +789,9 @@ public class CampaignService {
                     .enemyDodge(npcDodge).enemyMobility(npcMobility)
                     .enemySoldierTier(npcTier).enemyFormationLevel(npcFormationLevel)
                     .enemyTroopType(troopType)
-                    .expReward(baseExp + i * (baseExp / 2))
+                    .expReward((stageExpRewards != null && stageExpRewards.length >= i)
+                            ? stageExpRewards[i - 1]
+                            : (baseExp + i * (baseExp / 2)))
                     .silverReward(baseSilver + i * (baseSilver / 2))
                     .isBoss(isBoss).drops(drops).formation(formation)
                     .build());
@@ -1025,7 +1081,7 @@ public class CampaignService {
                 if (general != null) generalService.addGeneralExp(general.getId(), expGained);
             }
 
-            Map<String, Object> lordInfo = levelService.addExp(odUserId, expGained, "战役战斗");
+            Map<String, Object> lordInfo = levelService.addCampaignExpAlignedApk(odUserId, expGained);
             result.setLordLevelInfo(lordInfo);
 
             UserResource resource = userResourceService.getUserResource(odUserId);
@@ -1223,7 +1279,7 @@ public class CampaignService {
                 if (leadGeneral != null) generalService.addGeneralExp(leadGeneral.getId(), expGained);
             }
 
-            Map<String, Object> lordInfo = levelService.addExp(odUserId, expGained, "战役战斗");
+            Map<String, Object> lordInfo = levelService.addCampaignExpAlignedApk(odUserId, expGained);
             result.setLordLevelInfo(lordInfo);
             
             // 更新资源

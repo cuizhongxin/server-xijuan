@@ -107,6 +107,50 @@ public class LevelService {
         
         return result;
     }
+
+    /**
+     * 副本经验对齐 APK：按关卡经验原值入账，不应用来源衰减与VIP叠加。
+     */
+    public Map<String, Object> addCampaignExpAlignedApk(String userId, long exp) {
+        UserLevel userLevel = getUserLevel(userId);
+
+        int oldLevel = userLevel.getLevel();
+        long oldTotalExp = userLevel.getTotalExp();
+        long totalExpGain = Math.max(1L, exp);
+
+        userLevel.setTotalExp(oldTotalExp + totalExpGain);
+        userLevel.setTodayExp(userLevel.getTodayExp() + totalExpGain);
+
+        int newLevel = levelConfig.calculateLevel(userLevel.getTotalExp());
+        boolean levelUp = newLevel > oldLevel;
+        int levelsGained = newLevel - oldLevel;
+
+        userLevel.setLevel(newLevel);
+        userLevel.setCurrentLevelExp(levelConfig.getCurrentLevelExp(userLevel.getTotalExp(), newLevel));
+        userLevel.setExpToNextLevel(levelConfig.getExpForNextLevel(newLevel));
+
+        userLevelRepository.save(userLevel);
+
+        logger.info("用户 {} 获得副本经验(对齐APK) {}，等级: {} -> {}",
+                userId, totalExpGain, oldLevel, newLevel);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("expGained", totalExpGain);
+        result.put("rawExp", exp);
+        result.put("sourceScale", 1.0);
+        result.put("bonusExp", 0L);
+        result.put("totalExpGained", totalExpGain);
+        result.put("levelUp", levelUp);
+        result.put("levelsGained", levelsGained);
+        result.put("oldLevel", oldLevel);
+        result.put("newLevel", newLevel);
+        result.put("currentLevel", newLevel);
+        result.put("currentLevelExp", userLevel.getCurrentLevelExp());
+        result.put("expToNextLevel", userLevel.getExpToNextLevel());
+        result.put("totalExp", userLevel.getTotalExp());
+        result.put("todayExp", userLevel.getTodayExp());
+        return result;
+    }
     
     /**
      * 领取每日登录经验
