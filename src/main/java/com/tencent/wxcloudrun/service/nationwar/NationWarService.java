@@ -35,6 +35,7 @@ import java.util.stream.Collectors;
 public class NationWarService {
 
     private static final Logger logger = LoggerFactory.getLogger(NationWarService.class);
+    private static final int DEFAULT_SERVER_ID = 1;
 
     @Autowired private UserResourceService userResourceService;
     @Autowired @Lazy private AllianceService allianceService;
@@ -95,7 +96,7 @@ public class NationWarService {
     @PostConstruct
     public void restoreFromDatabase() {
         try {
-            List<Map<String, Object>> rows = nationWarMapper.findCityOwnersByServerId(1);
+            List<Map<String, Object>> rows = nationWarMapper.findCityOwnersByServerId(DEFAULT_SERVER_ID);
             if (rows != null && !rows.isEmpty()) {
                 for (Map<String, Object> row : rows) {
                     String cityId = (String) row.get("cityId");
@@ -120,7 +121,7 @@ public class NationWarService {
             logger.warn("从DB恢复城市归属失败: {}", e.getMessage());
         }
         try {
-            List<Map<String, Object>> counts = nationWarMapper.countPlayersByNation(1);
+            List<Map<String, Object>> counts = nationWarMapper.countPlayersByNation(DEFAULT_SERVER_ID);
             if (counts != null) {
                 for (Map<String, Object> row : counts) {
                     String nationId = (String) row.get("nation");
@@ -137,7 +138,7 @@ public class NationWarService {
         try {
             String today = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
             String sessionId = SESSION_ID_PREFIX + today;
-            String data = nationWarMapper.findById(sessionId);
+            String data = nationWarMapper.findById(sessionId, DEFAULT_SERVER_ID);
             if (data != null) {
                 activeSession = JSON.parseObject(data, NationWarSession.class);
                 logger.info("从DB恢复国战会话: phase={}", activeSession.getPhase());
@@ -254,21 +255,22 @@ public class NationWarService {
         if (!nations.containsKey(nationId)) throw new BusinessException(400, "无效的国家");
         if (!PLAYER_SELECTABLE_NATION_IDS.contains(nationId.toUpperCase()))
             throw new BusinessException(400, "无效的国家");
-        String currentNation = nationWarMapper.findPlayerNation(odUserId);
+        int serverId = extractServerId(odUserId);
+        String currentNation = nationWarMapper.findPlayerNation(odUserId, serverId);
         if (currentNation != null && !currentNation.equals(nationId))
             throw new BusinessException(400, "您已选择国家，如需更换请使用转国功能");
-        nationWarMapper.upsertPlayerNation(odUserId, nationId, extractServerId(odUserId));
+        nationWarMapper.upsertPlayerNation(odUserId, nationId, serverId);
         Nation nation = nations.get(nationId);
         nation.setTotalPlayers(nation.getTotalPlayers() + 1);
         updateMeritExchangeRate(nationId);
     }
 
     public boolean hasSelectedNation(String odUserId) {
-        return nationWarMapper.playerNationExists(odUserId) > 0;
+        return nationWarMapper.playerNationExists(odUserId, extractServerId(odUserId)) > 0;
     }
 
     public String getPlayerNation(String odUserId) {
-        return nationWarMapper.findPlayerNation(odUserId);
+        return nationWarMapper.findPlayerNation(odUserId, extractServerId(odUserId));
     }
 
     public Map<String, Object> changeNation(String odUserId, String newNationId) {
@@ -382,14 +384,14 @@ public class NationWarService {
         if (activeSession != null && today.equals(activeSession.getDate())) return;
 
         String sessionId = SESSION_ID_PREFIX + today;
-        String existing = nationWarMapper.findById(sessionId);
+        String existing = nationWarMapper.findById(sessionId, DEFAULT_SERVER_ID);
         if (existing != null) {
             activeSession = JSON.parseObject(existing, NationWarSession.class);
             return;
         }
 
-        if (!tryMarkScheduled("NATION_WAR_REG_LAZY_INIT", today, "SERVER_1")) {
-            String latest = nationWarMapper.findById(sessionId);
+        if (!tryMarkScheduled("NATION_WAR_REG_LAZY_INIT", today, "SERVER_" + DEFAULT_SERVER_ID)) {
+            String latest = nationWarMapper.findById(sessionId, DEFAULT_SERVER_ID);
             if (latest != null) {
                 activeSession = JSON.parseObject(latest, NationWarSession.class);
             }
@@ -404,7 +406,7 @@ public class NationWarService {
 
     private void saveSession(NationWarSession session) {
         String id = SESSION_ID_PREFIX + session.getDate();
-        nationWarMapper.upsert(id, session.getDate(), JSON.toJSONString(session));
+        nationWarMapper.upsert(id, session.getDate(), JSON.toJSONString(session), DEFAULT_SERVER_ID);
     }
 
     private NationWarSession createSession(String date) {
@@ -430,7 +432,7 @@ public class NationWarService {
     public void scheduledStartRegistration() {
         if (testMode) return;
         String today = todayStr();
-        if (!tryMarkScheduled("NATION_WAR_REG_START", today, "SERVER_1")) return;
+        if (!tryMarkScheduled("NATION_WAR_REG_START", today, "SERVER_" + DEFAULT_SERVER_ID)) return;
         startRegistration();
     }
 
@@ -438,7 +440,7 @@ public class NationWarService {
     public void scheduledFinalizeAndStartBattle() {
         if (testMode) return;
         String today = activeSession != null && activeSession.getDate() != null ? activeSession.getDate() : todayStr();
-        if (!tryMarkScheduled("NATION_WAR_BATTLE_START", today, "SERVER_1")) return;
+        if (!tryMarkScheduled("NATION_WAR_BATTLE_START", today, "SERVER_" + DEFAULT_SERVER_ID)) return;
         finalizeRegistrationAndStartBattle();
     }
 
@@ -456,7 +458,7 @@ public class NationWarService {
     public void scheduledFinishAllBattles() {
         if (testMode) return;
         String today = activeSession != null && activeSession.getDate() != null ? activeSession.getDate() : todayStr();
-        if (!tryMarkScheduled("NATION_WAR_FORCE_FINISH", today, "SERVER_1")) return;
+        if (!tryMarkScheduled("NATION_WAR_FORCE_FINISH", today, "SERVER_" + DEFAULT_SERVER_ID)) return;
         finishAllBattles();
     }
 
@@ -1491,7 +1493,7 @@ public class NationWarService {
         if (newNation != null) { newNation.getCities().add(cityId); updateMeritExchangeRate(newOwner); }
         city.setOwner(newOwner);
         try {
-            nationWarMapper.upsertCityOwner(cityId, newOwner, 1, System.currentTimeMillis());
+            nationWarMapper.upsertCityOwner(cityId, newOwner, DEFAULT_SERVER_ID, System.currentTimeMillis());
         } catch (Exception e) {
             logger.error("持久化城市归属失败: {}", cityId, e);
         }
@@ -1512,12 +1514,13 @@ public class NationWarService {
 
     private void addPlayerMerit(String odUserId, int merit) {
         if (odUserId == null || odUserId.startsWith("NPC_")) return;
-        Integer current = nationWarMapper.findPlayerMerit(odUserId);
-        nationWarMapper.upsertPlayerMerit(odUserId, (current != null ? current : 0) + merit);
+        int serverId = extractServerId(odUserId);
+        Integer current = nationWarMapper.findPlayerMerit(odUserId, serverId);
+        nationWarMapper.upsertPlayerMerit(odUserId, (current != null ? current : 0) + merit, serverId);
     }
 
     public int getPlayerMerit(String odUserId) {
-        Integer merit = nationWarMapper.findPlayerMerit(odUserId);
+        Integer merit = nationWarMapper.findPlayerMerit(odUserId, extractServerId(odUserId));
         return merit != null ? merit : 0;
     }
 
@@ -1536,7 +1539,7 @@ public class NationWarService {
 
         double rate = calculateNationExchangeRate(nation);
         long silverGained = (long)(meritAmount * BASE_SILVER_PER_MERIT * rate);
-        nationWarMapper.upsertPlayerMerit(odUserId, currentMerit - meritAmount);
+        nationWarMapper.upsertPlayerMerit(odUserId, currentMerit - meritAmount, extractServerId(odUserId));
         userResourceService.addSilver(odUserId, silverGained);
         Map<String, Object> result = new HashMap<>();
         result.put("success", true);
@@ -1753,13 +1756,13 @@ public class NationWarService {
     public NationWar getTodayWar(String cityId) {
         String today = todayStr();
         String warId = today + "_" + cityId;
-        String data = nationWarMapper.findById(warId);
+        String data = nationWarMapper.findById(warId, DEFAULT_SERVER_ID);
         if (data == null) return null;
         return JSON.parseObject(data, NationWar.class);
     }
 
     public List<NationWar> getActiveWars() {
-        List<Map<String, Object>> rows = nationWarMapper.findAll();
+        List<Map<String, Object>> rows = nationWarMapper.findAll(DEFAULT_SERVER_ID);
         List<NationWar> result = new ArrayList<>();
         if (rows != null) {
             for (Map<String, Object> row : rows) {
@@ -1774,7 +1777,7 @@ public class NationWarService {
     }
 
     public List<NationWar> getWarHistory(int limit) {
-        List<Map<String, Object>> rows = nationWarMapper.findAll();
+        List<Map<String, Object>> rows = nationWarMapper.findAll(DEFAULT_SERVER_ID);
         List<NationWar> result = new ArrayList<>();
         if (rows != null) {
             for (Map<String, Object> row : rows) {
@@ -1970,7 +1973,7 @@ public class NationWarService {
 
     /** 兼容旧接口 */
     public Map<String, Object> getWarStatus(String warId) {
-        String data = nationWarMapper.findById(warId);
+        String data = nationWarMapper.findById(warId, DEFAULT_SERVER_ID);
         if (data == null) throw new BusinessException(404, "国战不存在");
         NationWar war = JSON.parseObject(data, NationWar.class);
         Map<String, Object> result = new HashMap<>();

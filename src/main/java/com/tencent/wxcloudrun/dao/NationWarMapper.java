@@ -9,24 +9,26 @@ import java.util.Map;
 @Mapper
 public interface NationWarMapper {
     
-    String findById(@Param("id") String id);
+    String findById(@Param("id") String id, @Param("serverId") int serverId);
     
-    List<Map<String, Object>> findAll();
+    List<Map<String, Object>> findAll(@Param("serverId") int serverId);
     
-    void upsert(@Param("id") String id, @Param("warDate") String warDate, @Param("data") String data);
+    void upsert(@Param("id") String id, @Param("warDate") String warDate, @Param("data") String data,
+                @Param("serverId") int serverId);
     
     // 玩家国籍
-    String findPlayerNation(@Param("odUserId") String odUserId);
+    String findPlayerNation(@Param("odUserId") String odUserId, @Param("serverId") int serverId);
     
     void upsertPlayerNation(@Param("odUserId") String odUserId, @Param("nation") String nation,
                             @Param("serverId") int serverId);
     
-    int playerNationExists(@Param("odUserId") String odUserId);
+    int playerNationExists(@Param("odUserId") String odUserId, @Param("serverId") int serverId);
     
     // 玩家军功
-    Integer findPlayerMerit(@Param("odUserId") String odUserId);
+    Integer findPlayerMerit(@Param("odUserId") String odUserId, @Param("serverId") int serverId);
     
-    void upsertPlayerMerit(@Param("odUserId") String odUserId, @Param("merit") int merit);
+    void upsertPlayerMerit(@Param("odUserId") String odUserId, @Param("merit") int merit,
+                           @Param("serverId") int serverId);
     
     // 城市归属持久化（按区服）
     List<Map<String, Object>> findCityOwnersByServerId(@Param("serverId") int serverId);

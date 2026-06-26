@@ -3,43 +3,43 @@
 <mapper namespace="com.tencent.wxcloudrun.dao.NationWarMapper">
 
     <select id="findById" resultType="java.lang.String">
-        SELECT data FROM nation_war WHERE id = #{id}
+        SELECT data FROM nation_war WHERE id = #{id} AND server_id = #{serverId}
     </select>
 
     <select id="findAll" resultType="java.util.HashMap">
-        SELECT id, data FROM nation_war
+        SELECT id, data FROM nation_war WHERE server_id = #{serverId}
     </select>
 
     <insert id="upsert">
-        INSERT INTO nation_war (id, war_date, data)
-        VALUES (#{id}, #{warDate}, #{data})
+        INSERT INTO nation_war (id, war_date, data, server_id)
+        VALUES (#{id}, #{warDate}, #{data}, #{serverId})
         ON DUPLICATE KEY UPDATE war_date = #{warDate}, data = #{data}
     </insert>
 
     <!-- 玩家国籍 -->
     <select id="findPlayerNation" resultType="java.lang.String">
-        SELECT nation FROM player_nation WHERE od_user_id = #{odUserId}
+        SELECT nation FROM player_nation WHERE od_user_id = #{odUserId} AND server_id = #{serverId}
     </select>
 
     <insert id="upsertPlayerNation">
         INSERT INTO player_nation (od_user_id, nation, server_id)
         VALUES (#{odUserId}, #{nation}, #{serverId})
-        ON DUPLICATE KEY UPDATE nation = #{nation}
+        ON DUPLICATE KEY UPDATE nation = #{nation}, server_id = #{serverId}
     </insert>
 
     <select id="playerNationExists" resultType="int">
-        SELECT COUNT(1) FROM player_nation WHERE od_user_id = #{odUserId}
+        SELECT COUNT(1) FROM player_nation WHERE od_user_id = #{odUserId} AND server_id = #{serverId}
     </select>
 
     <!-- 玩家军功 -->
     <select id="findPlayerMerit" resultType="java.lang.Integer">
-        SELECT merit FROM player_merit WHERE od_user_id = #{odUserId}
+        SELECT merit FROM player_merit WHERE od_user_id = #{odUserId} AND server_id = #{serverId}
     </select>
 
     <insert id="upsertPlayerMerit">
-        INSERT INTO player_merit (od_user_id, merit)
-        VALUES (#{odUserId}, #{merit})
-        ON DUPLICATE KEY UPDATE merit = #{merit}
+        INSERT INTO player_merit (od_user_id, merit, server_id)
+        VALUES (#{odUserId}, #{merit}, #{serverId})
+        ON DUPLICATE KEY UPDATE merit = #{merit}, server_id = #{serverId}
     </insert>
 
     <!-- 城市归属持久化（按区服） -->

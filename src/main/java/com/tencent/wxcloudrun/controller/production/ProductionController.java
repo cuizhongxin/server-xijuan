@@ -99,12 +99,13 @@ public class ProductionController {
         try {
             String userId = getUserId(request);
             String facilityType = (String) body.get("facilityType");
-            int count = parsePositiveInt(body.get("count"), 1);
-            Map<String, Object> produceResult = count > 1
+            boolean batchRequested = body != null && body.containsKey("count");
+            int count = parsePositiveInt(body != null ? body.get("count") : null, 1);
+            Map<String, Object> produceResult = batchRequested
                     ? productionService.produceBatch(userId, facilityType, count)
                     : productionService.produce(userId, facilityType);
 
-            if (count > 1) {
+            if (batchRequested) {
                 produceResult.put("message", "批量领取完成，成功 " + produceResult.get("successCount") + " 次");
             } else {
                 produceResult.put("message", "生产成功，获得 " + produceResult.get("output") + " 资源");
@@ -126,12 +127,13 @@ public class ProductionController {
         try {
             String userId = getUserId(request);
             String facilityType = (String) body.get("facilityType");
-            int levels = parsePositiveInt(body.get("levels"), 1);
-            Map<String, Object> upgradeResult = levels > 1
+            boolean batchRequested = body != null && body.containsKey("levels");
+            int levels = parsePositiveInt(body != null ? body.get("levels") : null, 1);
+            Map<String, Object> upgradeResult = batchRequested
                     ? productionService.upgradeFacilityBatch(userId, facilityType, levels)
                     : productionService.upgradeFacility(userId, facilityType);
 
-            if (levels > 1) {
+            if (batchRequested) {
                 upgradeResult.put("message", "批量升级完成，成功 " + upgradeResult.get("successLevels") + " 级");
             } else {
                 upgradeResult.put("message", "升级成功");
