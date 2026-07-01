@@ -36,15 +36,25 @@ public class LevelService {
         if (userLevel == null) {
             userLevel = userLevelRepository.initUserLevel(userId);
         }
-        
+
+        boolean needSave = false;
+
         // 检查是否需要重置今日经验
         String today = new SimpleDateFormat("yyyyMMdd").format(new Date());
         if (!today.equals(userLevel.getLastUpdateDate())) {
             userLevel.setTodayExp(0L);
             userLevel.setLastUpdateDate(today);
+            needSave = true;
+        }
+
+        if (reconcileLevelProgress(userLevel, userId, "getUserLevel")) {
+            needSave = true;
+        }
+
+        if (needSave) {
             userLevelRepository.save(userLevel);
         }
-        
+
         return userLevel;
     }
     
@@ -71,18 +81,14 @@ public class LevelService {
         userLevel.setTotalExp(oldTotalExp + totalExpGain);
         userLevel.setTodayExp(userLevel.getTodayExp() + totalExpGain);
         
-        // 计算新等级
-        int newLevel = levelConfig.calculateLevel(userLevel.getTotalExp());
-        
+        // 计算新等级（支持跨多级连升）
+        applyLevelProgressByTotalExp(userLevel);
+        int newLevel = userLevel.getLevel();
+
         // 检查是否升级
         boolean levelUp = newLevel > oldLevel;
         int levelsGained = newLevel - oldLevel;
-        
-        // 更新等级信息
-        userLevel.setLevel(newLevel);
-        userLevel.setCurrentLevelExp(levelConfig.getCurrentLevelExp(userLevel.getTotalExp(), newLevel));
-        userLevel.setExpToNextLevel(levelConfig.getExpForNextLevel(newLevel));
-        
+
         userLevelRepository.save(userLevel);
         
         logger.info("用户 {} 获得经验 {} (来源: {}, 原始经验: {}, 来源系数: {}, 衰减后经验: {}, VIP加成: {}%), 等级: {} -> {}",
@@ -121,13 +127,10 @@ public class LevelService {
         userLevel.setTotalExp(oldTotalExp + totalExpGain);
         userLevel.setTodayExp(userLevel.getTodayExp() + totalExpGain);
 
-        int newLevel = levelConfig.calculateLevel(userLevel.getTotalExp());
+        applyLevelProgressByTotalExp(userLevel);
+        int newLevel = userLevel.getLevel();
         boolean levelUp = newLevel > oldLevel;
         int levelsGained = newLevel - oldLevel;
-
-        userLevel.setLevel(newLevel);
-        userLevel.setCurrentLevelExp(levelConfig.getCurrentLevelExp(userLevel.getTotalExp(), newLevel));
-        userLevel.setExpToNextLevel(levelConfig.getExpForNextLevel(newLevel));
 
         userLevelRepository.save(userLevel);
 
@@ -202,6 +205,42 @@ public class LevelService {
         userLevel.setVipLevel(vipLevel);
         userLevelRepository.save(userLevel);
         logger.info("用户 {} VIP等级设置为 {}", userId, vipLevel);
+    }
+
+    private void applyLevelProgressByTotalExp(UserLevel userLevel) {
+        long totalExp = userLevel.getTotalExp() == null ? 0L : Math.max(0L, userLevel.getTotalExp());
+        userLevel.setTotalExp(totalExp);
+        int level = levelConfig.calculateLevel(totalExp);
+        userLevel.setLevel(level);
+        userLevel.setCurrentLevelExp(levelConfig.getCurrentLevelExp(totalExp, level));
+        userLevel.setExpToNextLevel(levelConfig.getExpForNextLevel(level));
+    }
+
+    private boolean reconcileLevelProgress(UserLevel userLevel, String userId, String trigger) {
+        Integer oldLevel = userLevel.getLevel();
+        Long oldTotalExp = userLevel.getTotalExp();
+        Long oldCurrentLevelExp = userLevel.getCurrentLevelExp();
+        Long oldExpToNextLevel = userLevel.getExpToNextLevel();
+
+        applyLevelProgressByTotalExp(userLevel);
+
+        boolean corrected = !safeEquals(oldLevel, userLevel.getLevel())
+                || !safeEquals(oldTotalExp, userLevel.getTotalExp())
+                || !safeEquals(oldCurrentLevelExp, userLevel.getCurrentLevelExp())
+                || !safeEquals(oldExpToNextLevel, userLevel.getExpToNextLevel());
+        if (corrected) {
+            logger.warn("用户 {} 等级经验数据自动纠偏(触发: {}): level {}->{} totalExp {}->{} currentLevelExp {}->{} expToNextLevel {}->{}",
+                    userId, trigger,
+                    oldLevel, userLevel.getLevel(),
+                    oldTotalExp, userLevel.getTotalExp(),
+                    oldCurrentLevelExp, userLevel.getCurrentLevelExp(),
+                    oldExpToNextLevel, userLevel.getExpToNextLevel());
+        }
+        return corrected;
+    }
+
+    private boolean safeEquals(Object a, Object b) {
+        return a == b || (a != null && a.equals(b));
     }
 
 }

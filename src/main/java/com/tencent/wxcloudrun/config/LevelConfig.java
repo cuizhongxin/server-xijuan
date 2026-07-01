@@ -34,13 +34,19 @@ public class LevelConfig {
     }
     
     private void initLevelExpTable() {
+        levelExpTable.clear();
+        totalExpTable.clear();
         long totalExp = 0;
-        
+
         for (int level = 1; level <= MAX_LEVEL; level++) {
             long expNeeded = Math.round(100L * level * level * getLevelCurveMultiplier(level));
-            
             levelExpTable.put(level, expNeeded);
-            totalExp += expNeeded;
+        }
+
+        // 1级为初始等级，达到1级所需累计经验应为0，避免经验条超阈值不升级
+        totalExpTable.put(1, 0L);
+        for (int level = 2; level <= MAX_LEVEL; level++) {
+            totalExp += levelExpTable.getOrDefault(level, 0L);
             totalExpTable.put(level, totalExp);
         }
     }
@@ -67,9 +73,9 @@ public class LevelConfig {
     }
     
     public long getCurrentLevelExp(long totalExp, int currentLevel) {
-        if (currentLevel <= 1) return totalExp;
-        long prevLevelTotalExp = totalExpTable.getOrDefault(currentLevel - 1, 0L);
-        return totalExp - prevLevelTotalExp;
+        if (currentLevel <= 1) return Math.max(0L, totalExp);
+        long currentLevelStartExp = totalExpTable.getOrDefault(currentLevel, 0L);
+        return Math.max(0L, totalExp - currentLevelStartExp);
     }
     
     public Map<Integer, Long> getLevelExpTable() {
