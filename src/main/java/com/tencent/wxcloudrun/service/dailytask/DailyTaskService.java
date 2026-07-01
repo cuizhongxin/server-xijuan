@@ -124,7 +124,7 @@ public class DailyTaskService {
         for (TaskDef def : DAILY_TASKS) {
             Map<String, Object> row = taskMap.get(def.type);
             int progress = row != null ? ((Number) row.get("progress")).intValue() : 0;
-            boolean claimed = row != null && ((Number) row.get("claimed")).intValue() == 1;
+            boolean claimed = row != null && isTrue(row.get("claimed"));
             boolean done = progress >= def.required;
             if (done) completedCount++;
 
@@ -185,7 +185,7 @@ public class DailyTaskService {
         List<Map<String, Object>> claimedList = taskMapper.findAllAchievements(userId);
         Set<String> claimedSet = new HashSet<>();
         for (Map<String, Object> a : claimedList) {
-            if (((Number) a.get("claimed")).intValue() == 1) {
+            if (isTrue(a.get("claimed"))) {
                 claimedSet.add((String) a.get("achievementType"));
             }
         }
@@ -245,7 +245,7 @@ public class DailyTaskService {
             if (taskType.equals(t.get("taskType"))) { row = t; break; }
         }
         if (row == null) throw new BusinessException("任务尚未完成");
-        if (((Number) row.get("claimed")).intValue() == 1) throw new BusinessException("奖励已领取");
+        if (isTrue(row.get("claimed"))) throw new BusinessException("奖励已领取");
 
         TaskDef def = null;
         for (TaskDef d : DAILY_TASKS) {
@@ -333,7 +333,7 @@ public class DailyTaskService {
         if (def == null) throw new BusinessException("无效的成就");
 
         Map<String, Object> existing = taskMapper.findAchievement(userId, achievementId);
-        if (existing != null && ((Number) existing.get("claimed")).intValue() == 1) {
+        if (existing != null && isTrue(existing.get("claimed"))) {
             throw new BusinessException("成就奖励已领取");
         }
 
@@ -439,6 +439,15 @@ public class DailyTaskService {
 
     private String todayStr() {
         return new SimpleDateFormat("yyyy-MM-dd").format(new Date());
+    }
+
+    /**
+     * 兼容 claimed 字段：TINYINT(1) 经 JDBC 可能映射为 Boolean，也可能是 Number。
+     */
+    private static boolean isTrue(Object v) {
+        if (v instanceof Boolean) return (Boolean) v;
+        if (v instanceof Number) return ((Number) v).intValue() == 1;
+        return false;
     }
 
     private void addItem(String userId, String itemId, String name, int count) {
