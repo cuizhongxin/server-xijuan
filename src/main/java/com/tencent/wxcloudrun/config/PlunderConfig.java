@@ -32,6 +32,8 @@ public class PlunderConfig {
 
     public static final int REWARD_BASE_MULTIPLIER = 100;
     public static final double REWARD_RESOURCE_RATIO = 0.01;
+    /** 掠夺资源产出倍率（用于活动期数值压缩） */
+    public static final double RESOURCE_OUTPUT_RATIO = 0.1D;
     public static final double VICTIM_LOSS_RATIO = 0.005;
 
     public static int getPurchaseCost(int purchasedCount) {

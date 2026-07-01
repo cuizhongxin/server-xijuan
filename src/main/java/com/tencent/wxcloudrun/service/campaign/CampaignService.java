@@ -78,6 +78,8 @@ public class CampaignService {
         /* 9 乌桓 */ {{"乌桓步兵","乌桓枪兵","乌桓勇士","乌桓精锐","乌桓力士"},{"乌桓骑兵","乌桓铁骑","乌桓精骑","乌桓突骑","乌桓战骑"},{"乌桓弓手","乌桓射手","乌桓神射","乌桓长弓","乌桓猎手"}}
     };
     private static final String[] FACTION_KEYS = {"黄巾","西凉","袁军","曹军","吕布","吴军","魏军","刘军","公孙","乌桓"};
+    /** 战役资源产出倍率（仅影响资源，不影响经验） */
+    private static final double CAMPAIGN_RESOURCE_OUTPUT_RATIO = 0.1D;
 
     private static int factionIdx(String f) {
         for (int i = 0; i < FACTION_KEYS.length; i++) if (FACTION_KEYS[i].equals(f)) return i;
@@ -733,9 +735,11 @@ public class CampaignService {
 
             // 掉落: 白银(所有关) + APK BOSS专属装备掉落 + item道具
             List<Campaign.StageDrop> drops = new ArrayList<>();
+            int resourceDropMin = scaleCampaignResourceCount(50L * i);
+            int resourceDropMax = scaleCampaignResourceCount(100L * i);
             drops.add(Campaign.StageDrop.builder()
                     .type("RESOURCE").itemId("silver").itemName("白银")
-                    .dropRate(100).minCount(50 * i).maxCount(100 * i).build());
+                    .dropRate(100).minCount(resourceDropMin).maxCount(resourceDropMax).build());
 
             // APK风格: 只有特定BOSS才有装备掉落
             String bossKey = chapterOrder + "_" + i;
@@ -792,7 +796,7 @@ public class CampaignService {
                     .expReward((stageExpRewards != null && stageExpRewards.length >= i)
                             ? stageExpRewards[i - 1]
                             : (baseExp + i * (baseExp / 2)))
-                    .silverReward(baseSilver + i * (baseSilver / 2))
+                    .silverReward(scaleCampaignResourceLong(baseSilver + i * (baseSilver / 2)))
                     .isBoss(isBoss).drops(drops).formation(formation)
                     .build());
         }
@@ -1804,6 +1808,19 @@ public class CampaignService {
             if (cnt != null && cnt > 0) total += cnt;
         }
         return total;
+    }
+
+    /**
+     * 资源缩放：按倍率下取整；若原值>0且缩放后为0，兜底为1，避免极低档关卡资源全0。
+     */
+    private long scaleCampaignResourceLong(long originalValue) {
+        if (originalValue <= 0) return 0L;
+        long scaled = (long) Math.floor(originalValue * CAMPAIGN_RESOURCE_OUTPUT_RATIO);
+        return Math.max(1L, scaled);
+    }
+
+    private int scaleCampaignResourceCount(long originalValue) {
+        return (int) Math.min(Integer.MAX_VALUE, scaleCampaignResourceLong(originalValue));
     }
 
     private void announceCampaignDrops(String userId, Campaign campaign, Campaign.Stage stage,

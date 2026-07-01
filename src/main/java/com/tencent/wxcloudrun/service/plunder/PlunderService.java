@@ -326,11 +326,15 @@ public class PlunderService {
         long silverGain = 0, woodGain = 0, metalGain = 0, paperGain = 0, foodGain = 0;
 
         if (victory) {
-            silverGain = (long) (myLevel * PlunderConfig.REWARD_BASE_MULTIPLIER + tSilver * PlunderConfig.REWARD_RESOURCE_RATIO);
+            silverGain = scaleResourceGain((long) (myLevel * PlunderConfig.REWARD_BASE_MULTIPLIER
+                    + tSilver * PlunderConfig.REWARD_RESOURCE_RATIO));
             woodGain = 0L;
-            metalGain = (long) (myLevel * PlunderConfig.REWARD_BASE_MULTIPLIER + tMetal * PlunderConfig.REWARD_RESOURCE_RATIO);
-            paperGain = (long) (myLevel * PlunderConfig.REWARD_BASE_MULTIPLIER + tPaper * PlunderConfig.REWARD_RESOURCE_RATIO);
-            foodGain = (long) (myLevel * PlunderConfig.REWARD_BASE_MULTIPLIER + tFood * PlunderConfig.REWARD_RESOURCE_RATIO);
+            metalGain = scaleResourceGain((long) (myLevel * PlunderConfig.REWARD_BASE_MULTIPLIER
+                    + tMetal * PlunderConfig.REWARD_RESOURCE_RATIO));
+            paperGain = scaleResourceGain((long) (myLevel * PlunderConfig.REWARD_BASE_MULTIPLIER
+                    + tPaper * PlunderConfig.REWARD_RESOURCE_RATIO));
+            foodGain = scaleResourceGain((long) (myLevel * PlunderConfig.REWARD_BASE_MULTIPLIER
+                    + tFood * PlunderConfig.REWARD_RESOURCE_RATIO));
 
             myResource.setSilver((myResource.getSilver() != null ? myResource.getSilver() : 0) + silverGain);
             myResource.setMetal((myResource.getMetal() != null ? myResource.getMetal() : 0) + metalGain);
@@ -486,5 +490,14 @@ public class PlunderService {
             return s.substring(1, s.length() - 1);
         }
         return s;
+    }
+
+    /**
+     * 资源缩放：统一按倍率下取整；若原值>0且缩放后为0，则兜底为1，避免“胜利但全0”体验。
+     */
+    private long scaleResourceGain(long originalGain) {
+        if (originalGain <= 0) return 0L;
+        long scaled = (long) Math.floor(originalGain * PlunderConfig.RESOURCE_OUTPUT_RATIO);
+        return Math.max(1L, scaled);
     }
 }
